@@ -4,15 +4,17 @@
 .vscode
 logs
 db_data
+db/init
 dump-database.sql
 *.sql
+!db/schema.sql
 *.wpress
 *.zip
 *.md
 .env
 .env.*
-cookies.txt
-login*.html
+scripts/import-dump.ps1
+scripts/import-dump.sh
 wordpress/wp-config.php
 wordpress/wp-content/uploads
 wordpress/wp-content/cache
@@ -20,8 +22,3 @@ wordpress/wp-content/upgrade
 wordpress/wp-content/ai1wm-backups
 wordpress/wp-content/wflogs
 wordpress/wp-content/updraft
-scripts/ftp_download.py
-scripts/setup-railway.sh
-scripts/setup-railway.ps1
-# Mantem db/schema.sql no contexto do build
-!db/schema.sql

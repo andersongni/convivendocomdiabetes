@@ -1,4 +1,0 @@
-FROM mysql:8.0
-
-# So estrutura no primeiro boot. Dados: scripts/import-dump.ps1 ou .sh
-COPY db/schema.sql /docker-entrypoint-initdb.d/01-schema.sql

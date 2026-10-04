@@ -8,24 +8,12 @@ wordpress/wp-config-local.php
 wordpress/.user.ini
 wordpress/php.ini
 
-# Dump bruto local (dados). Schema versionado em db/schema.sql
+# Dump de dados (local). Schema versionado em db/schema.sql
 dump-database.sql
 *.sql
 !db/schema.sql
-!db/.gitkeep
-!db/init/
 
-# Core WordPress (pode ser reinstalado; versionamos sobretudo wp-content)
-# Descomente se quiser versionar só o conteúdo customizado:
-# wordpress/wp-admin/
-# wordpress/wp-includes/
-# wordpress/wp-*.php
-# wordpress/xmlrpc.php
-# wordpress/license.txt
-# wordpress/readme.html
-# wordpress/index.php
-
-# Mídia, cache e backups gerados
+# Mídia, cache e backups
 wordpress/wp-content/uploads/
 wordpress/wp-content/cache/
 wordpress/wp-content/upgrade/
@@ -42,7 +30,6 @@ wordpress/wp-content/advanced-cache.php
 wordpress/wp-content/object-cache.php
 wordpress/wp-content/db.php
 wordpress/wp-content/debug.log
-wordpress/wp-content/uploads.bak/
 
 # Arquivos grandes / pacotes
 *.sql.gz
@@ -71,7 +58,7 @@ desktop.ini
 db_data/
 .docker/
 
-# Node / tooling (se houver)
+# Node / tooling
 node_modules/
 npm-debug.log*
 yarn-error.log*

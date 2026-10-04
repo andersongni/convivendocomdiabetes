@@ -40,7 +40,7 @@ env:
 jobs:
   validate:
     name: Fmt and validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: terraform
@@ -59,7 +59,7 @@ jobs:
     name: Import existing Railway
     needs: validate
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.import == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: railway
     steps:
       - uses: actions/checkout@v5
@@ -129,7 +129,7 @@ jobs:
     name: Plan
     needs: [validate, import]
     if: always() && needs.validate.result == 'success' && (needs.import.result == 'success' || needs.import.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: terraform
@@ -194,7 +194,7 @@ jobs:
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.apply == 'true' &&
       github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: railway
     defaults:
       run:

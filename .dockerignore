@@ -23,4 +23,5 @@ wordpress/wp-content/updraft
 scripts/ftp_download.py
 scripts/setup-railway.sh
 scripts/setup-railway.ps1
-# Mantem db/init (dump) no contexto do build do MySQL
+# Mantem db/schema.sql no contexto do build
+!db/schema.sql

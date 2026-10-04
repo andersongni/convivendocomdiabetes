@@ -10,6 +10,7 @@ RUN a2dismod mpm_event 2>/dev/null || true \
 COPY --from=wpcli /usr/local/bin/wp /usr/local/bin/wp
 
 COPY wordpress/ /var/www/html/
+COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
 
 RUN chmod +x /usr/local/bin/prod-entrypoint.sh \

@@ -8,10 +8,10 @@ wordpress/wp-config-local.php
 wordpress/.user.ini
 wordpress/php.ini
 
-# Dump bruto local — o comprimido versionado fica em db/init/site-dump.gz
+# Dump bruto local (dados). Schema versionado em db/schema.sql
 dump-database.sql
-db/*.sql
 *.sql
+!db/schema.sql
 !db/.gitkeep
 !db/init/
 

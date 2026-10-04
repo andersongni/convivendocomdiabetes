@@ -85,13 +85,21 @@ else
 fi
 
 if [ -n "${WP_HOME:-}" ]; then
-  if wp option get siteurl --allow-root --path=/var/www/html >/dev/null 2>&1; then
-    echo "[wp] Atualizando URLs -> ${WP_HOME}"
+  CURRENT_URL="$(wp option get siteurl --allow-root --path=/var/www/html 2>/dev/null || true)"
+  if [ -n "$CURRENT_URL" ] && [ "$CURRENT_URL" != "${WP_SITEURL:-$WP_HOME}" ]; then
+    echo "[wp] Atualizando URLs ${CURRENT_URL} -> ${WP_HOME}"
     wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true
     wp option update siteurl "${WP_SITEURL:-$WP_HOME}" --allow-root --path=/var/www/html || true
-    wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    # search-replace so roda se ainda houver URL antiga do dominio UOL
+    case "$CURRENT_URL" in
+      *convivendocomdiabetes.com*)
+        wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+        wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+        wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+        ;;
+    esac
+  else
+    echo "[wp] URLs ja corretas — sem search-replace"
   fi
 fi
 

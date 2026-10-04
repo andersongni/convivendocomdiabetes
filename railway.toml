@@ -1,3 +1,7 @@
+# Build/deploy do servico WordPress.
+# Projeto/servicos/variaveis/dominio: terraform/ (provider comunitario Railway).
+# Deploy do codigo: Auto-deploy GitHub -> Railway na branch main.
+
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"

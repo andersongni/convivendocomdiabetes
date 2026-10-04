@@ -12,8 +12,11 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
 Set-Location (Join-Path $Root "terraform")
 
+if (-not $env:RAILWAY_TOKEN -and $env:RAILWAY_API_TOKEN) {
+  $env:RAILWAY_TOKEN = $env:RAILWAY_API_TOKEN
+}
 if (-not $env:RAILWAY_TOKEN) {
-  throw "Defina RAILWAY_TOKEN (Account/Workspace token) antes de importar."
+  throw "Defina RAILWAY_TOKEN ou RAILWAY_API_TOKEN (Account/Workspace token) antes de importar."
 }
 
 if (-not (Test-Path "terraform.tfvars")) {

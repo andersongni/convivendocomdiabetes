@@ -7,25 +7,35 @@ on:
       - "terraform/**"
       - ".github/workflows/terraform.yml"
       - "railway.toml"
+      - "scripts/terraform-import.sh"
   pull_request:
     branches: [main]
     paths:
       - "terraform/**"
       - ".github/workflows/terraform.yml"
       - "railway.toml"
+      - "scripts/terraform-import.sh"
   workflow_dispatch:
     inputs:
+      import:
+        description: "Importar recursos Railway existentes para o state (uma vez)"
+        type: boolean
+        default: false
       apply:
-        description: "Rodar terraform apply (exige state remoto ja importado)"
+        description: "Aplicar mudancas de infra no Railway"
         type: boolean
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: terraform-railway
   cancel-in-progress: false
+
+env:
+  TF_VERSION: 1.9.8
+  TF_STATE_BRANCH: tfstate
 
 jobs:
   validate:
@@ -35,38 +45,103 @@ jobs:
       run:
         working-directory: terraform
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform fmt
-        run: terraform fmt -check -recursive
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate -no-color
 
-      - name: Terraform init
-        run: terraform init -backend=false -input=false
+  import:
+    name: Import existing Railway
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.import == 'true'
+    runs-on: ubuntu-latest
+    environment: railway
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Terraform validate
-        run: terraform validate -no-color
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Resolve Railway token
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+        run: |
+          TOKEN="${RAILWAY_TOKEN:-$RAILWAY_API_TOKEN}"
+          if [ -z "$TOKEN" ]; then
+            echo "Defina o secret RAILWAY_TOKEN ou RAILWAY_API_TOKEN."
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "RAILWAY_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Load Terraform state from branch
+        run: |
+          git fetch origin "$TF_STATE_BRANCH:$TF_STATE_BRANCH" 2>/dev/null || true
+          if git show "$TF_STATE_BRANCH:terraform.tfstate" >/dev/null 2>&1; then
+            git show "$TF_STATE_BRANCH:terraform.tfstate" > terraform/terraform.tfstate
+            echo "State carregado da branch $TF_STATE_BRANCH"
+          else
+            echo "Nenhum state ainda — import vai criar um novo."
+          fi
+
+      - name: Import
+        env:
+          TF_VAR_wp_admin_password: ${{ secrets.WP_ADMIN_PASSWORD }}
+        run: |
+          chmod +x scripts/terraform-import.sh
+          if [ -z "${TF_VAR_wp_admin_password:-}" ]; then
+            export TF_VAR_wp_admin_password="CcdTrocar123!"
+          fi
+          ./scripts/terraform-import.sh
+
+      - name: Save Terraform state to branch
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          git worktree add -B "$TF_STATE_BRANCH" "$TMP" "origin/$TF_STATE_BRANCH" 2>/dev/null \
+            || git worktree add -B "$TF_STATE_BRANCH" "$TMP"
+          cp terraform/terraform.tfstate "$TMP/terraform.tfstate"
+          if [ -f terraform/terraform.tfstate.backup ]; then
+            cp terraform/terraform.tfstate.backup "$TMP/terraform.tfstate.backup"
+          fi
+          cd "$TMP"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add terraform.tfstate terraform.tfstate.backup 2>/dev/null || git add terraform.tfstate
+          if git diff --cached --quiet; then
+            echo "State sem alteracoes."
+          else
+            git commit -m "chore(tfstate): import Railway resources"
+            git push origin "HEAD:$TF_STATE_BRANCH"
+          fi
 
   plan:
     name: Plan
-    needs: validate
+    needs: [validate, import]
+    if: always() && needs.validate.result == 'success' && (needs.import.result == 'success' || needs.import.result == 'skipped')
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: terraform
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v4
         with:
-          terraform_version: 1.9.8
+          fetch-depth: 0
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
 
       - name: Resolve Railway token
         id: gate
@@ -76,7 +151,7 @@ jobs:
         run: |
           TOKEN="${RAILWAY_TOKEN:-$RAILWAY_API_TOKEN}"
           if [ -z "$TOKEN" ]; then
-            echo "Nenhum secret RAILWAY_TOKEN ou RAILWAY_API_TOKEN — plan ignorado."
+            echo "Token ausente — plan ignorado."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -84,17 +159,33 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "RAILWAY_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
-      - name: Terraform init
+      - name: Load Terraform state from branch
+        id: state
         if: steps.gate.outputs.skip == 'false'
+        run: |
+          git fetch origin "$TF_STATE_BRANCH:$TF_STATE_BRANCH" 2>/dev/null || true
+          if git show "$TF_STATE_BRANCH:terraform.tfstate" >/dev/null 2>&1; then
+            git show "$TF_STATE_BRANCH:terraform.tfstate" > terraform/terraform.tfstate
+            echo "State carregado."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Sem state na branch $TF_STATE_BRANCH."
+            echo "Rode Actions → Terraform → Run workflow com import=true uma vez."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+
+      - name: Terraform init
+        if: steps.gate.outputs.skip == 'false' && steps.state.outputs.skip != 'true'
         run: terraform init -input=false
 
       - name: Terraform plan
-        if: steps.gate.outputs.skip == 'false'
+        if: steps.gate.outputs.skip == 'false' && steps.state.outputs.skip != 'true'
         env:
           TF_VAR_wp_admin_password: ${{ secrets.WP_ADMIN_PASSWORD }}
         run: |
-          terraform plan -input=false -no-color \
-            -var="wp_admin_password=${TF_VAR_wp_admin_password}"
+          PASSWORD="${TF_VAR_wp_admin_password:-CcdTrocar123!}"
+          terraform plan -input=false -no-color -var="wp_admin_password=$PASSWORD"
 
   apply:
     name: Apply
@@ -109,13 +200,14 @@ jobs:
       run:
         working-directory: terraform
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v4
         with:
-          terraform_version: 1.9.8
+          fetch-depth: 0
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
 
       - name: Resolve Railway token
         env:
@@ -124,11 +216,16 @@ jobs:
         run: |
           TOKEN="${RAILWAY_TOKEN:-$RAILWAY_API_TOKEN}"
           if [ -z "$TOKEN" ]; then
-            echo "Defina RAILWAY_TOKEN ou RAILWAY_API_TOKEN nos secrets."
+            echo "Defina RAILWAY_TOKEN ou RAILWAY_API_TOKEN."
             exit 1
           fi
           echo "::add-mask::$TOKEN"
           echo "RAILWAY_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Load Terraform state from branch
+        run: |
+          git fetch origin "$TF_STATE_BRANCH:$TF_STATE_BRANCH"
+          git show "$TF_STATE_BRANCH:terraform.tfstate" > terraform/terraform.tfstate
 
       - name: Terraform init
         run: terraform init -input=false
@@ -137,5 +234,26 @@ jobs:
         env:
           TF_VAR_wp_admin_password: ${{ secrets.WP_ADMIN_PASSWORD }}
         run: |
-          terraform apply -input=false -auto-approve \
-            -var="wp_admin_password=${TF_VAR_wp_admin_password}"
+          PASSWORD="${TF_VAR_wp_admin_password:-CcdTrocar123!}"
+          terraform apply -input=false -auto-approve -var="wp_admin_password=$PASSWORD"
+
+      - name: Save Terraform state to branch
+        if: always()
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          git worktree add -B "$TF_STATE_BRANCH" "$TMP" "origin/$TF_STATE_BRANCH"
+          cp terraform/terraform.tfstate "$TMP/terraform.tfstate"
+          if [ -f terraform/terraform.tfstate.backup ]; then
+            cp terraform/terraform.tfstate.backup "$TMP/terraform.tfstate.backup"
+          fi
+          cd "$TMP"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add terraform.tfstate terraform.tfstate.backup 2>/dev/null || git add terraform.tfstate
+          if git diff --cached --quiet; then
+            echo "State sem alteracoes."
+          else
+            git commit -m "chore(tfstate): apply Railway infra"
+            git push origin "HEAD:$TF_STATE_BRANCH"
+          fi

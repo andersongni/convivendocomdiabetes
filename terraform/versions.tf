@@ -8,6 +8,6 @@ terraform {
     }
   }
 
-  # State local por padrao. Em CI use backend remoto (S3/Terraform Cloud) se quiser.
-  # backend "s3" { ... }
+  # State persistido no GitHub na branch `tfstate` pelo workflow
+  # .github/workflows/terraform.yml (sem precisar rodar terraform na sua maquina).
 }

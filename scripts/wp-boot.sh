@@ -90,22 +90,19 @@ else
   echo "[wp] WordPress ja instalado"
 fi
 
-# Garante tema core (o dump UOL nao traz twenty*); sem isso a home vem em branco
-DEFAULT_THEME=""
-for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do
+# WP 6.0.x nao roda Twenty Twenty-Five/Four/Three. Forca um tema compativel.
+THEME_OK=0
+for theme in twentytwentytwo twentytwentyone twentytwenty; do
   if [ -d "/var/www/html/wp-content/themes/${theme}" ]; then
-    DEFAULT_THEME="$theme"
-    break
+    echo "[wp] Tentando ativar tema ${theme}"
+    if wp theme activate "${theme}" --allow-root --path=/var/www/html; then
+      THEME_OK=1
+      break
+    fi
   fi
 done
-if [ -n "$DEFAULT_THEME" ]; then
-  CURRENT_THEME="$(wp option get stylesheet --allow-root --path=/var/www/html 2>/dev/null || true)"
-  if [ -z "$CURRENT_THEME" ] || [ ! -d "/var/www/html/wp-content/themes/${CURRENT_THEME}" ]; then
-    echo "[wp] Ativando tema ${DEFAULT_THEME}"
-    wp theme activate "${DEFAULT_THEME}" --allow-root --path=/var/www/html || true
-  fi
-else
-  echo "[wp] AVISO: nenhum tema twenty* encontrado"
+if [ "$THEME_OK" -ne 1 ]; then
+  echo "[wp] AVISO: nao foi possivel ativar um tema twenty* compativel com WP 6.0"
 fi
 
 if [ -n "${WP_HOME:-}" ]; then

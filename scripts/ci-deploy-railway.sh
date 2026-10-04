@@ -2,11 +2,16 @@
 # Usado pelo GitHub Actions: sobe db + wordpress no Railway sem passos manuais.
 set -euo pipefail
 
-: "${RAILWAY_TOKEN:?}"
+# Conta/API token (NAO project token). Se RAILWAY_TOKEN existir, o CLI ignora o API token.
+unset RAILWAY_TOKEN || true
+: "${RAILWAY_API_TOKEN:?Defina o secret RAILWAY_API_TOKEN (Account token em railway.app/account/tokens — sem workspace)}"
 : "${RAILWAY_PROJECT_ID:?}"
 : "${MYSQL_PASSWORD:?}"
 : "${MYSQL_ROOT_PASSWORD:?}"
 RAILWAY_ENVIRONMENT="${RAILWAY_ENVIRONMENT:-production}"
+
+echo "Autenticando com RAILWAY_API_TOKEN..."
+railway whoami
 
 railway link \
   --project "$RAILWAY_PROJECT_ID" \

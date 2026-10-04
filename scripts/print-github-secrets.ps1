@@ -1,4 +1,4 @@
-# Gera senhas e mostra o que colar nos Secrets do GitHub (2 containers automaticos).
+# Gera senhas e mostra o que colar nos Secrets do GitHub.
 $ErrorActionPreference = "Stop"
 
 $mysqlPassword = -join ((1..32) | ForEach-Object { "{0:x}" -f (Get-Random -Max 16) })
@@ -8,19 +8,23 @@ $secretsUrl = "https://github.com/andersongni/convivendocomdiabetes/settings/sec
 $tokenUrl = "https://railway.app/account/tokens"
 
 Write-Host ""
-Write-Host "Stack automatica: 2 containers (db + wordpress)"
+Write-Host "=== TOKEN CERTO (obrigatorio) ==="
+Write-Host "1) Abra: $tokenUrl"
+Write-Host "2) Create Token"
+Write-Host "3) NAO selecione workspace / NAO use Project Token"
+Write-Host "4) Tem que ser Account token"
 Write-Host ""
-Write-Host "1) Token Railway: $tokenUrl"
-Write-Host "2) Secrets GitHub: $secretsUrl"
+Write-Host "=== Secrets no GitHub ==="
+Write-Host $secretsUrl
 Write-Host ""
-Write-Host "RAILWAY_TOKEN          = (cole o token)"
+Write-Host "RAILWAY_API_TOKEN      = (cole o Account token)"
 Write-Host "RAILWAY_PROJECT_ID     = $projectId"
 Write-Host "RAILWAY_ENVIRONMENT    = production"
 Write-Host "MYSQL_PASSWORD         = $mysqlPassword"
 Write-Host "MYSQL_ROOT_PASSWORD    = $mysqlRootPassword"
 Write-Host ""
-Write-Host "3) Actions -> Deploy -> Run workflow"
-Write-Host "   O Action cria db + wordpress, volume, vars, dump e dominio."
+Write-Host "Apague o secret antigo RAILWAY_TOKEN se existir (ele atrapalha)."
+Write-Host "Depois: Actions -> Deploy -> Run workflow"
 Write-Host ""
 
 Start-Process $tokenUrl

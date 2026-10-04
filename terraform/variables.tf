@@ -23,13 +23,13 @@ variable "github_branch" {
 }
 
 variable "wordpress_service_name" {
-  type        = string
-  default     = "convivendocomdiabetes"
+  type    = string
+  default = "convivendocomdiabetes"
 }
 
 variable "mysql_service_name" {
-  type        = string
-  default     = "MySQL"
+  type    = string
+  default = "MySQL"
 }
 
 variable "service_subdomain" {

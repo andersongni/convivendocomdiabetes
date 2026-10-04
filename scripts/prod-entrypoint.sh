@@ -1,27 +1,20 @@
 #!/bin/bash
 set -euo pipefail
 
-# --- Railway MySQL plugin vars (se ainda usar DB gerenciado) ---
-if [ -z "${WORDPRESS_DB_HOST:-}" ] && [ -n "${MYSQLHOST:-}" ]; then
-  export WORDPRESS_DB_HOST="${MYSQLHOST}:${MYSQLPORT:-3306}"
-fi
-if [ -z "${WORDPRESS_DB_USER:-}" ] && [ -n "${MYSQLUSER:-}" ]; then
-  export WORDPRESS_DB_USER="${MYSQLUSER}"
-fi
-if [ -z "${WORDPRESS_DB_PASSWORD:-}" ] && [ -n "${MYSQLPASSWORD:-}" ]; then
-  export WORDPRESS_DB_PASSWORD="${MYSQLPASSWORD}"
-fi
-if [ -z "${WORDPRESS_DB_NAME:-}" ] && [ -n "${MYSQLDATABASE:-}" ]; then
-  export WORDPRESS_DB_NAME="${MYSQLDATABASE}"
-fi
-
-# Defaults do compose Railway
+# Defaults / Railway private DNS (servico "db")
 export WORDPRESS_DB_HOST="${WORDPRESS_DB_HOST:-db:3306}"
 export WORDPRESS_DB_USER="${WORDPRESS_DB_USER:-wpapp}"
-export WORDPRESS_DB_PASSWORD="${WORDPRESS_DB_PASSWORD:-changeme-wpapp}"
+export WORDPRESS_DB_PASSWORD="${WORDPRESS_DB_PASSWORD:-}"
 export WORDPRESS_DB_NAME="${WORDPRESS_DB_NAME:-wordpress}"
 
-# URLs publicas
+# Mapeia plugin MySQL gerenciado (se existir)
+if [ -z "${WORDPRESS_DB_PASSWORD}" ] && [ -n "${MYSQLPASSWORD:-}" ]; then
+  export WORDPRESS_DB_HOST="${MYSQLHOST:-db}:${MYSQLPORT:-3306}"
+  export WORDPRESS_DB_USER="${MYSQLUSER:-wpapp}"
+  export WORDPRESS_DB_PASSWORD="${MYSQLPASSWORD}"
+  export WORDPRESS_DB_NAME="${MYSQLDATABASE:-wordpress}"
+fi
+
 if [ -z "${WP_HOME:-}" ] && [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
   export WP_HOME="https://${RAILWAY_PUBLIC_DOMAIN}"
 fi
@@ -29,17 +22,15 @@ if [ -z "${WP_SITEURL:-}" ] && [ -n "${WP_HOME:-}" ]; then
   export WP_SITEURL="${WP_HOME}"
 fi
 
-echo "[wp] DB host=${WORDPRESS_DB_HOST} user=${WORDPRESS_DB_USER} name=${WORDPRESS_DB_NAME}"
-echo "[wp] HOME=${WP_HOME:-"(ainda nao definida)"}"
-
-EXTRA=""
-if [ -n "${WP_HOME:-}" ]; then
-  EXTRA="${EXTRA}
-define('WP_HOME', getenv('WP_HOME') ?: '${WP_HOME}');
-define('WP_SITEURL', getenv('WP_SITEURL') ?: '${WP_SITEURL}');
-"
+if [ -z "${WORDPRESS_DB_PASSWORD}" ]; then
+  echo "[wp] ERRO: WORDPRESS_DB_PASSWORD vazia"
+  exit 1
 fi
-EXTRA="${EXTRA}
+
+echo "[wp] DB host=${WORDPRESS_DB_HOST} user=${WORDPRESS_DB_USER} name=${WORDPRESS_DB_NAME}"
+echo "[wp] HOME=${WP_HOME:-"(pendente dominio)"}"
+
+EXTRA="
 define('FORCE_SSL_ADMIN', false);
 define('COOKIE_DOMAIN', false);
 define('ADMIN_COOKIE_PATH', '/');
@@ -47,37 +38,48 @@ define('COOKIEPATH', '/');
 define('SITECOOKIEPATH', '/');
 define('FS_METHOD', 'direct');
 "
+if [ -n "${WP_HOME:-}" ]; then
+  EXTRA="${EXTRA}
+define('WP_HOME', getenv('WP_HOME') ?: '${WP_HOME}');
+define('WP_SITEURL', getenv('WP_SITEURL') ?: '${WP_SITEURL}');
+"
+fi
 export WORDPRESS_CONFIG_EXTRA="${WORDPRESS_CONFIG_EXTRA:-}${EXTRA}"
 
 a2dismod mpm_event 2>/dev/null || true
 a2dismod mpm_worker 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
-# docker-entrypoint prepara wp-config e depois roda o comando abaixo
 exec docker-entrypoint.sh bash -c '
   set -e
   echo "[wp] Aguardando banco..."
+  DB_HOST_ONLY="${WORDPRESS_DB_HOST%%:*}"
+  DB_PORT_ONLY="${WORDPRESS_DB_HOST##*:}"
+  if [ "$DB_PORT_ONLY" = "$DB_HOST_ONLY" ]; then DB_PORT_ONLY=3306; fi
   for i in $(seq 1 90); do
-    if wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
+    if mysqladmin ping -h"$DB_HOST_ONLY" -P"$DB_PORT_ONLY" -u"$WORDPRESS_DB_USER" -p"$WORDPRESS_DB_PASSWORD" --silent 2>/dev/null; then
       echo "[wp] Banco OK"
       break
     fi
     sleep 3
   done
 
+  for i in $(seq 1 60); do
+    if wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+  done
+
   if [ -n "${WP_HOME:-}" ]; then
-    echo "[wp] Atualizando siteurl/home -> ${WP_HOME}"
+    echo "[wp] Atualizando URLs -> ${WP_HOME}"
     wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true
     wp option update siteurl "${WP_SITEURL:-$WP_HOME}" --allow-root --path=/var/www/html || true
-  fi
-
-  # Sync de dominio antigo do dump -> dominio atual (posts/options serializados básicos)
-  if [ -n "${WP_HOME:-}" ]; then
     wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
   fi
 
-  echo "[wp] Iniciando Apache"
+  echo "[wp] Apache"
   exec apache2-foreground
 '

@@ -9,12 +9,9 @@ concurrency:
   group: deploy-production
   cancel-in-progress: true
 
-env:
-  RAILWAY_SERVICE: web
-
 jobs:
   deploy:
-    name: Deploy to Railway
+    name: Deploy db + wordpress
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,8 +32,8 @@ jobs:
             fi
           done
           if [ "$missing" -ne 0 ]; then
-            echo "Abra: https://github.com/${{ github.repository }}/settings/secrets/actions"
-            echo "Rode localmente: powershell -File scripts/print-github-secrets.ps1"
+            echo "https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "Rode: powershell -File scripts/print-github-secrets.ps1"
             exit 1
           fi
 
@@ -51,40 +48,5 @@ jobs:
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run: |
-          set -euo pipefail
-          RAILWAY_ENVIRONMENT="${RAILWAY_ENVIRONMENT:-production}"
-
-          railway link \
-            --project "$RAILWAY_PROJECT_ID" \
-            --environment "$RAILWAY_ENVIRONMENT" \
-            --json >/dev/null
-
-          if ! railway service list --json 2>/dev/null | grep -qiE "\"name\"[[:space:]]*:[[:space:]]*\"${RAILWAY_SERVICE}\""; then
-            echo "Criando servico ${RAILWAY_SERVICE}..."
-            railway add --service "$RAILWAY_SERVICE" --json || railway add --service "$RAILWAY_SERVICE"
-          fi
-
-          railway volume add --service "$RAILWAY_SERVICE" --mount-path /var/lib/mysql --json \
-            || echo "Volume ja existe"
-
-          railway variable set \
-            --service "$RAILWAY_SERVICE" \
-            --skip-deploys \
-            "PORT=80" \
-            "MYSQL_DATABASE=wordpress" \
-            "MYSQL_USER=wpapp" \
-            "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
-            "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}"
-
-          railway up \
-            --service "$RAILWAY_SERVICE" \
-            --project "$RAILWAY_PROJECT_ID" \
-            --environment "$RAILWAY_ENVIRONMENT" \
-            --ci \
-            --detach
-
-          railway domain --service "$RAILWAY_SERVICE" --port 80 \
-            || railway domain --service "$RAILWAY_SERVICE" \
-            || true
-
-          echo "Deploy disparado."
+          chmod +x scripts/ci-deploy-railway.sh
+          ./scripts/ci-deploy-railway.sh

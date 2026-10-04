@@ -1,12 +1,9 @@
-# Stack completa Railway: MySQL (importa dump no 1o boot) + WordPress.
-# Tudo ligado por codigo — sem preencher variaveis manualmente no painel.
-
+# Referencia local da stack de 2 servicos (espelha o que o GitHub Action sobe no Railway).
 services:
   db:
     build:
       context: .
       dockerfile: Dockerfile.mysql
-    restart: unless-stopped
     environment:
       MYSQL_DATABASE: wordpress
       MYSQL_USER: wpapp
@@ -14,10 +11,6 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme-root}
     volumes:
       - db_data:/var/lib/mysql
-    command:
-      - --max_allowed_packet=256M
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -29,20 +22,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "80:80"
+      - "8080:80"
     environment:
       PORT: "80"
       WORDPRESS_DB_HOST: db:3306
       WORDPRESS_DB_USER: wpapp
       WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD:-changeme-wpapp}
       WORDPRESS_DB_NAME: wordpress
-      WP_HOME: ${WP_HOME:-}
-      WP_SITEURL: ${WP_SITEURL:-}
 
 volumes:
   db_data:

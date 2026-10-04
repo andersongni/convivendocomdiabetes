@@ -27,4 +27,9 @@ define('FS_METHOD', 'direct');
 "
 export WORDPRESS_CONFIG_EXTRA="${WORDPRESS_CONFIG_EXTRA:-}${EXTRA}"
 
+# Garante um unico MPM antes do Apache subir (fix Railway)
+a2dismod mpm_event 2>/dev/null || true
+a2dismod mpm_worker 2>/dev/null || true
+a2enmod mpm_prefork 2>/dev/null || true
+
 exec docker-entrypoint.sh "$@"

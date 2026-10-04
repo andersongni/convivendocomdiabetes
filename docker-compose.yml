@@ -21,8 +21,7 @@ services:
       start_period: 60s
 
   wordpress:
-    # PHP 7.4 fica mais próximo do servidor (7.3) do que 8.2
-    image: wordpress:php7.4-apache
+    image: wordpress:php8.2-apache
     restart: unless-stopped
     depends_on:
       db:

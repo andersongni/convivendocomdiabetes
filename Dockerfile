@@ -12,8 +12,11 @@ COPY --from=wpcli /usr/local/bin/wp /usr/local/bin/wp
 COPY wordpress/ /var/www/html/
 COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
+COPY scripts/wp-boot.sh /usr/local/bin/wp-boot.sh
 
-RUN chmod +x /usr/local/bin/prod-entrypoint.sh \
+RUN sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh \
+  && chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh \
+  && rm -f /var/www/html/wp-config.php \
   && chown -R www-data:www-data /var/www/html
 
 ENV PORT=80

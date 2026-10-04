@@ -7,7 +7,7 @@ export WORDPRESS_DB_USER="${WORDPRESS_DB_USER:-wpapp}"
 export WORDPRESS_DB_PASSWORD="${WORDPRESS_DB_PASSWORD:-}"
 export WORDPRESS_DB_NAME="${WORDPRESS_DB_NAME:-wordpress}"
 
-# Mapeia plugin MySQL gerenciado (Railway)
+# Mapeia plugin MySQL gerenciado (Railway) se as vars WP nao vierem preenchidas
 if [ -z "${WORDPRESS_DB_PASSWORD}" ] && [ -n "${MYSQLPASSWORD:-}" ]; then
   export WORDPRESS_DB_HOST="${MYSQLHOST:-db}:${MYSQLPORT:-3306}"
   export WORDPRESS_DB_USER="${MYSQLUSER:-wpapp}"
@@ -22,6 +22,12 @@ if [ -z "${WP_SITEURL:-}" ] && [ -n "${WP_HOME:-}" ]; then
   export WP_SITEURL="${WP_HOME}"
 fi
 
+# Credenciais do primeiro admin (troca obrigatoria no primeiro acesso)
+export WP_ADMIN_USER="${WP_ADMIN_USER:-admin}"
+export WP_ADMIN_PASSWORD="${WP_ADMIN_PASSWORD:-CcdTrocar123!}"
+export WP_ADMIN_EMAIL="${WP_ADMIN_EMAIL:-admin@convivendocomdiabetes.com}"
+export WP_TITLE="${WP_TITLE:-Convivendo com Diabetes}"
+
 if [ -z "${WORDPRESS_DB_PASSWORD}" ]; then
   echo "[wp] ERRO: WORDPRESS_DB_PASSWORD vazia"
   exit 1
@@ -30,63 +36,12 @@ fi
 echo "[wp] DB host=${WORDPRESS_DB_HOST} user=${WORDPRESS_DB_USER} name=${WORDPRESS_DB_NAME}"
 echo "[wp] HOME=${WP_HOME:-"(pendente dominio)"}"
 
-EXTRA="
-define('FORCE_SSL_ADMIN', false);
-define('COOKIE_DOMAIN', false);
-define('ADMIN_COOKIE_PATH', '/');
-define('COOKIEPATH', '/');
-define('SITECOOKIEPATH', '/');
-define('FS_METHOD', 'direct');
-"
-if [ -n "${WP_HOME:-}" ]; then
-  EXTRA="${EXTRA}
-define('WP_HOME', getenv('WP_HOME') ?: '${WP_HOME}');
-define('WP_SITEURL', getenv('WP_SITEURL') ?: '${WP_SITEURL}');
-"
-fi
-export WORDPRESS_CONFIG_EXTRA="${WORDPRESS_CONFIG_EXTRA:-}${EXTRA}"
+# Remove config local se veio na imagem; o boot gera a partir das env vars
+rm -f /var/www/html/wp-config.php
 
 a2dismod mpm_event 2>/dev/null || true
 a2dismod mpm_worker 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
-exec docker-entrypoint.sh bash -c '
-  set -e
-  echo "[wp] Aguardando banco..."
-  for i in $(seq 1 90); do
-    if wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
-      echo "[wp] Banco OK"
-      break
-    fi
-    sleep 3
-  done
-
-  if ! wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
-    echo "[wp] ERRO: banco indisponivel apos espera"
-    exit 1
-  fi
-
-  # Aplica SOMENTE a estrutura se as tabelas ainda nao existirem
-  if ! wp db tables --allow-root --path=/var/www/html 2>/dev/null | grep -q "wp_options"; then
-    echo "[wp] Aplicando schema (estrutura, sem dados)..."
-    wp db import /opt/schema.sql --allow-root --path=/var/www/html
-    echo "[wp] Schema aplicado. Para carregar dados: scripts/import-dump.ps1"
-  else
-    echo "[wp] Tabelas ja existem — schema nao reaplicado."
-  fi
-
-  if [ -n "${WP_HOME:-}" ]; then
-    # So atualiza URLs se ja houver conteudo (apos import do dump)
-    if wp option get siteurl --allow-root --path=/var/www/html >/dev/null 2>&1; then
-      echo "[wp] Atualizando URLs -> ${WP_HOME}"
-      wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true
-      wp option update siteurl "${WP_SITEURL:-$WP_HOME}" --allow-root --path=/var/www/html || true
-      wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-      wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-      wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    fi
-  fi
-
-  echo "[wp] Apache"
-  exec apache2-foreground
-'
+# docker-entrypoint prepara o filesystem do WordPress; em seguida sobe o app
+exec docker-entrypoint.sh bash /usr/local/bin/wp-boot.sh

@@ -13,7 +13,7 @@ resource "railway_project" "this" {
   workspace_id = var.workspace_id
   private      = true
 
-  default_environment {
+  default_environment = {
     name = "production"
   }
 }
@@ -25,7 +25,7 @@ resource "railway_service" "mysql" {
   project_id   = railway_project.this.id
   source_image = "mysql:9"
 
-  volume {
+  volume = {
     name       = "mysql-volume"
     mount_path = "/var/lib/mysql"
   }

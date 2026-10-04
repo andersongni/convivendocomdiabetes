@@ -3,11 +3,9 @@
 .idea
 .vscode
 logs
-db
 db_data
 dump-database.sql
 *.sql
-*.sql.gz
 *.wpress
 *.zip
 *.md
@@ -23,3 +21,6 @@ wordpress/wp-content/ai1wm-backups
 wordpress/wp-content/wflogs
 wordpress/wp-content/updraft
 scripts/ftp_download.py
+scripts/setup-railway.sh
+scripts/setup-railway.ps1
+# Mantem db/init (dump) no contexto do build do MySQL

@@ -11,37 +11,70 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to Railway
+    name: Deploy stack to Railway
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
-      - name: Check Railway token
-        id: check
+      - name: Require RAILWAY_TOKEN
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Secret RAILWAY_TOKEN nao configurado. Conecte o repo no Railway (Deploy from GitHub) ou adicione o token em Settings > Secrets."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Configure o secret RAILWAY_TOKEN (Railway -> Account Settings -> Tokens)."
+            echo "Depois rode: ./scripts/setup-railway.sh  (uma unica vez)"
+            exit 1
           fi
 
       - name: Install Railway CLI
-        if: steps.check.outputs.skip == 'false'
         run: npm install -g @railway/cli
 
-      - name: Deploy
-        if: steps.check.outputs.skip == 'false'
+      - name: Deploy compose (db + wordpress)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -n "${RAILWAY_SERVICE:-}" ]; then
-            railway up --service "$RAILWAY_SERVICE" --detach
-          else
-            railway up --detach
+
+          if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
+            railway link --project "$RAILWAY_PROJECT_ID" --environment production || \
+            railway link --project "$RAILWAY_PROJECT_ID"
           fi
+
+          # Senhas: usa secrets se existirem; senao gera e mostra aviso
+          if [ -z "${MYSQL_PASSWORD:-}" ]; then
+            MYSQL_PASSWORD="$(openssl rand -hex 16)"
+            echo "::warning::MYSQL_PASSWORD gerada automaticamente nesta run. Defina o secret MYSQL_PASSWORD para estabilizar."
+          fi
+          if [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
+            MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"
+            echo "::warning::MYSQL_ROOT_PASSWORD gerada automaticamente nesta run. Defina o secret MYSQL_ROOT_PASSWORD para estabilizar."
+          fi
+
+          export MYSQL_PASSWORD MYSQL_ROOT_PASSWORD
+
+          # Railway detecta docker-compose.yml — usa o compose de producao
+          cp docker-compose.yml docker-compose.local.yml
+          cp docker-compose.railway.yml docker-compose.yml
+          railway up --ci --detach
+          mv docker-compose.local.yml docker-compose.yml
+
+      - name: Ensure public domain on wordpress service
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
+            railway link --project "$RAILWAY_PROJECT_ID" --environment production || \
+            railway link --project "$RAILWAY_PROJECT_ID"
+          fi
+          # Tenta gerar dominio no servico wordpress (ignora se ja existir)
+          railway domain --service wordpress 2>/dev/null || \
+          railway domain 2>/dev/null || \
+          echo "::notice::Gere o dominio uma vez: railway domain --service wordpress"

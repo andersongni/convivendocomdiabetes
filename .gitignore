@@ -8,11 +8,12 @@ wordpress/wp-config-local.php
 wordpress/.user.ini
 wordpress/php.ini
 
-# Dump do banco (grande / dados sensíveis)
+# Dump bruto local — o comprimido versionado fica em db/init/site-dump.gz
 dump-database.sql
 db/*.sql
 *.sql
 !db/.gitkeep
+!db/init/
 
 # Core WordPress (pode ser reinstalado; versionamos sobretudo wp-content)
 # Descomente se quiser versionar só o conteúdo customizado:

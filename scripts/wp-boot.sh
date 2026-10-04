@@ -22,7 +22,6 @@ wp config create \
   --allow-root \
   --path=/var/www/html
 
-wp config set FORCE_SSL_ADMIN false --raw --type=constant --allow-root --path=/var/www/html
 wp config set COOKIE_DOMAIN false --raw --type=constant --allow-root --path=/var/www/html
 wp config set ADMIN_COOKIE_PATH '/' --type=constant --allow-root --path=/var/www/html
 wp config set COOKIEPATH '/' --type=constant --allow-root --path=/var/www/html
@@ -32,6 +31,13 @@ wp config set FS_METHOD 'direct' --type=constant --allow-root --path=/var/www/ht
 if [ -n "${WP_HOME:-}" ]; then
   wp config set WP_HOME "${WP_HOME}" --type=constant --allow-root --path=/var/www/html
   wp config set WP_SITEURL "${WP_SITEURL:-$WP_HOME}" --type=constant --allow-root --path=/var/www/html
+fi
+
+# Railway termina TLS no proxy; forca HTTPS nos assets/admin quando WP_HOME e https
+if [[ "${WP_HOME:-}" == https://* ]]; then
+  wp config set FORCE_SSL_ADMIN true --raw --type=constant --allow-root --path=/var/www/html
+else
+  wp config set FORCE_SSL_ADMIN false --raw --type=constant --allow-root --path=/var/www/html
 fi
 
 db_ready() {
@@ -84,18 +90,40 @@ else
   echo "[wp] WordPress ja instalado"
 fi
 
+# Garante tema core (o dump UOL nao traz twenty*); sem isso a home vem em branco
+DEFAULT_THEME=""
+for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do
+  if [ -d "/var/www/html/wp-content/themes/${theme}" ]; then
+    DEFAULT_THEME="$theme"
+    break
+  fi
+done
+if [ -n "$DEFAULT_THEME" ]; then
+  CURRENT_THEME="$(wp option get stylesheet --allow-root --path=/var/www/html 2>/dev/null || true)"
+  if [ -z "$CURRENT_THEME" ] || [ ! -d "/var/www/html/wp-content/themes/${CURRENT_THEME}" ]; then
+    echo "[wp] Ativando tema ${DEFAULT_THEME}"
+    wp theme activate "${DEFAULT_THEME}" --allow-root --path=/var/www/html || true
+  fi
+else
+  echo "[wp] AVISO: nenhum tema twenty* encontrado"
+fi
+
 if [ -n "${WP_HOME:-}" ]; then
+  TARGET_URL="${WP_SITEURL:-$WP_HOME}"
   CURRENT_URL="$(wp option get siteurl --allow-root --path=/var/www/html 2>/dev/null || true)"
-  if [ -n "$CURRENT_URL" ] && [ "$CURRENT_URL" != "${WP_SITEURL:-$WP_HOME}" ]; then
-    echo "[wp] Atualizando URLs ${CURRENT_URL} -> ${WP_HOME}"
+  # Normaliza http->https e host Railway
+  if [ -n "$CURRENT_URL" ] && [ "$CURRENT_URL" != "$TARGET_URL" ]; then
+    echo "[wp] Atualizando URLs ${CURRENT_URL} -> ${TARGET_URL}"
     wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true
-    wp option update siteurl "${WP_SITEURL:-$WP_HOME}" --allow-root --path=/var/www/html || true
-    # search-replace so roda se ainda houver URL antiga do dominio UOL
+    wp option update siteurl "${TARGET_URL}" --allow-root --path=/var/www/html || true
     case "$CURRENT_URL" in
       *convivendocomdiabetes.com*)
         wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
         wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
         wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+        ;;
+      http://*)
+        wp search-replace "$CURRENT_URL" "${TARGET_URL}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
         ;;
     esac
   else

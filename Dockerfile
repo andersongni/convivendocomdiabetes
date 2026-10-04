@@ -14,10 +14,17 @@ COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
 COPY scripts/wp-boot.sh /usr/local/bin/wp-boot.sh
 
-RUN sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh \
-  && chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh \
-  && rm -f /var/www/html/wp-config.php \
-  && chown -R www-data:www-data /var/www/html
+# O COPY do site UOL sobrescreve os temas default; restaura um tema core para a home nao ficar em branco.
+RUN set -eux; \
+  for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do \
+    if [ -d "/usr/src/wordpress/wp-content/themes/$theme" ]; then \
+      cp -a "/usr/src/wordpress/wp-content/themes/$theme" /var/www/html/wp-content/themes/; \
+    fi; \
+  done; \
+  sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh; \
+  chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh; \
+  rm -f /var/www/html/wp-config.php; \
+  chown -R www-data:www-data /var/www/html
 
 ENV PORT=80
 

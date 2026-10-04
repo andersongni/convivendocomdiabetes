@@ -52,24 +52,19 @@ a2enmod mpm_prefork 2>/dev/null || true
 
 exec docker-entrypoint.sh bash -c '
   set -e
-  echo "[wp] Aguardando banco..."
-  DB_HOST_ONLY="${WORDPRESS_DB_HOST%%:*}"
-  DB_PORT_ONLY="${WORDPRESS_DB_HOST##*:}"
-  if [ "$DB_PORT_ONLY" = "$DB_HOST_ONLY" ]; then DB_PORT_ONLY=3306; fi
+  echo "[wp] Aguardando banco (wp db check)..."
   for i in $(seq 1 90); do
-    if mysqladmin ping -h"$DB_HOST_ONLY" -P"$DB_PORT_ONLY" -u"$WORDPRESS_DB_USER" -p"$WORDPRESS_DB_PASSWORD" --silent 2>/dev/null; then
+    if wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
       echo "[wp] Banco OK"
       break
     fi
     sleep 3
   done
 
-  for i in $(seq 1 60); do
-    if wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
-      break
-    fi
-    sleep 2
-  done
+  if ! wp db check --allow-root --path=/var/www/html >/dev/null 2>&1; then
+    echo "[wp] ERRO: banco indisponivel apos espera"
+    exit 1
+  fi
 
   if [ -n "${WP_HOME:-}" ]; then
     echo "[wp] Atualizando URLs -> ${WP_HOME}"

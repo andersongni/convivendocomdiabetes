@@ -1,6 +1,9 @@
-# Config compartilhada. O stack sobe via docker-compose.railway.yml (GitHub Action / setup script).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
 [deploy]
-healthcheckPath = "/"
+healthcheckPath = "/wp-login.php"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5

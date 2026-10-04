@@ -9,72 +9,82 @@ concurrency:
   group: deploy-production
   cancel-in-progress: true
 
+env:
+  RAILWAY_SERVICE: web
+
 jobs:
   deploy:
-    name: Deploy stack to Railway
+    name: Deploy to Railway
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
-      - name: Require RAILWAY_TOKEN
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::Configure o secret RAILWAY_TOKEN (Railway -> Account Settings -> Tokens)."
-            echo "Depois rode: ./scripts/setup-railway.sh  (uma unica vez)"
-            exit 1
-          fi
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy compose (db + wordpress)
+      - name: Check required secrets
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run: |
-          set -euo pipefail
-
-          if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
-            railway link --project "$RAILWAY_PROJECT_ID" --environment production || \
-            railway link --project "$RAILWAY_PROJECT_ID"
+          missing=0
+          for s in RAILWAY_TOKEN RAILWAY_PROJECT_ID MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+            if [ -z "${!s}" ]; then
+              echo "::error::Secret $s nao configurado"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Abra: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            echo "Rode localmente: powershell -File scripts/print-github-secrets.ps1"
+            exit 1
           fi
 
-          # Senhas: usa secrets se existirem; senao gera e mostra aviso
-          if [ -z "${MYSQL_PASSWORD:-}" ]; then
-            MYSQL_PASSWORD="$(openssl rand -hex 16)"
-            echo "::warning::MYSQL_PASSWORD gerada automaticamente nesta run. Defina o secret MYSQL_PASSWORD para estabilizar."
-          fi
-          if [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
-            MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"
-            echo "::warning::MYSQL_ROOT_PASSWORD gerada automaticamente nesta run. Defina o secret MYSQL_ROOT_PASSWORD para estabilizar."
-          fi
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
 
-          export MYSQL_PASSWORD MYSQL_ROOT_PASSWORD
-
-          # Railway detecta docker-compose.yml — usa o compose de producao
-          cp docker-compose.yml docker-compose.local.yml
-          cp docker-compose.railway.yml docker-compose.yml
-          railway up --ci --detach
-          mv docker-compose.local.yml docker-compose.yml
-
-      - name: Ensure public domain on wordpress service
+      - name: Provision + deploy
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
         run: |
           set -euo pipefail
-          if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
-            railway link --project "$RAILWAY_PROJECT_ID" --environment production || \
-            railway link --project "$RAILWAY_PROJECT_ID"
+          RAILWAY_ENVIRONMENT="${RAILWAY_ENVIRONMENT:-production}"
+
+          railway link \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT" \
+            --json >/dev/null
+
+          if ! railway service list --json 2>/dev/null | grep -qiE "\"name\"[[:space:]]*:[[:space:]]*\"${RAILWAY_SERVICE}\""; then
+            echo "Criando servico ${RAILWAY_SERVICE}..."
+            railway add --service "$RAILWAY_SERVICE" --json || railway add --service "$RAILWAY_SERVICE"
           fi
-          # Tenta gerar dominio no servico wordpress (ignora se ja existir)
-          railway domain --service wordpress 2>/dev/null || \
-          railway domain 2>/dev/null || \
-          echo "::notice::Gere o dominio uma vez: railway domain --service wordpress"
+
+          railway volume add --service "$RAILWAY_SERVICE" --mount-path /var/lib/mysql --json \
+            || echo "Volume ja existe"
+
+          railway variable set \
+            --service "$RAILWAY_SERVICE" \
+            --skip-deploys \
+            "PORT=80" \
+            "MYSQL_DATABASE=wordpress" \
+            "MYSQL_USER=wpapp" \
+            "MYSQL_PASSWORD=${MYSQL_PASSWORD}" \
+            "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}"
+
+          railway up \
+            --service "$RAILWAY_SERVICE" \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT" \
+            --ci \
+            --detach
+
+          railway domain --service "$RAILWAY_SERVICE" --port 80 \
+            || railway domain --service "$RAILWAY_SERVICE" \
+            || true
+
+          echo "Deploy disparado."

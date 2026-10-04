@@ -1,0 +1,30 @@
+<?php
+$otw_spsw_shortcode_object->labels['Cancel']=__('Cancel', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Insert']=__('Insert', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Options']=__('Options', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Custom Options']=__('Custom Options', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Preview']=__('Preview', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Invalid shortcode']=__('Invalid shortcode', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['yes(deafult)']=__('yes(deafult)', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['no']=__('no', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['left(default)']=__('left(default)', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['center']=__('center', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['right']=__('right', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Margin top and Bottom']=__('Margin top and Bottom', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Set the top and bottom margin in pixels. Default is 30px.']=__('Set the top and bottom margin in pixels. Default is 30px.', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Display line']=__('Display line', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Display or hide the line divider.']=__('Display or hide the line divider.', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Text']=__('Text', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Optional text for the divider.']=__('Optional text for the divider.', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Text alignment']=__('Text alignment', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Text position.']=__('Text position.', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Link text']=__('Link text', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['The text for your link. If empty no link text will be added to the divider.']=__('The text for your link. If empty no link text will be added to the divider.', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Link URL']=__('Link URL', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Optional Link URL.']=__('Optional Link URL.', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['CSS Class']=__('CSS Class', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Close']=__('Close', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['Save']=__('Save', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['remove']=__('remove', 'otw_spsw');
+$otw_spsw_shortcode_object->labels['settings']=__('settings', 'otw_spsw');
+?>

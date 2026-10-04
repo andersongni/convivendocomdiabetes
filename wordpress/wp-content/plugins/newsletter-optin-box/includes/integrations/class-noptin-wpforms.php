@@ -1,0 +1,204 @@
+<?php
+
+// Exit if accessed directly.
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Handles integrations with WPForms
+ *
+ * @since       1.2.6
+ */
+class Noptin_WPForms {
+
+	/**
+	 * Constructor
+	 */
+	public function __construct() {
+		add_filter( 'wpforms_builder_settings_sections', array( $this, 'settings_section' ), 20, 2 );
+		add_action( 'wpforms_form_settings_panel_content', array( $this, 'settings_section_content' ), 20 );
+		add_action( 'wpforms_process_complete', array( $this, 'add_subscriber' ), 10, 4 );
+	}
+
+	/**
+	 * Add Settings Section
+	 *
+	 * @param array $sections The current settings sections.
+	 * @return array
+	 */
+	public function settings_section( $sections ) {
+		$sections['noptin'] = 'Noptin';
+		return $sections;
+	}
+
+	/**
+	 * Noptin Settings Content
+	 *
+	 * @param stdClass $instance The form instance.
+	 * @return void
+	 */
+	public function settings_section_content( $instance ) {
+
+		?>
+		<div class="wpforms-panel-content-section wpforms-panel-content-section-noptin">
+			<div class="wpforms-panel-content-section-title">Noptin</div>
+
+				<?php
+
+					wpforms_panel_field(
+						'checkbox',
+						'settings',
+						'enable_noptin',
+						$instance->form_data,
+						__( 'Enable Noptin Subscriptions', 'newsletter-optin-box' )
+					);
+
+					do_action( 'noptin_wp_forms_before_map_fields_section', $instance );
+				?>
+
+				<div class="wpforms-map-noptin-fields wpforms-builder-settings-block">
+					<div class="wpforms-builder-settings-block-header">
+						<span><?php esc_html_e( 'Map Fields', 'newsletter-optin-box' ); ?> <a href="https://noptin.com/guide/integrations/wpforms" target="_blank"><?php esc_html_e( 'Learn More!', 'newsletter-optin-box' ); ?></a></span>
+					</div>
+					<div class="wpforms-builder-settings-block-content">
+						<?php
+
+							wpforms_panel_field(
+								'select',
+								'settings',
+								'noptin_field_email',
+								$instance->form_data,
+								__( 'Email Address', 'newsletter-optin-box' ),
+								array(
+									'field_map'   => array( 'email' ),
+									'placeholder' => __( '-- Map Field --', 'newsletter-optin-box' ),
+								)
+							);
+
+							wpforms_panel_field(
+								'select',
+								'settings',
+								'noptin_field_name',
+								$instance->form_data,
+								__( 'Subscriber Name (Optional)', 'newsletter-optin-box' ),
+								array(
+									'field_map'   => array( 'text', 'name' ),
+									'placeholder' => __( '-- Map Field --', 'newsletter-optin-box' ),
+								)
+							);
+
+							wpforms_panel_field(
+								'select',
+								'settings',
+								'noptin_field_gdpr',
+								$instance->form_data,
+								__( 'GDPR checkbox (Optional)', 'newsletter-optin-box' ),
+								array(
+									'field_map'   => array( 'checkbox', 'gdpr-checkbox' ),
+									'placeholder' => __( '-- Map Field --', 'newsletter-optin-box' ),
+									'tooltip'     => __( 'If mapped, only users who consent will join your newsletter.', 'newsletter-optin-box' ),
+								)
+							);
+
+							foreach ( get_noptin_custom_fields() as $custom_field ) {
+
+								if ( ! $custom_field['predefined'] ) {
+									wpforms_panel_field(
+										'select',
+										'settings',
+										'noptin_field_' . $custom_field['merge_tag'],
+										$instance->form_data,
+										$custom_field['label'],
+										array(
+											'field_map'   => array( $custom_field['type'] ),
+											'placeholder' => __( '-- Map Field --', 'newsletter-optin-box' ),
+										)
+									);
+								}
+							}
+						?>
+					</div>
+				</div>
+
+				<?php do_action( 'noptin_wp_forms_after_map_fields_section', $instance ); ?>
+			</div>
+		</div>
+
+		<?php
+
+	}
+
+	/**
+	 * Save subscriptions
+	 *
+	 * @param array  $fields    List of fields.
+	 * @param array  $entry     Submitted form entry.
+	 * @param array  $form_data Form data and settings.
+	 * @param int    $entry_id  Saved entry id.
+	 */
+	public function add_subscriber( $fields, $entry, $form_data, $entry_id ) {
+
+		// Check that the form was configured for email subscriptions.
+		if ( empty( $form_data['settings']['enable_noptin'] ) || '1' !== $form_data['settings']['enable_noptin'] ) {
+			return;
+		}
+
+		// Return early if no email.
+		$email_field_id = $form_data['settings']['noptin_field_email'];
+		if ( ! isset( $email_field_id ) || empty( $fields[ $email_field_id ]['value'] ) ) {
+			return;
+		}
+
+		// Or no consent.
+		$consent_field_id = $form_data['settings']['noptin_field_gdpr'];
+		if ( '' !== $consent_field_id && empty( $fields[ $consent_field_id ]['value'] ) ) {
+			return;
+		}
+
+		// Prepare Noptin Fields.
+		$noptin_fields = array(
+			'_subscriber_via' => 'WPForms',
+			'email'           => sanitize_email( $fields[ $email_field_id ]['value'] ),
+		);
+
+		// Add the subscriber's IP address.
+		$address = noptin_get_user_ip();
+		if ( ! empty( $address ) && '::1' !== $address ) {
+			$noptin_fields['ip_address'] = $address;
+		}// TODO: Send confirmation links for existing unconfirmed subscribers.
+
+		// Referral page.
+		if ( ! empty( $_REQUEST['referrer'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$noptin_fields['conversion_page'] = esc_url_raw( $_REQUEST['referrer'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		// Maybe include the subscriber name...
+		$name_field_id = $form_data['settings']['noptin_field_name'];
+		if ( is_numeric( $name_field_id ) ) {
+			$noptin_fields['name'] = noptin_clean( $fields[ $name_field_id ]['value'] );
+		}
+
+		// ... and their GDPR status.
+		if ( is_numeric( $consent_field_id ) && ! empty( $fields[ $consent_field_id ]['value'] ) ) {
+			$noptin_fields['GDPR_consent'] = 1;
+		}
+
+		// And special fields.
+		foreach ( get_noptin_custom_fields() as $custom_field ) {
+
+			if ( ! $custom_field['predefined'] ) {
+				if ( isset( $form_data['settings'][ 'noptin_field_' . $custom_field['merge_tag'] ] ) ) {
+					$form_field                                  = $form_data['settings'][ 'noptin_field_' . $custom_field['merge_tag'] ];
+					$noptin_fields[ $custom_field['merge_tag'] ] = noptin_clean( $fields[ $form_field ]['value'] );
+				}
+			}
+		}
+
+		$noptin_fields['integration_data'] = compact( 'fields', 'entry', 'form_data', 'entry_id' );
+
+		$noptin_fields = apply_filters( 'noptin_wpforms_integration_new_subscriber_fields', array_filter( $noptin_fields ) );
+
+		add_noptin_subscriber( $noptin_fields );
+
+	}
+
+}

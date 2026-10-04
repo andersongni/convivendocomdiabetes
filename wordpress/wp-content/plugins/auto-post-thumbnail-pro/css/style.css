@@ -1,0 +1,53 @@
+
+.codecanyon_plugin_advertisement{
+    float: right;
+    width: 230px;
+    margin-top: 15px;
+    margin-right:-240px;
+    border: medium none;
+    border-radius: 4px;
+    box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+    padding:5px 5px 15px 5px;
+    background: #fff;
+}
+
+.codecanyon_plugin_logo {
+    float:left;
+    box-shadow: 4px 4px 5px rgba(0, 0, 0, 0.3);
+    margin:10px;
+    border-radius:3px;
+}
+
+.codecanyon_plugin_logo img {
+    border-radius:3px;
+}
+
+.codecanyon_plugin_check_out {
+    float:left;
+    font-size:35px;
+    line-height:35px;
+    width:120px;
+    padding-top:10px;
+    text-align: center;
+    font-family:message-box;
+    color: #EEEEEE;
+    text-shadow: 1px 1px 2px #000000;
+}
+
+.codecanyon_plugin_features {
+    padding-left:10px;
+    clear:both;
+}
+
+.codecanyon_plugin_features ul {
+    list-style:disc inside;
+}
+
+.codecanyon_plugin_buy_now {
+    text-align: center;
+}
+
+.float-right-nav-tab {
+    float: right;
+    background: #eee;
+}

@@ -1,0 +1,129 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Appointment Blue\n"
+"POT-Creation-Date: 2022-05-13 18:36+0530\n"
+"PO-Revision-Date: 2019-04-03 17:38+0530\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: style.css\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;"
+"_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.js\n"
+
+#: functions.php:73 functions/customizer/customizer-copyright.php:23
+msgid ""
+"Proudly powered by <a href=\"https://wordpress.org\">WordPress</a> | Theme: "
+"<a href=\"https://webriti.com\" rel=\"nofollow\">Appointment Blue</a> by "
+"Webriti"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:7
+#: functions/customizer/customizer-copyright.php:13
+msgid "Footer Copyright Settings"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:32
+msgid "Copyright Text"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:48
+msgid "Hide copyright text"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:57
+msgid "Social Links"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:78
+msgid "Hide footer social icons"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:97
+msgid "Facebook URL"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:114
+#: functions/customizer/customizer-copyright.php:150
+#: functions/customizer/customizer-copyright.php:185
+#: functions/customizer/customizer-copyright.php:221
+msgid "Open link in new tab"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:133
+msgid "Twitter URL"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:168
+msgid "LinkedIn URL"
+msgstr ""
+
+#: functions/customizer/customizer-copyright.php:204
+msgid "Skype URL"
+msgstr ""
+
+#: functions/customizer/customizer-header-layout.php:63
+msgid "Header Layout"
+msgstr ""
+
+#: functions/customizer/customizer-header-layout.php:85
+msgid "Header Layout Setting"
+msgstr ""
+
+#: functions/customizer/customizer-header-layout.php:90
+msgid "Header Standard"
+msgstr ""
+
+#: functions/customizer/customizer-header-layout.php:94
+msgid "Header Center"
+msgstr ""
+
+#: functions/template-tag.php:57 functions/template-tag.php:182
+msgid "Toggle navigation"
+msgstr ""
+
+#: header.php:18
+msgid "Skip to content"
+msgstr ""
+
+#. Theme Name of the plugin/theme
+msgid "Appointment Blue"
+msgstr ""
+
+#. Theme URI of the plugin/theme
+msgid "https://webriti.com/appointment-blue-child-version-details-page-1/"
+msgstr ""
+
+#. Description of the plugin/theme
+msgid ""
+"A Business theme which is ideal for creating a corporate / business website. "
+"Appointment Blue theme is a child theme of the Appointment theme and is the "
+"Blue color variation. Those who need a blue background-based theme can use "
+"this child theme. Appointment Blue theme comes with various locales."
+msgstr ""
+
+#. Author of the plugin/theme
+msgid "webriti"
+msgstr ""
+
+#. Author URI of the plugin/theme
+msgid "https://www.webriti.com"
+msgstr ""
+
+#. Template Name of the plugin/theme
+msgid "Blog-left-sidebar"
+msgstr ""
+
+#. Template Name of the plugin/theme
+msgid "Blog-right-sidebar"
+msgstr ""

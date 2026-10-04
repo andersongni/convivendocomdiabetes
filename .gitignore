@@ -1,0 +1,83 @@
+# Ambiente e credenciais
+.env
+.env.*
+!.env.example
+wp-config.php
+wordpress/wp-config.php
+wordpress/wp-config-local.php
+wordpress/.user.ini
+wordpress/php.ini
+
+# Dump do banco (grande / dados sensíveis)
+dump-database.sql
+db/*.sql
+*.sql
+!db/.gitkeep
+
+# Core WordPress (pode ser reinstalado; versionamos sobretudo wp-content)
+# Descomente se quiser versionar só o conteúdo customizado:
+# wordpress/wp-admin/
+# wordpress/wp-includes/
+# wordpress/wp-*.php
+# wordpress/xmlrpc.php
+# wordpress/license.txt
+# wordpress/readme.html
+# wordpress/index.php
+
+# Mídia, cache e backups gerados
+wordpress/wp-content/uploads/
+wordpress/wp-content/cache/
+wordpress/wp-content/upgrade/
+wordpress/wp-content/upgrade-temp-backup/
+wordpress/wp-content/backup*/
+wordpress/wp-content/backups/
+wordpress/wp-content/ai1wm-backups/
+wordpress/wp-content/updraft/
+wordpress/wp-content/wflogs/
+wordpress/wp-content/cache-config/
+wordpress/wp-content/w3tc-config/
+wordpress/wp-content/wp-cache-config.php
+wordpress/wp-content/advanced-cache.php
+wordpress/wp-content/object-cache.php
+wordpress/wp-content/db.php
+wordpress/wp-content/debug.log
+wordpress/wp-content/uploads.bak/
+
+# Arquivos grandes / pacotes
+*.sql.gz
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.rar
+*.7z
+*.wpress
+*.partial
+
+# Logs e temporários
+logs/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+db_data/
+.docker/
+
+# Node / tooling (se houver)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# IDE / OS
+.idea/
+.vscode/
+*.code-workspace
+.fleet/
+.history/

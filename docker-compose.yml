@@ -1,0 +1,41 @@
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: convivend62e9f3c_ccd
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: rootpass
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./dump-database.sql:/docker-entrypoint-initdb.d/01-dump.sql:ro
+    ports:
+      - "3306:3306"
+    command: --max_allowed_packet=256M --innodb_buffer_pool_size=512M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
+  wordpress:
+    # PHP 7.4 fica mais próximo do servidor (7.3) do que 8.2
+    image: wordpress:php7.4-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: convivend62e9f3c_ccd
+    volumes:
+      - ./wordpress:/var/www/html
+
+volumes:
+  db_data:

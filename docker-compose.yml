@@ -33,8 +33,24 @@ services:
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: wordpress
       WORDPRESS_DB_NAME: convivend62e9f3c_ccd
+      CCD_RECAPTCHA_SITE_KEY: ${CCD_RECAPTCHA_SITE_KEY:-}
+      CCD_RECAPTCHA_SECRET_KEY: ${CCD_RECAPTCHA_SECRET_KEY:-}
+      # 1 = re-copia plugins/themes do host no boot (ou use scripts/sync-local-wp-content.ps1)
+      SYNC_WP_CONTENT: ${SYNC_WP_CONTENT:-0}
+      HOST_WP_CONTENT: /host-wp-content
+    entrypoint: ["bash", "/usr/local/bin/local-entrypoint.sh"]
+    command: ["apache2-foreground"]
     volumes:
-      - ./wordpress:/var/www/html
+      - ./wordpress/wp-config.php:/var/www/html/wp-config.php:ro
+      - ./scripts/local-entrypoint.sh:/usr/local/bin/local-entrypoint.sh:ro
+      - ./scripts/sync-wp-content.sh:/usr/local/bin/sync-wp-content.sh:ro
+      - ./docker/opcache-local.ini:/usr/local/etc/php/conf.d/opcache-local.ini:ro
+      # Host (lento no Windows) so para sync; PHP le do volume Linux abaixo
+      - ./wordpress/wp-content:/host-wp-content:ro
+      - wp_content:/var/www/html/wp-content
+      # Uploads continuam no host (poucos PHP; midia grande)
+      - ./wordpress/wp-content/uploads:/var/www/html/wp-content/uploads
 
 volumes:
   db_data:
+  wp_content:

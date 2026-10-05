@@ -18,6 +18,9 @@ terraform/terraform.tfvars
 terraform/tfplan
 terraform/*.tfplan
 
+# Backup local de temas (antes de update)
+.theme-backup-*/
+
 # Dump / artefatos de migracao (local)
 dump-database.sql
 dump-filtered.sql
@@ -43,7 +46,7 @@ wordpress/wp-content/wflogs/
 wordpress/wp-content/cache-config/
 wordpress/wp-content/w3tc-config/
 wordpress/wp-content/wp-cache-config.php
-wordpress/wp-content/advanced-cache.php
+# advanced-cache.php e versionado (CCD page cache na imagem Docker)
 wordpress/wp-content/object-cache.php
 wordpress/wp-content/db.php
 wordpress/wp-content/debug.log

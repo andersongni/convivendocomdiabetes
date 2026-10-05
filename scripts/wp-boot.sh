@@ -89,20 +89,24 @@ else
   echo "[wp] WordPress ja instalado"
 fi
 
-# Ativa um tema twenty* disponivel (core oficial traz os atuais)
-THEME_OK=0
-for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do
-  if [ -d "/var/www/html/wp-content/themes/${theme}" ]; then
-    echo "[wp] Tentando ativar tema ${theme}"
-    if wp theme activate "${theme}" --allow-root --path=/var/www/html; then
-      THEME_OK=1
-      break
+# So ativa twenty* se o tema atual nao existir (apos import do dump, mantem Newspaper/etc.)
+CURRENT_THEME="$(wp option get stylesheet --allow-root --path=/var/www/html 2>/dev/null || true)"
+if [ -n "$CURRENT_THEME" ] && [ -f "/var/www/html/wp-content/themes/${CURRENT_THEME}/style.css" ]; then
+  echo "[wp] Mantendo tema ativo: ${CURRENT_THEME}"
+else
+  THEME_OK=0
+  for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do
+    if [ -d "/var/www/html/wp-content/themes/${theme}" ]; then
+      echo "[wp] Tema atual invalido — tentando ${theme}"
+      if wp theme activate "${theme}" --allow-root --path=/var/www/html; then
+        THEME_OK=1
+        break
+      fi
     fi
+  done
+  if [ "$THEME_OK" -ne 1 ]; then
+    echo "[wp] AVISO: nenhum tema twenty* disponivel"
   fi
-done
-if [ "$THEME_OK" -ne 1 ]; then
-  echo "[wp] AVISO: nao foi possivel ativar um tema twenty*"
-  ls -la /var/www/html/wp-content/themes || true
 fi
 
 if [ -n "${WP_HOME:-}" ]; then
@@ -112,16 +116,11 @@ if [ -n "${WP_HOME:-}" ]; then
     echo "[wp] Atualizando URLs ${CURRENT_URL} -> ${TARGET_URL}"
     wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true
     wp option update siteurl "${TARGET_URL}" --allow-root --path=/var/www/html || true
-    case "$CURRENT_URL" in
-      *convivendocomdiabetes.com*)
-        wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-        wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-        wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-        ;;
-      http://*)
-        wp search-replace "$CURRENT_URL" "${TARGET_URL}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-        ;;
-    esac
+    # Reescreve dominios antigos no conteudo (so quando URL mudou)
+    wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    wp search-replace "http://localhost:8080" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
   else
     echo "[wp] URLs ja corretas — sem search-replace"
   fi

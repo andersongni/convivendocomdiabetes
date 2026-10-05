@@ -20,6 +20,8 @@ terraform/*.tfplan
 
 # Dump de dados (local). Schema versionado em db/schema.sql
 dump-database.sql
+backup-local-*.sql
+uploads-sync.tgz
 *.sql
 !db/schema.sql
 

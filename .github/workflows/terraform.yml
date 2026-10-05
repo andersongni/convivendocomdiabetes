@@ -24,7 +24,7 @@ on:
           - "no"
           - "yes"
         default: "no"
-      apply:
+      run_apply:
         description: "Aplicar mudancas de infra no Railway (escolha yes)"
         type: choice
         options:
@@ -59,7 +59,7 @@ jobs:
           echo "event=${{ github.event_name }}"
           echo "ref=${{ github.ref }}"
           echo "import=${{ inputs.import }}"
-          echo "apply=${{ inputs.apply }}"
+          echo "run_apply=${{ inputs.run_apply }}"
 
       - uses: hashicorp/setup-terraform@v4
         with:
@@ -139,8 +139,8 @@ jobs:
             git push origin "HEAD:$TF_STATE_BRANCH"
           fi
 
-  plan:
-    name: Plan
+  plan_and_apply:
+    name: Plan and apply
     needs: [validate, import]
     if: always() && needs.validate.result == 'success' && (needs.import.result == 'success' || needs.import.result == 'skipped')
     runs-on: ubuntu-24.04
@@ -185,10 +185,9 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
             echo "Sem state na branch $TF_STATE_BRANCH."
-            echo "Rode Actions → Terraform → Run workflow com import=true uma vez."
+            echo "Rode Actions → Terraform → Run workflow com import=yes uma vez."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-
 
       - name: Terraform init
         if: steps.gate.outputs.skip == 'false' && steps.state.outputs.skip != 'true'
@@ -202,47 +201,13 @@ jobs:
           PASSWORD="${TF_VAR_wp_admin_password:-CcdTrocar123!}"
           terraform plan -input=false -no-color -var="wp_admin_password=$PASSWORD"
 
-  apply:
-    name: Apply
-    needs: plan
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == 'yes' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-24.04
-    environment: railway
-    defaults:
-      run:
-        working-directory: terraform
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-          terraform_wrapper: false
-
-      - name: Resolve Railway token
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-        run: |
-          TOKEN="${RAILWAY_TOKEN:-$RAILWAY_API_TOKEN}"
-          if [ -z "$TOKEN" ]; then
-            echo "Defina RAILWAY_TOKEN ou RAILWAY_API_TOKEN."
-            exit 1
-          fi
-          echo "::add-mask::$TOKEN"
-          echo "RAILWAY_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-
-      - name: Load Terraform state from branch
-        run: |
-          git fetch origin "$TF_STATE_BRANCH:$TF_STATE_BRANCH"
-          git show "$TF_STATE_BRANCH:terraform.tfstate" > terraform/terraform.tfstate
-
-      - name: Terraform init
-        run: terraform init -input=false
-
       - name: Terraform apply
+        if: >
+          github.event_name == 'workflow_dispatch' &&
+          inputs.run_apply == 'yes' &&
+          github.ref == 'refs/heads/main' &&
+          steps.gate.outputs.skip == 'false' &&
+          steps.state.outputs.skip != 'true'
         env:
           TF_VAR_wp_admin_password: ${{ secrets.WP_ADMIN_PASSWORD }}
         run: |
@@ -250,11 +215,17 @@ jobs:
           terraform apply -input=false -auto-approve -var="wp_admin_password=$PASSWORD"
 
       - name: Save Terraform state to branch
-        if: always()
+        if: >
+          always() &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.run_apply == 'yes' &&
+          steps.gate.outputs.skip == 'false' &&
+          steps.state.outputs.skip != 'true'
         run: |
           set -euo pipefail
           TMP="$(mktemp -d)"
-          git worktree add -B "$TF_STATE_BRANCH" "$TMP" "origin/$TF_STATE_BRANCH"
+          git worktree add -B "$TF_STATE_BRANCH" "$TMP" "origin/$TF_STATE_BRANCH" 2>/dev/null \
+            || git worktree add -B "$TF_STATE_BRANCH" "$TMP"
           cp terraform/terraform.tfstate "$TMP/terraform.tfstate"
           if [ -f terraform/terraform.tfstate.backup ]; then
             cp terraform/terraform.tfstate.backup "$TMP/terraform.tfstate.backup"

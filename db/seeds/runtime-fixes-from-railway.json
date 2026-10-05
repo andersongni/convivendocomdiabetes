@@ -1,0 +1,16 @@
+{
+  "pulled_from": "railway production",
+  "date": "2026-10-05",
+  "simple_css": {
+    "theme": "1",
+    "css": "/* Legacy tagDiv leftovers */\n.td-logo .td-main-logo img{\n\twidth:800px;\n\theight:96px;\n}\n#td-header-menu .sub-menu .menu-item a{\n\tcolor:transparent;\n\tdisplay:none;\n}\n\n/* Hide offcanvas hamburger on tablet/desktop */\n@media (min-width: 768px) {\n\t.main_menu_col [data-component=\"offcanvas\"],\n\t.navigation-bar [data-component=\"offcanvas\"] {\n\t\tdisplay: none !important;\n\t\tvisibility: hidden !important;\n\t\tpointer-events: none !important;\n\t}\n}\n\n/*\n * Yoast SEO admin-bar badge (\"1\") was rendering outside the admin bar\n * and appearing as a broken red icon over the site header (left of INÍCIO).\n * Hide the Yoast admin-bar entry on the frontend; SEO remains available in wp-admin.\n */\n#wpadminbar #wp-admin-bar-wpseo-menu {\n\tdisplay: none !important;\n}"
+  },
+  "theme_mods": {
+    "header_offscreen_nav_on_desktop": "0",
+    "header_offscreen_nav_on_tablet": "0"
+  },
+  "mu_plugins": [
+    "hide-yoast-adminbar-frontend.php",
+    "ccd-frontend-fixes.php"
+  ]
+}

@@ -1,0 +1,351 @@
+<?php
+/**
+ * Generic object action.
+ *
+ * @since 3.0.0
+ */
+
+namespace Hizzle\Noptin\Objects;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Generic object action.
+ */
+class Action extends \Hizzle\Noptin\Automation_Rules\Actions\Action {
+
+	/**
+	 * @var string $object_type The object type.
+	 */
+	public $object_type;
+
+	/**
+	 * @var string $action_id
+	 */
+	public $action_id;
+
+	/**
+	 * @var array $action_args
+	 */
+	public $action_args;
+
+	/**
+	 * @var string $singular_label
+	 */
+	public $singular_label;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param string $action_id The action id.
+	 * @param array  $action_args The action args.
+	 * @param Collection $collection The collection.
+	 * @since 3.0.0
+	 */
+	public function __construct( $action_id, $action_args, $collection ) {
+		$this->object_type    = $collection->type;
+		$this->action_id      = $action_id;
+		$this->action_args    = $action_args;
+		$this->category       = isset( $action_args['category'] ) ? $action_args['category'] : $collection->label;
+		$this->integration    = $collection->integration;
+		$this->singular_label = $collection->singular_label;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function get_id() {
+		return $this->action_id;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function get_name() {
+		return $this->action_args['label'];
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function get_description() {
+		return $this->action_args['description'];
+	}
+
+	/**
+	 * Retrieve the trigger's or action's image.
+	 *
+	 * @since 1.2.8
+	 * @return string
+	 */
+	public function get_image() {
+
+		if ( ! empty( $this->action_args['icon'] ) ) {
+			return $this->action_args['icon'];
+		}
+
+		return Store::get_collection_config( $this->object_type, 'icon' );
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function has_wizard_settings() {
+		if ( isset( $this->action_args['has_wizard_settings'] ) ) {
+			return $this->action_args['has_wizard_settings'];
+		}
+
+		if ( ! empty( $this->action_args['extra_settings'] ) || ! empty( $this->action_args['action_fields'] ) ) {
+			return true;
+		}
+
+		// Let's not check for self::get_action_fields() because we don't want
+		// to load all fields which will slow down the site.
+		return parent::has_wizard_settings();
+	}
+
+	/**
+	 * Returns the fields needed for this action.
+	 *
+	 * @return array
+	 */
+	protected function get_action_fields() {
+		$fields   = Store::fields( $this->object_type );
+		$prepared = array();
+
+		if ( ! empty( $this->action_args['extra_settings'] ) ) {
+			$prepared = $this->action_args['extra_settings'];
+		}
+
+		$include = empty( $this->action_args['action_fields'] ) ? array() : $this->action_args['action_fields'];
+		foreach ( $fields as $key => $args ) {
+
+			// If needed for this action...
+			if ( in_array( $key, $include, true ) || ( ! empty( $args['actions'] ) && in_array( $this->action_id, $args['actions'], true ) ) ) {
+				if ( isset( $args['action_label'] ) ) {
+					$args['label'] = $args['action_label'];
+					unset( $args['action_label'] );
+				}
+
+				if ( isset( $args['action_props'] ) && isset( $args['action_props'][ $this->action_id ] ) ) {
+					$args = array_merge( $args, $args['action_props'][ $this->action_id ] );
+					unset( $args['action_props'] );
+				}
+
+				$prepared[ $key ] = $args;
+			}
+		}
+
+		return $prepared;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function get_rule_table_description( $rule ) {
+		$settings = $rule->get_action_settings();
+		$meta     = array();
+
+		foreach ( $this->get_action_fields() as $key => $args ) {
+			if ( empty( $args['label'] ) && ! empty( $args['description'] ) ) {
+				$args['label'] = $args['description'];
+			}
+
+			// If required but not set...
+			if ( ! empty( $args['required'] ) && ( ! isset( $settings[ $key ] ) || '' === $settings[ $key ] ) ) {
+				return sprintf(
+					'<span class="noptin-rule-error">%s</span>',
+					sprintf(
+						// translators: %s is the field label.
+						esc_html__( 'Error: "%s" not specified', 'newsletter-optin-box' ),
+						$args['label']
+					)
+				);
+			}
+
+			if ( ! empty( $args['show_in_meta'] ) || ! empty( $args['required'] ) ) {
+				$value = isset( $settings[ $key ] ) ? $settings[ $key ] : '';
+
+				if ( $value && ! empty( $args['options'] ) ) {
+					$options   = is_callable( $args['options'] ) ? call_user_func( $args['options'] ) : $args['options'];
+					$options   = is_array( $options ) ? $options : array();
+					$new_value = array();
+
+					foreach ( (array) $value as $v ) {
+						if ( isset( $options[ $v ] ) ) {
+							$new_value[] = $options[ $v ];
+						} else {
+							$new_value[] = $v;
+						}
+					}
+
+					$value = $new_value;
+				}
+
+				if ( is_array( $value ) ) {
+					$value = implode( ', ', $value );
+				}
+
+				if ( $value ) {
+					$meta[ esc_html( $args['label'] ) ] = esc_html( $value );
+				}
+			}
+		}
+
+		return $this->rule_action_meta( $meta, $rule );
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function get_map_fields_section_title() {
+		if ( isset( $this->action_args['map_fields_section_title'] ) ) {
+			return $this->action_args['map_fields_section_title'];
+		}
+
+		return sprintf(
+			/* translators: %s: Object type label. */
+			__( '%s Information', 'newsletter-optin-box' ),
+			$this->singular_label
+		);
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function get_settings() {
+
+		$settings = array();
+
+		foreach ( $this->get_action_fields() as $key => $field ) {
+			if ( ! empty( $field['hide_action'] ) ) {
+				continue;
+			}
+
+			if ( ! empty( $this->action_args['advanced_fields'] ) && in_array( $key, $this->action_args['advanced_fields'], true ) ) {
+				$field['advanced'] = true;
+			}
+
+			if ( empty( $field['label'] ) && ! empty( $field['description'] ) ) {
+				$field['label'] = $field['description'];
+				unset( $field['description'] );
+			}
+
+			if ( isset( $field['options'] ) && is_callable( $field['options'] ) ) {
+				$field['options'] = call_user_func( $field['options'] );
+			}
+
+			if ( ! empty( $field['options'] ) && is_array( $field['options'] ) ) {
+				$field['map_field'] = $field['map_field'] ?? false;
+				$field['el'] = 'select';
+				unset( $field['type'] );
+			}
+
+			if ( isset( $field['el'] ) ) {
+				$settings[ $key ] = $field;
+				continue;
+			}
+
+			$settings[ $key ] = array(
+				'type'        => 'text',
+				'el'          => 'input',
+				'label'       => $field['label'],
+				'map_field'   => $field['map_field'] ?? true,
+				'placeholder' => $field['placeholder'] ?? '',
+				'description' => $field['description'] ?? '',
+				'advanced'    => $field['advanced'] ?? false,
+				'primary'     => $field['primary'] ?? false,
+				'show_in_meta' => $field['show_in_meta'] ?? false,
+			);
+
+			if ( isset( $field['default'] ) ) {
+				$settings[ $key ]['default'] = $field['default'];
+			}
+		}
+
+		return $settings;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function can_run( $subject, $rule, $args ) {
+		$settings = $rule->get_action_settings();
+
+		foreach ( $this->get_action_fields() as $key => $args ) {
+
+			// If required but not set...
+			if ( ! empty( $args['required'] ) && ( ! isset( $settings[ $key ] ) || '' === $settings[ $key ] ) ) {
+				throw new \Exception( sprintf( 'Error: "%s" not specified', esc_html( $args['label'] ) ) );
+			}
+		}
+
+		if ( ! isset( $this->action_args['callback'] ) || ! is_callable( $this->action_args['callback'] ) ) {
+			throw new \Exception( 'Error: Callback not specified' );
+		}
+
+		// Check if we have a custom can_run.
+		if ( isset( $this->action_args['can_run'] ) && is_callable( $this->action_args['can_run'] ) ) {
+			return call_user_func_array( $this->action_args['can_run'], array( $subject, $rule, $args ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function run( $subject, $rule, $args ) {
+
+		$settings = array();
+
+		/** @var \Hizzle\Noptin\Automation_Rules\Smart_Tags $smart_tags */
+		$smart_tags = $args['smart_tags'];
+
+		foreach ( $this->get_action_fields() as $key => $args ) {
+			$saved = $rule->get_action_setting( $key );
+
+			if ( ! is_null( $saved ) && '' !== $saved ) {
+				$settings[ $key ] = $smart_tags->replace_in_content( $rule->get_action_setting( $key ) );
+			}
+		}
+
+		$args = array(
+			'settings'   => $settings,
+			'action_id'  => $this->action_id,
+			'subject'    => $subject,
+			'rule'       => $rule,
+			'args'       => $args,
+			'smart_tags' => $smart_tags,
+		);
+
+		$needed = isset( $this->action_args['callback_args'] ) ? $this->action_args['callback_args'] : array( 'settings', 'action_id', 'subject', 'rule', 'args', 'smart_tags' );
+
+		// Order the arguments.
+		$args = array_merge( array_flip( $needed ), $args );
+
+		// Only pass the needed arguments.
+		$args = array_values( array_intersect_key( $args, array_flip( $needed ) ) );
+
+		// If we have an args limit, apply it.
+		if ( isset( $this->action_args['callback_args_limit'] ) ) {
+			$args = array_slice( $args, 0, $this->action_args['callback_args_limit'] );
+		}
+
+		return call_user_func_array( $this->action_args['callback'], $args );
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function run_if() {
+		return isset( $this->action_args['run_if'] ) ? $this->action_args['run_if'] : parent::run_if();
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function skip_if() {
+		return isset( $this->action_args['skip_if'] ) ? $this->action_args['skip_if'] : parent::skip_if();
+	}
+}

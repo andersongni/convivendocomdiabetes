@@ -1,0 +1,7 @@
+{
+    "label": "WP Recipe Maker",
+    "slug": "wp-recipe-maker",
+    "requires": {
+        "class": "WP_Recipe_Maker"
+    }
+}

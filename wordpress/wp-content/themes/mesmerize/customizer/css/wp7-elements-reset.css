@@ -1,0 +1,201 @@
+
+/** wp7.0 fixes start*/
+.ope-pro-header,
+.mesmerize-page,
+.mesmerize-notice,
+.ocdie-tbWindow,
+.data-edit-popup,
+.companion-needed-section,
+.extendthemes-import-popup-content,
+.control-panel-mesmerize-customizer-panels-contentpanel,
+.customize-control-kirki {
+    --wp-block-synced-color: #7a00df;
+    --wp-block-synced-color--rgb: 122, 0, 223;
+    --wp-editor-canvas-background: #ddd;
+    --wp-admin-theme-color: #007cba;
+    --wp-admin-theme-color--rgb: 0, 124, 186;
+    --wp-admin-theme-color-darker-10: #006ba1;
+    --wp-admin-theme-color-darker-10--rgb: 0, 107, 161;
+    --wp-admin-theme-color-darker-20: #005a87;
+    --wp-admin-theme-color-darker-20--rgb: 0, 90, 135;
+     .button {
+        line-height: 2.15384615;
+        min-height: 30px;
+        font-weight: 400;
+         border-radius: 3px;
+
+    }
+    .repeater-add,
+    .remove-button,
+    .upload-button,
+    [data-sidebar-container*="cp-sidebar-button-group"] {
+        background: #f6f7f7;
+    }
+    .button .dashicons:before {
+        line-height: 1;
+    }
+    .button.button-hero,
+    .button.button-hero {
+        font-size: 14px;
+        min-height: 46px;
+        line-height: 3.14285714;
+        padding: 0 36px;
+    }
+    .button.button-small {
+        min-height: 26px;
+        line-height: 2.18181818;
+    }
+    .button.button-large {
+        min-height: 32px;
+        line-height: 2.30769231;
+    }
+   .button-link,
+   .button-primary {
+        --wp-admin-theme-color: #2271b1;
+        --wp-admin-theme-color-darker-10: #135e96;
+        font-weight: 400;
+    }
+    .button-primary {
+        padding: 0 10px;
+        min-height: 30px;
+        line-height: 2.15384615;
+    }
+}
+
+.extendthemes-import-popup-content,
+.wp-customizer {
+
+
+
+    .extendthemes-demo-import-popup-container,
+    .ocdie-tbWindow,
+    .data-edit-popup,
+    .customize-control-kirki {
+         input[type="date"],
+         input[type="datetime-local"],
+         input[type="datetime"],
+         input[type="email"],
+         input[type="month"],
+         input[type="number"],
+         input[type="password"],
+         input[type="search"],
+         input[type="tel"],
+         input[type="text"],
+         input[type="time"],
+         input[type="url"],
+         input[type="week"],
+         select
+         {
+            min-height: 30px;
+            border-radius: 4px;
+            line-height: 2;
+        }
+    }
+
+    .mesmerize-page,
+    .extendthemes-demo-import-popup-container,
+    .ocdie-tbWindow,
+    .data-edit-popup {
+        .button {
+            line-height: 2.15384615;
+            min-height: 30px;
+            margin: 0;
+            padding: 0 10px;
+        }
+        .button.button-small {
+            min-height: 26px;
+            line-height: 2.18181818;
+        }
+        .button-group.button-large .button,
+        .button.button-large {
+            min-height: 32px;
+            line-height: 2.30769231;
+            padding: 0 12px;
+        }
+        .button-primary {
+            font-weight: 400;
+            padding: 0 10px;
+            min-height: 30px;
+            line-height: 2.15384615;
+        }
+        .button-group.button-hero .button,
+        .button.button-hero {
+            min-height: 46px;
+            line-height: 3.14285714;
+            padding: 0 36px;
+        }
+        input[type="date"],
+        input[type="datetime-local"],
+        input[type="datetime"],
+        input[type="email"],
+        input[type="month"],
+        input[type="number"],
+        input[type="password"],
+        input[type="search"],
+        input[type="tel"],
+        input[type="text"],
+        input[type="time"],
+        input[type="url"],
+        input[type="week"],
+        select
+        {
+            padding: 0 8px;
+        }
+    }
+}
+
+.mesmerize-page {
+        input[type="date"],
+        input[type="datetime-local"],
+        input[type="datetime"],
+        input[type="email"],
+        input[type="month"],
+        input[type="number"],
+        input[type="password"],
+        input[type="search"],
+        input[type="tel"],
+        input[type="text"],
+        input[type="time"],
+        input[type="url"],
+        input[type="week"],
+        select
+        {
+            min-height: 30px;
+            border-radius: 4px;
+            line-height: 2;
+            padding: 0 8px;
+        }
+
+
+
+        .button {
+            line-height: 2.15384615;
+            min-height: 30px;
+            margin: 0;
+            padding: 0 10px;
+        }
+        .button.button-small {
+            min-height: 26px;
+            line-height: 2.18181818;
+        }
+        .button-group.button-large .button,
+        .button.button-large {
+            min-height: 32px;
+            line-height: 2.30769231;
+            padding: 0 12px;
+        }
+        .button-primary {
+            font-weight: 400;
+            padding: 0 10px;
+            min-height: 30px;
+            line-height: 2.15384615;
+        }
+        .button-group.button-hero .button,
+        .button.button-hero {
+            min-height: 46px;
+            line-height: 3.14285714;
+            padding: 0 36px;
+        }
+}
+
+/*end*/

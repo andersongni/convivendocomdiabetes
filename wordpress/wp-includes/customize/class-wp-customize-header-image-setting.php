@@ -28,14 +28,23 @@
  * }
  */
 final class WP_Customize_Header_Image_Setting extends WP_Customize_Setting {
+
+	/**
+	 * Unique string identifier for the setting.
+	 *
+	 * @since 3.4.0
+	 * @var string
+	 */
 	public $id = 'header_image_data';
 
 	/**
 	 * @since 3.4.0
+	 * @since 7.0.0 Return type updated from void to true for compatibility with base class.
 	 *
 	 * @global Custom_Image_Header $custom_image_header
 	 *
 	 * @param mixed $value The value to update.
+	 * @return true Always returns true.
 	 */
 	public function update( $value ) {
 		global $custom_image_header;
@@ -44,13 +53,15 @@ final class WP_Customize_Header_Image_Setting extends WP_Customize_Setting {
 		if ( empty( $custom_image_header ) ) {
 			require_once ABSPATH . 'wp-admin/includes/class-custom-image-header.php';
 			$args                   = get_theme_support( 'custom-header' );
-			$admin_head_callback    = isset( $args[0]['admin-head-callback'] ) ? $args[0]['admin-head-callback'] : null;
-			$admin_preview_callback = isset( $args[0]['admin-preview-callback'] ) ? $args[0]['admin-preview-callback'] : null;
+			$admin_head_callback    = $args[0]['admin-head-callback'] ?? null;
+			$admin_preview_callback = $args[0]['admin-preview-callback'] ?? null;
 			$custom_image_header    = new Custom_Image_Header( $admin_head_callback, $admin_preview_callback );
 		}
 
-		// If the value doesn't exist (removed or random),
-		// use the header_image value.
+		/*
+		 * If the value doesn't exist (removed or random),
+		 * use the header_image value.
+		 */
 		if ( ! $value ) {
 			$value = $this->manager->get_setting( 'header_image' )->post_value();
 		}
@@ -60,6 +71,7 @@ final class WP_Customize_Header_Image_Setting extends WP_Customize_Setting {
 		} else {
 			$custom_image_header->set_header_image( $value );
 		}
+		return true;
 	}
 
 	/**
@@ -167,7 +179,7 @@ final class WP_Customize_Header_Image_Setting extends WP_Customize_Setting {
 			if ( ! is_string( $value['url'] ) ) {
 				return null;
 			}
-			$sanitized['url'] = esc_url_raw( $value['url'] );
+			$sanitized['url'] = sanitize_url( $value['url'] );
 			if ( '' === $sanitized['url'] ) {
 				return new WP_Error( 'invalid_url', __( 'Invalid URL.' ) );
 			}
@@ -177,7 +189,7 @@ final class WP_Customize_Header_Image_Setting extends WP_Customize_Setting {
 			if ( ! is_string( $value['thumbnail_url'] ) ) {
 				return null;
 			}
-			$sanitized['thumbnail_url'] = esc_url_raw( $value['thumbnail_url'] );
+			$sanitized['thumbnail_url'] = sanitize_url( $value['thumbnail_url'] );
 			if ( '' === $sanitized['thumbnail_url'] ) {
 				return new WP_Error( 'invalid_url', __( 'Invalid URL.' ) );
 			}

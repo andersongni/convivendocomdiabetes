@@ -1,8 +1,8 @@
-/******/ (function() { // webpackBootstrap
+/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 5817:
-/***/ (function(module) {
+/***/ 659
+(module) {
 
 var l10n = wp.media.view.l10n,
 	EditAttachmentMetadata;
@@ -34,10 +34,10 @@ EditAttachmentMetadata = wp.media.controller.State.extend(/** @lends wp.media.co
 module.exports = EditAttachmentMetadata;
 
 
-/***/ }),
+/***/ },
 
-/***/ 9525:
-/***/ (function(module) {
+/***/ 2429
+(module) {
 
 /**
  * wp.media.view.MediaFrame.Manage.Router
@@ -108,10 +108,10 @@ var Router = Backbone.Router.extend(/** @lends wp.media.view.MediaFrame.Manage.R
 module.exports = Router;
 
 
-/***/ }),
+/***/ },
 
-/***/ 7433:
-/***/ (function(module) {
+/***/ 1312
+(module) {
 
 var Details = wp.media.view.Attachment.Details,
 	TwoColumn;
@@ -131,7 +131,7 @@ var Details = wp.media.view.Attachment.Details,
  * @augments wp.Backbone.View
  * @augments Backbone.View
  */
-TwoColumn = Details.extend(/** @lends wp.media.view.Attachment.Details.TowColumn.prototype */{
+TwoColumn = Details.extend(/** @lends wp.media.view.Attachment.Details.TwoColumn.prototype */{
 	template: wp.template( 'attachment-details-two-column' ),
 
 	initialize: function() {
@@ -157,10 +157,10 @@ TwoColumn = Details.extend(/** @lends wp.media.view.Attachment.Details.TowColumn
 module.exports = TwoColumn;
 
 
-/***/ }),
+/***/ },
 
-/***/ 5562:
-/***/ (function(module) {
+/***/ 5806
+(module) {
 
 var Button = wp.media.view.Button,
 	DeleteSelected = wp.media.view.DeleteSelectedButton,
@@ -211,10 +211,10 @@ DeleteSelectedPermanently = DeleteSelected.extend(/** @lends wp.media.view.Delet
 module.exports = DeleteSelectedPermanently;
 
 
-/***/ }),
+/***/ },
 
-/***/ 471:
-/***/ (function(module) {
+/***/ 6606
+(module) {
 
 var Button = wp.media.view.Button,
 	l10n = wp.media.view.l10n,
@@ -258,7 +258,10 @@ DeleteSelected = Button.extend(/** @lends wp.media.view.DeleteSelectedButton.pro
 	},
 
 	render: function() {
+		// Set size silently before calling base render to avoid nested renders.
+		this.model.set( 'size', '', { silent: true } );
 		Button.prototype.render.apply( this, arguments );
+
 		if ( this.controller.isModeActive( 'select' ) ) {
 			this.$el.addClass( 'delete-selected-button' );
 		} else {
@@ -272,10 +275,10 @@ DeleteSelected = Button.extend(/** @lends wp.media.view.DeleteSelectedButton.pro
 module.exports = DeleteSelected;
 
 
-/***/ }),
+/***/ },
 
-/***/ 6767:
-/***/ (function(module) {
+/***/ 682
+(module) {
 
 
 var Button = wp.media.view.Button,
@@ -331,7 +334,7 @@ SelectModeToggle = Button.extend(/** @lends wp.media.view.SelectModeToggle.proto
 		// @todo The Frame should be doing all of this.
 		if ( this.controller.isModeActive( 'select' ) ) {
 			this.model.set( {
-				size: 'large',
+				size: '',
 				text: l10n.cancel
 			} );
 			children.not( '.spinner, .media-button' ).hide();
@@ -356,10 +359,10 @@ SelectModeToggle = Button.extend(/** @lends wp.media.view.SelectModeToggle.proto
 module.exports = SelectModeToggle;
 
 
-/***/ }),
+/***/ },
 
-/***/ 9157:
-/***/ (function(module) {
+/***/ 8521
+(module) {
 
 var View = wp.media.View,
 	EditImage = wp.media.view.EditImage,
@@ -398,13 +401,14 @@ Details = EditImage.extend(/** @lends wp.media.view.EditImage.Details.prototype 
 module.exports = Details;
 
 
-/***/ }),
+/***/ },
 
-/***/ 5169:
-/***/ (function(module) {
+/***/ 1003
+(module) {
 
 var Frame = wp.media.view.Frame,
 	MediaFrame = wp.media.view.MediaFrame,
+	l10n = wp.media.view.l10n,
 
 	$ = jQuery,
 	EditAttachments;
@@ -437,6 +441,30 @@ EditAttachments = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.EditAtta
 		'click .left':  'previousMediaItem',
 		'click .right': 'nextMediaItem'
 	},
+
+	/**
+	 * Announces to screen readers the attachment shown after previous/next navigation.
+	 *
+	 * @since 7.1.0
+	 *
+	 * @param {Object} model The attachment model.
+	 * @return {void}
+	 */
+	announceMediaItemDebounced: _.debounce( function( model ) {
+		var title;
+
+		if ( ! model ) {
+			return;
+		}
+
+		title = model.get( 'title' ) || model.get( 'filename' ) || model.get( 'id' );
+
+		if ( ! title ) {
+			return;
+		}
+
+		wp.a11y.speak( l10n.mediaItemViewed.replace( '%s', title ) );
+	}, 500 ),
 
 	initialize: function() {
 		Frame.prototype.initialize.apply( this, arguments );
@@ -501,6 +529,8 @@ EditAttachments = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.EditAtta
 				// Move focus back to the original item in the grid if possible.
 				$( 'li.attachment[data-id="' + this.model.get( 'id' ) +'"]' ).trigger( 'focus' );
 				this.resetRoute();
+				// Cancel any pending navigation announcement.
+				this.announceMediaItemDebounced.cancel();
 			}, this ) );
 
 			// Set this frame as the modal's content.
@@ -607,26 +637,34 @@ EditAttachments = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.EditAtta
 	 * Click handler to switch to the previous media item.
 	 */
 	previousMediaItem: function() {
+		var model;
+
 		if ( ! this.hasPrevious() ) {
 			return;
 		}
 
-		this.trigger( 'refresh', this.library.at( this.getCurrentIndex() - 1 ) );
+		model = this.library.at( this.getCurrentIndex() - 1 );
+		this.trigger( 'refresh', model );
 		// Move focus to the Previous button. When there are no more items, to the Next button.
 		this.focusNavButton( this.hasPrevious() ? '.left' : '.right' );
+		this.announceMediaItemDebounced( model );
 	},
 
 	/**
 	 * Click handler to switch to the next media item.
 	 */
 	nextMediaItem: function() {
+		var model;
+
 		if ( ! this.hasNext() ) {
 			return;
 		}
 
-		this.trigger( 'refresh', this.library.at( this.getCurrentIndex() + 1 ) );
+		model = this.library.at( this.getCurrentIndex() + 1 );
+		this.trigger( 'refresh', model );
 		// Move focus to the Next button. When there are no more items, to the Previous button.
 		this.focusNavButton( this.hasNext() ? '.right' : '.left' );
+		this.announceMediaItemDebounced( model );
 	},
 
 	/**
@@ -652,20 +690,28 @@ EditAttachments = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.EditAtta
 		return ( this.getCurrentIndex() - 1 ) > -1;
 	},
 	/**
-	 * Respond to the keyboard events: right arrow, left arrow, except when
-	 * focus is in a textarea or input field.
+	 * Respond to the keyboard events: Alt + right arrow, Alt + left arrow,
+	 * except when focus is in a form field. Requires the Alt modifier key to
+	 * avoid interfering with screen reader navigation.
 	 */
 	keyEvent: function( event ) {
-		if ( ( 'INPUT' === event.target.nodeName || 'TEXTAREA' === event.target.nodeName ) && ! event.target.disabled ) {
+		if ( ( 'INPUT' === event.target.nodeName || 'TEXTAREA' === event.target.nodeName || 'SELECT' === event.target.nodeName ) && ! event.target.disabled ) {
 			return;
 		}
 
-		// The right arrow key.
+		// Arrow key navigation requires Alt key to avoid interfering with screen reader navigation.
+		if ( ! event.altKey ) {
+			return;
+		}
+
+		// Alt + right arrow key.
 		if ( 39 === event.keyCode ) {
+			event.preventDefault();
 			this.nextMediaItem();
 		}
-		// The left arrow key.
+		// Alt + left arrow key.
 		if ( 37 === event.keyCode ) {
+			event.preventDefault();
 			this.previousMediaItem();
 		}
 	},
@@ -680,10 +726,10 @@ EditAttachments = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.EditAtta
 module.exports = EditAttachments;
 
 
-/***/ }),
+/***/ },
 
-/***/ 4817:
-/***/ (function(module) {
+/***/ 8359
+(module) {
 
 var MediaFrame = wp.media.view.MediaFrame,
 	Library = wp.media.controller.Library,
@@ -785,8 +831,9 @@ Manage = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.Manage.prototype 
 
 				if ( val ) {
 					url += '?search=' + val;
-					this.gridRouter.navigate( this.gridRouter.baseUrl( url ), { replace: true } );
 				}
+
+				this.gridRouter.navigate( this.gridRouter.baseUrl( url ), { replace: true } );
 			}, 1000 );
 
 		// Update the URL when entering search string (at most once per second).
@@ -974,22 +1021,22 @@ Manage = MediaFrame.extend(/** @lends wp.media.view.MediaFrame.Manage.prototype 
 module.exports = Manage;
 
 
-/***/ })
+/***/ }
 
 /******/ 	});
 /************************************************************************/
 /******/ 	// The module cache
-/******/ 	var __webpack_module_cache__ = {};
+/******/ 	const __webpack_module_cache__ = {};
 /******/ 	
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		const cachedModule = __webpack_module_cache__[moduleId];
 /******/ 		if (cachedModule !== undefined) {
 /******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = __webpack_module_cache__[moduleId] = {
+/******/ 		const module = __webpack_module_cache__[moduleId] = {
 /******/ 			// no module.id needed
 /******/ 			// no module.loaded needed
 /******/ 			exports: {}
@@ -1003,25 +1050,21 @@ module.exports = Manage;
 /******/ 	}
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
-!function() {
 /**
  * @output wp-includes/js/media-grid.js
  */
 
 var media = wp.media;
 
-media.controller.EditAttachmentMetadata = __webpack_require__( 5817 );
-media.view.MediaFrame.Manage = __webpack_require__( 4817 );
-media.view.Attachment.Details.TwoColumn = __webpack_require__( 7433 );
-media.view.MediaFrame.Manage.Router = __webpack_require__( 9525 );
-media.view.EditImage.Details = __webpack_require__( 9157 );
-media.view.MediaFrame.EditAttachments = __webpack_require__( 5169 );
-media.view.SelectModeToggleButton = __webpack_require__( 6767 );
-media.view.DeleteSelectedButton = __webpack_require__( 471 );
-media.view.DeleteSelectedPermanentlyButton = __webpack_require__( 5562 );
+media.controller.EditAttachmentMetadata = __webpack_require__( 659 );
+media.view.MediaFrame.Manage = __webpack_require__( 8359 );
+media.view.Attachment.Details.TwoColumn = __webpack_require__( 1312 );
+media.view.MediaFrame.Manage.Router = __webpack_require__( 2429 );
+media.view.EditImage.Details = __webpack_require__( 8521 );
+media.view.MediaFrame.EditAttachments = __webpack_require__( 1003 );
+media.view.SelectModeToggleButton = __webpack_require__( 682 );
+media.view.DeleteSelectedButton = __webpack_require__( 6606 );
+media.view.DeleteSelectedPermanentlyButton = __webpack_require__( 5806 );
 
-}();
 /******/ })()
 ;

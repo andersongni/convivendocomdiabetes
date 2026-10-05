@@ -1,0 +1,7 @@
+{
+    "label": "WooCommerce",
+    "slug": "woocommerce",
+    "requires": {
+        "class": "WooCommerce"
+    }
+}

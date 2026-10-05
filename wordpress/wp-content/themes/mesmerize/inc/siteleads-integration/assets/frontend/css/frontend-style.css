@@ -1,0 +1,12 @@
+.siteleads-fc-widgets .customize-partial-edit-shortcut {
+  z-index: 999999999;
+  right: 0;
+  box-sizing: initial;
+  top: 50%;
+  left: unset;
+  bottom: unset;
+}
+.siteleads-fc-widgets .customize-partial-edit-shortcut button {
+  left: -68px;
+  top: -34px;
+}

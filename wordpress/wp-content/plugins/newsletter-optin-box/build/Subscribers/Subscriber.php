@@ -1,0 +1,1035 @@
+<?php
+
+namespace Hizzle\Noptin\Subscribers;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Container for a single subscriber.
+ *
+ * @version 1.0.0
+ */
+class Subscriber extends \Hizzle\Store\Record {
+
+	/**
+	 * Returns the subscriber's full name.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_name( $context = 'view' ) {
+		// In case the full name is stored in the name property, return it.
+		$name = $this->get_prop( 'name', $context );
+
+		if ( ! empty( $name ) ) {
+			return $name;
+		}
+
+		return trim( $this->get_first_name( $context ) . ' ' . $this->get_last_name( $context ) );
+	}
+
+	/**
+	 * Sets the subscriber's full name.
+	 *
+	 * @param string|array $value Full name.
+	 */
+	public function set_name( $value ) {
+
+		if ( empty( $value ) ) {
+			return;
+		}
+
+		// If the name property exists, use it.
+		$this->set_prop( 'name', sanitize_text_field( $value ) );
+
+		// Also, split the name into first and last name.
+		$parts      = is_array( $value ) ? $value : explode( ' ', $value, 2 );
+		$first_name = array_shift( $parts );
+		$last_name  = empty( $parts ) ? '' : array_pop( $parts );
+		$changes    = $this->get_changes();
+
+		if ( empty( $changes['first_name'] ) ) {
+			$this->set_first_name( $first_name );
+		}
+
+		if ( empty( $changes['last_name'] ) && ! empty( $last_name ) ) {
+			$this->set_last_name( $last_name );
+		}
+	}
+
+	/**
+	 * Returns the first name.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_first_name( $context = 'view' ) {
+		return $this->get_prop( 'first_name', $context );
+	}
+
+	/**
+	 * Sets the first name.
+	 *
+	 * @param string $value First name.
+	 */
+	public function set_first_name( $value ) {
+		$this->set_prop( 'first_name', sanitize_text_field( $value ) );
+	}
+
+	/**
+	 * Returns the last name.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_last_name( $context = 'view' ) {
+		return $this->get_prop( 'last_name', $context );
+	}
+
+	/**
+	 * Sets the last name.
+	 *
+	 * @param string $value Last name.
+	 */
+	public function set_last_name( $value ) {
+		$this->set_prop( 'last_name', sanitize_text_field( $value ) );
+	}
+
+	/**
+	 * Returns the email address.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_email( $context = 'view' ) {
+		return $this->get_prop( 'email', $context );
+	}
+
+	/**
+	 * Sets the email address.
+	 *
+	 * @param string $value Email address.
+	 */
+	public function set_email( $value ) {
+		if ( is_email( $value ) ) {
+			$this->set_prop( 'email', sanitize_email( $value ) );
+		}
+	}
+
+	/**
+	 * Checks if the subscriber is active.
+	 *
+	 * @return bool
+	 */
+	public function is_active() {
+		return $this->exists() && 'subscribed' === $this->get_status();
+	}
+
+	/**
+	 * Returns the status.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_status( $context = 'view' ) {
+		return $this->get_prop( 'status', $context );
+	}
+
+	/**
+	 * Sets the status.
+	 *
+	 * @param string $value Status.
+	 */
+	public function set_status( $value ) {
+		if ( array_key_exists( $value, noptin_get_subscriber_statuses() ) ) {
+
+			// If unsubscribing, record the activity.
+			if ( $this->object_read && $this->is_active() && 'unsubscribed' === $value ) {
+				$this->record_activity( 'Unsubscribed from the newsletter' );
+			}
+
+			// If subscribing, record the activity.
+			if ( $this->object_read && 'unsubscribed' === $this->get_status() && 'subscribed' === $value ) {
+				$this->record_activity( 'Re-subscribed to the newsletter' );
+			}
+
+			$this->set_prop( 'status', $value );
+		}
+	}
+
+	/**
+	 * Gets the subscriber source.
+	 *
+	 * @return string
+	 */
+	public function get_source( $context = 'view' ) {
+		return $this->get_prop( 'source', $context );
+	}
+
+	/**
+	 * Sets the subscriber source.
+	 *
+	 * @param string $value Source.
+	 */
+	public function set_source( $value ) {
+		$source = is_null( $value ) ? null : sanitize_text_field( $value );
+		$this->set_prop( 'source', $source );
+	}
+
+	/**
+	 * Gets the subscriber ip address.
+	 *
+	 * @return string
+	 */
+	public function get_ip_address( $context = 'view' ) {
+		return $this->get_prop( 'ip_address', $context );
+	}
+
+	/**
+	 * Sets the subscriber ip address.
+	 *
+	 * @param string $value IP address.
+	 */
+	public function set_ip_address( $value ) {
+		$ip_address = is_null( $value ) ? null : sanitize_text_field( $value );
+		$this->set_prop( 'ip_address', $ip_address );
+	}
+
+	/**
+	 * Gets the subscriber's formatted conversion page.
+	 *
+	 * @return string
+	 */
+	public function get_formatted_conversion_page( $context = 'view' ) {
+		$url = $this->get_conversion_page( $context );
+
+		if ( empty( $url ) ) {
+			return '';
+		}
+
+		$text = str_replace( array( home_url(), 'https://', 'http://' ), '', $url );
+		if ( strlen( $text ) > 15 ) {
+			$text = substr( $text, 0, 15 ) . '...';
+		}
+
+		return sprintf(
+			'<a href="%s" title="%s" target="_blank">%s</a>',
+			esc_url( $url ),
+			esc_attr( $url ),
+			esc_html( $text )
+		);
+	}
+
+	/**
+	 * Gets the subscriber conversion page.
+	 *
+	 * @return string
+	 */
+	public function get_conversion_page( $context = 'view' ) {
+		return $this->get_prop( 'conversion_page', $context );
+	}
+
+	/**
+	 * Sets the subscriber conversion page.
+	 *
+	 * @param string $value Conversion page.
+	 */
+	public function set_conversion_page( $value ) {
+		$conversion_page = is_null( $value ) ? null : esc_url_raw( $value );
+		$this->set_prop( 'conversion_page', $conversion_page );
+	}
+
+	/**
+	 * Gets the subscriber confirmed status.
+	 *
+	 * @return bool
+	 */
+	public function get_confirmed( $context = 'view' ) {
+		return $this->get_prop( 'confirmed', $context );
+	}
+
+	/**
+	 * Sets the subscriber confirmed status.
+	 *
+	 * @param bool $value Confirmed status.
+	 */
+	public function set_confirmed( $value ) {
+		$value = boolval( $value );
+		$this->set_prop( 'confirmed', $value );
+
+		// If the subscriber is confirmed, set the status to subscribed.
+		if ( $value && $this->object_read && $this->exists() && 'subscribed' !== $this->get_status() ) {
+			$this->set_status( 'subscribed' );
+			$this->record_activity( 'Confirmed email address' );
+		}
+	}
+
+	/**
+	 * Gets the subscriber's confirmation key.
+	 *
+	 * @return string
+	 */
+	public function get_confirm_key( $context = 'view' ) {
+		$confirm_key = $this->get_prop( 'confirm_key', $context );
+
+		if ( empty( $confirm_key ) ) {
+			$confirm_key = md5( wp_generate_password( 32, false ) . uniqid() );
+			$this->set_confirm_key( $confirm_key );
+		}
+
+		return $confirm_key;
+	}
+
+	/**
+	 * Sets the subscriber's confirmation key.
+	 *
+	 * @param string $value Confirmation key.
+	 */
+	public function set_confirm_key( $value ) {
+		$confirm_key = empty( $value ) ? md5( wp_generate_password( 32, false ) . uniqid() ) : sanitize_text_field( $value );
+		$this->set_prop( 'confirm_key', $confirm_key );
+	}
+
+	/**
+	 * Get the subscriber's creation date.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return \Hizzle\Store\Date_Time|null
+	 */
+	public function get_date_created( $context = 'view' ) {
+		return $this->get_prop( 'date_created', $context );
+	}
+
+	/**
+	 * Set the subscriber's creation date.
+	 *
+	 * @param \Hizzle\Store\Date_Time|string|integer|null $date UTC timestamp, or ISO 8601 DateTime. If the DateTime string has no timezone or offset, WordPress site timezone will be assumed. Null if their is no date.
+	 */
+	public function set_date_created( $date = null ) {
+		$this->set_date_prop( 'date_created', $date );
+	}
+
+	/**
+	 * Get the subscriber's modified date.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return \Hizzle\Store\Date_Time|null
+	 */
+	public function get_date_modified( $context = 'view' ) {
+		return $this->get_prop( 'date_modified', $context );
+	}
+
+	/**
+	 * Set the subscriber's modified date.
+	 *
+	 * @param \Hizzle\Store\Date_Time|string|integer|null $date UTC timestamp, or ISO 8601 DateTime. If the DateTime string has no timezone or offset, WordPress site timezone will be assumed. Null if their is no date.
+	 */
+	public function set_date_modified( $date = null ) {
+		$this->set_date_prop( 'date_modified', $date );
+	}
+
+	/**
+	 * Fetches the subscriber's activity.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return array
+	 */
+	public function get_activity( $context = 'view' ) {
+		$activity = $this->get_prop( 'activity', $context );
+
+		if ( is_string( $activity ) ) {
+			$activity = json_decode( $activity, true );
+		}
+
+		return is_array( $activity ) ? $activity : array();
+	}
+
+	/**
+	 * Sets the subscriber's activity.
+	 *
+	 * @param array|string $activity Activity.
+	 */
+	public function set_activity( $activity ) {
+		$activity = empty( $activity ) ? array() : maybe_unserialize( $activity );
+		$activity = is_array( $activity ) ? wp_json_encode( $activity ) : $activity;
+		$this->set_prop( 'activity', $activity );
+	}
+
+	/**
+	 * Records a subscriber's activity.
+	 *
+	 * @param string $activity Activity.
+	 */
+	public function record_activity( $activity ) {
+		$activities   = $this->get_activity();
+		$activities[] = array(
+			'time'    => time(),
+			'content' => $activity,
+		);
+
+		// Only save the last 30 activities.
+		if ( count( $activities ) > 30 ) {
+			$activities = array_slice( $activities, -30 );
+		}
+
+		$this->set_activity( $activities );
+	}
+
+	/**
+	 * Records a subscriber's sent email campaign.
+	 */
+	public function record_sent_campaign() {
+		$this->set( 'total_emails_sent', ( (int) $this->get( 'total_emails_sent' ) ) + 1 );
+		$this->set( 'last_email_sent_date', time() );
+		$this->set( 'email_engagement_score', $this->calculate_engagement_score() );
+		$this->save();
+	}
+
+	/**
+	 * Records an opened email campaign.
+	 *
+	 * @param int $campaign_id Campaign ID.
+	 */
+	public function record_opened_campaign( $campaign_id ) {
+		$this->set( 'total_emails_opened', ( (int) $this->get( 'total_emails_opened' ) ) + 1 );
+		$this->set( 'last_email_opened_date', time() );
+		$this->set( 'email_engagement_score', $this->calculate_engagement_score() );
+		$this->save();
+
+		// We only want to record opens once per campaign.
+		if ( ! \Hizzle\Noptin\Emails\Logs\Main::did_activity( 'open', $campaign_id, $this->get_email() ) ) {
+			// Increment total opens for the campaign.
+			increment_noptin_campaign_stat( $campaign_id, '_noptin_opens' );
+
+			// Fire action.
+			do_action( 'log_noptin_subscriber_campaign_open', $this->get_id(), $campaign_id );
+		}
+	}
+
+	/**
+	 * Records a clicked link in an email campaign.
+	 *
+	 * @param int $campaign_id Campaign ID.
+	 * @param string $url URL.
+	 */
+	public function record_clicked_link( $campaign_id, $url ) {
+		$this->set( 'total_links_clicked', ( (int) $this->get( 'total_links_clicked' ) ) + 1 );
+		$this->set( 'last_email_clicked_date', time() );
+		$this->set( 'email_engagement_score', $this->calculate_engagement_score() );
+		$this->save();
+
+		// We only want to record clicks once per campaign.
+		if ( ! \Hizzle\Noptin\Emails\Logs\Main::did_activity( 'click', $campaign_id, $this->get_email() ) ) {
+			// Increment total clicks for the campaign.
+			increment_noptin_campaign_stat( $campaign_id, '_noptin_clicks' );
+
+			// Fire action.
+			do_action( 'log_noptin_subscriber_campaign_click', $this->get_id(), $campaign_id, $url );
+		}
+	}
+
+	/**
+	 * Records an unsubscribed email campaign.
+	 *
+	 * @param int $campaign_id Campaign ID.
+	 */
+	public function record_unsubscribed_campaign( $campaign_id ) {
+		$this->log_activity( 'unsubscribe', $campaign_id );
+	}
+
+	/**
+	 * Records a bounced email campaign.
+	 *
+	 * @param int $campaign_id Campaign ID.
+	 */
+	public function record_bounced_campaign( $campaign_id ) {
+		$this->log_activity( 'bounce', $campaign_id );
+	}
+
+	/**
+	 * Records a complained email campaign.
+	 *
+	 * @param int $campaign_id Campaign ID.
+	 */
+	public function record_complained_campaign( $campaign_id ) {
+		$this->log_activity( 'complain', $campaign_id );
+	}
+
+	/**
+	 * Logs an email activity for the subscriber.
+	 *
+	 * @param string $activity The activity type.
+	 * @param int $campaign_id The campaign ID.
+	 * @param string $activity_info Additional information.
+	 * @param array $meta Additional metadata.
+	 * @see \Hizzle\Noptin\Emails\Logs\Main::init()
+	 */
+	public function log_activity( $activity, $campaign_id = null, $activity_info = null, $meta = array() ) {
+		do_action(
+			'noptin_log_activity',
+			$activity,
+			$campaign_id,
+			$this->get_email(),
+			$activity_info,
+			$meta
+		);
+	}
+
+	/**
+	 * Retrieves the subscriber's edit URL.
+	 *
+	 * @return string
+	 */
+	public function get_edit_url() {
+		return add_query_arg(
+			array(
+				'page'          => 'noptin-subscribers',
+				'hizzlewp_path' => rawurlencode(
+					sprintf(
+						'/noptin/subscribers/%d',
+						$this->get_id()
+					)
+				),
+			),
+			admin_url( 'admin.php' )
+		);
+	}
+
+	/**
+	 * Returns the unsubscribe URL for the subscriber.
+	 *
+	 * @return string
+	 */
+	public function get_unsubscribe_url() {
+		return get_noptin_action_url(
+			'unsubscribe',
+			noptin_encrypt(
+				wp_json_encode(
+					array_filter(
+						array(
+							'email' => $this->get_email(),
+							'cid'   => empty( \Hizzle\Noptin\Emails\Main::$current_email ) ? '' : \Hizzle\Noptin\Emails\Main::$current_email->id,
+						)
+					)
+				)
+			)
+		);
+	}
+
+	/**
+	 * Returns the resubsribe URL for the subscriber.
+	 *
+	 * @return string
+	 */
+	public function get_resubscribe_url() {
+		return get_noptin_action_url(
+			'resubscribe',
+			noptin_encrypt(
+				wp_json_encode(
+					array_filter(
+						array(
+							'email' => $this->get_email(),
+							'cid'   => empty( \Hizzle\Noptin\Emails\Main::$current_email ) ? '' : \Hizzle\Noptin\Emails\Main::$current_email->id,
+						)
+					)
+				)
+			)
+		);
+	}
+
+	/**
+	 * Returns the subscription confirmation URL for the subscriber.
+	 *
+	 * @return string
+	 */
+	public function get_confirm_subscription_url() {
+		return get_noptin_action_url(
+			'confirm',
+			noptin_encrypt(
+				wp_json_encode(
+					array( 'email' => $this->get_email() )
+				)
+			)
+		);
+	}
+
+	/**
+	 * Returns the manage preferences URL for the subscriber.
+	 *
+	 * @return string
+	 */
+	public function get_manage_preferences_url() {
+		$url = get_noptin_option( 'manage_preferences_url' );
+
+		if ( empty( $url ) || get_noptin_action_url( 'manage_preferences' ) === $url ) {
+			$url = get_noptin_action_url(
+				'manage_preferences',
+				noptin_encrypt(
+					wp_json_encode(
+						array( 'email' => $this->get_email() )
+					)
+				)
+			);
+		} else {
+			$url = add_query_arg( 'noptin_key', $this->get_confirm_key(), $url );
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Returns the send email URL for the subscriber.
+	 *
+	 * @return string
+	 */
+	public function get_send_email_url() {
+		return get_noptin_email_recipients_url( $this->get_id(), 'noptin' );
+	}
+
+	/**
+	 * Returns the avatar URL for the subscriber.
+	 *
+	 * @return string
+	 */
+	public function get_avatar_url() {
+		$name = $this->get_name();
+
+		// If doesn't have a name, generate from email.
+		if ( empty( $name ) ) {
+			$name = strtok( $this->get_email(), '@' );
+			$name = str_replace( '.', ' ', $name );
+		}
+
+		$color = noptin_get_random_background_color();
+		$args  = array(
+			'default' => sprintf(
+				'https://ui-avatars.com/api/%s/64/%s/%s/2',
+				rawurlencode( $name ),
+				$color[0],
+				$color[1]
+			),
+			'size'    => 64,
+		);
+
+		return get_avatar_url( $this->get_email(), $args );
+	}
+
+	/**
+	 * Returns the WordPress user ID.
+	 *
+	 * @return int
+	 */
+	public function get_wp_user_id() {
+		$user = get_user_by( 'email', $this->get_email() );
+		return $user ? $user->ID : 0;
+	}
+
+	/**
+	 * Save should create or update based on object existence.
+	 *
+	 * @since  1.0.0
+	 * @return int|\WP_Error
+	 */
+	public function save() {
+
+		// Confirmation key.
+		$confirm_key = $this->get_confirm_key();
+
+		if ( empty( $confirm_key ) ) {
+			$this->set_confirm_key( md5( wp_generate_password( 100, true, true ) . uniqid() ) );
+		}
+
+		// Check email.
+		if ( ! is_string( $this->get_email() ) || ! is_email( $this->get_email() ) ) {
+			$email = $this->get_email();
+
+			if ( empty( $email ) || ! is_string( $email ) ) {
+				return new \WP_Error( 'invalid_email', __( 'Invalid email address.', 'newsletter-optin-box' ) );
+			}
+
+			return new \WP_Error(
+				'invalid_email',
+				sprintf(
+					/* translators: %s: email address */
+					__( 'Invalid email address: %s', 'newsletter-optin-box' ),
+					$email
+				)
+			);
+		}
+
+		// Block new subscribers and email changes that use a denied domain.
+		if ( ( ! $this->get_id() || array_key_exists( 'email', $this->changes ) ) && noptin_is_email_domain_blocked( $this->get_email() ) ) {
+			return new \WP_Error( 'blocked_email_domain', 'This email address is not allowed.' );
+		}
+
+		// If we're creating, make sure the email doesn't already exist.
+		if ( ! $this->get_id() ) {
+			$subscriber = get_noptin_subscriber_id_by_email( $this->get_email() );
+
+			if ( $subscriber ) {
+				return new \WP_Error( 'email_exists', __( 'This email address is already subscribed.', 'newsletter-optin-box' ) );
+			}
+
+			// If the confirm key exists, generate a new one.
+			$subscriber = get_noptin_subscriber_id_by_confirm_key( $this->get_confirm_key() );
+
+			if ( $subscriber ) {
+				$this->set_confirm_key( md5( wp_generate_password( 100, true, true ) . uniqid() ) );
+			}
+		}
+
+		// Prevent blocked subscribers from being saved.
+		$current_status = $this->data['status'] ?? '';
+		if ( 'blocked' === $current_status && array_key_exists( 'status', $this->changes ) && ! current_user_can( get_noptin_collection_capability( 'subscribers' ) ) ) {
+			unset( $this->changes['status'] );
+		}
+
+		return parent::save();
+	}
+
+	/**
+	 * Returns the record's overview.
+	 *
+	 * @since 1.0.0
+	 * @return array
+	 */
+	public function get_overview() {
+		$total  = (int) $this->get( 'total_emails_sent' );
+		$opens  = (int) $this->get( 'total_emails_opened' );
+		$clicks = (int) $this->get( 'total_links_clicked' );
+
+		$overview = array(
+			'stat_cards' => array(
+				'type'  => 'stat_cards',
+				'cards' => array(
+					array(
+						'title' => __( 'Emails Sent', 'newsletter-optin-box' ),
+						'value' => $total,
+					),
+					array(
+						'title' => __( 'Opened', 'newsletter-optin-box' ),
+						'value' => ( $opens && $total ) ? ( round( ( $opens / $total ) * 100, 2 ) . '%' ) : '&mdash;',
+					),
+					array(
+						'title' => __( 'Clicked', 'newsletter-optin-box' ),
+						'value' => ( $clicks && $total ) ? ( round( ( $clicks / $total ) * 100, 2 ) . '%' ) : '&mdash;',
+					),
+				),
+			),
+		);
+
+		return apply_filters( 'noptin_subscriber_overview', $overview, $this );
+	}
+
+	/**
+	 * Returns the record's actions.
+	 *
+	 * @since 1.0.0
+	 * @return array
+	 */
+	public function get_hizzlewp_actions() {
+		$actions = parent::get_hizzlewp_actions();
+
+		// Manage Preferences URL.
+		$actions[] = array(
+			'id'    => 'manage_preferences_url',
+			'type'  => 'copy',
+			'text'  => __( 'Manage Preferences URL', 'newsletter-optin-box' ),
+			'value' => $this->get_manage_preferences_url(),
+			'icon'  => 'admin-customizer',
+		);
+
+		// Add link to user profile if the subscriber is a WordPress user.
+		$user_id = $this->get_wp_user_id();
+
+		if ( ! empty( $user_id ) ) {
+			$actions[] = array(
+				'id'     => 'view_user_profile',
+				'text'   => __( 'View User Profile', 'newsletter-optin-box' ),
+				'href'   => get_edit_user_link( $user_id ),
+				'icon'   => 'admin-users',
+				'target' => '_blank',
+			);
+		}
+
+		// Send email if the subscriber is active.
+		if ( $this->is_active() ) {
+			$actions[] = array(
+				'id'     => 'send_email',
+				'text'   => __( 'Send Email', 'newsletter-optin-box' ),
+				'href'   => $this->get_send_email_url(),
+				'icon'   => 'email',
+				'target' => '_blank',
+			);
+
+			$actions[] = array(
+				'id'    => 'unsubscribe_url',
+				'type'  => 'copy',
+				'text'  => __( 'Unsubscribe URL', 'newsletter-optin-box' ),
+				'value' => $this->get_unsubscribe_url(),
+				'icon'  => 'minus',
+			);
+		} elseif ( 'unsubscribed' === $this->get_status() ) {
+			$actions[] = array(
+				'id'    => 'resubscribe_url',
+				'type'  => 'copy',
+				'text'  => __( 'Resubscribe URL', 'newsletter-optin-box' ),
+				'value' => $this->get_resubscribe_url(),
+				'icon'  => 'plus',
+			);
+		}
+
+		// Email confirmation URL.
+		if ( ! $this->get_confirmed() ) {
+			$actions[] = array(
+				'id'         => 'send_confirmation_email',
+				'type'       => 'remote',
+				'text'       => __( 'Send Confirmation Email', 'newsletter-optin-box' ),
+				'actionName' => 'send_confirmation_email',
+				'icon'       => 'email',
+			);
+
+			$actions[] = array(
+				'id'    => 'email_confirmation_url',
+				'type'  => 'copy',
+				'text'  => __( 'Email Confirmation URL', 'newsletter-optin-box' ),
+				'value' => $this->get_confirm_subscription_url(),
+				'icon'  => 'email-alt',
+			);
+		}
+
+		// Conversion page.
+		$conversion_page = $this->get_conversion_page();
+
+		if ( ! empty( $conversion_page ) ) {
+			$actions[] = array(
+				'id'     => 'conversion_page',
+				'text'   => __( 'Conversion Page', 'newsletter-optin-box' ),
+				'href'   => esc_url_raw( $conversion_page ),
+				'icon'   => 'external',
+				'target' => '_blank',
+			);
+		}
+
+		// Block/unblock subscriber.
+		if ( 'blocked' !== $this->get_status() ) {
+			$actions[] = array(
+				'id'            => 'block_subscriber',
+				'type'          => 'remote',
+				'text'          => __( 'Block Subscriber', 'newsletter-optin-box' ),
+				'actionName'    => 'block_subscriber',
+				'icon'          => 'minus',
+				'isDestructive' => true,
+			);
+		} else {
+			$actions[] = array(
+				'id'         => 'unblock_subscriber',
+				'type'       => 'remote',
+				'text'       => __( 'Unblock Subscriber', 'newsletter-optin-box' ),
+				'actionName' => 'unblock_subscriber',
+				'icon'       => 'plus',
+			);
+		}
+		return $actions;
+	}
+
+	/**
+	 * Sends the confirm subscription email.
+	 *
+	 * @since 1.0.0
+	 * @return array|\WP_Error
+	 */
+	public function do_send_confirmation_email() {
+
+		// Check if the subscriber is already confirmed.
+		if ( $this->get_confirmed() ) {
+			return new \WP_Error( 'already_confirmed', 'This subscriber is already confirmed.' );
+		}
+
+		if ( ! use_custom_noptin_double_optin_email() ) {
+			$result = send_new_noptin_subscriber_double_optin_email( $this->get_id(), true );
+		} else {
+			do_action( 'noptin_subscriber_status_set_to_pending', $this, 'new' );
+			$result = true;
+		}
+
+		if ( empty( $result ) ) {
+			return new \WP_Error( 'failed_to_send', 'Failed to send confirmation email.' );
+		}
+
+		return array(
+			'message' => 'Confirmation email sent.',
+		);
+	}
+
+	/**
+	 * Blocks a subscriber.
+	 *
+	 * @since 1.0.0
+	 * @return array|\WP_Error
+	 */
+	public function do_block_subscriber() {
+
+		$this->set_status( 'blocked' );
+		$this->save();
+
+		return array(
+			'message' => 'Subscriber blocked.',
+		);
+	}
+
+	/**
+	 * Unblocks a subscriber.
+	 *
+	 * @since 1.0.0
+	 * @return array|\WP_Error
+	 */
+	public function do_unblock_subscriber() {
+		$this->set_status( 'subscribed' );
+		$this->save();
+
+		return array(
+			'message' => 'Subscriber unblocked.',
+		);
+	}
+
+	/**
+	 * Returns the formatted email engagement score.
+	 *
+	 * @return string
+	 */
+	public function get_formatted_email_engagement_score() {
+		$email_engagement_score = (float) $this->get( 'email_engagement_score' );
+		$bg_color               = '#454545';
+
+		if ( $email_engagement_score >= 0.5 ) {
+			$bg_color = '#28a745'; // Green
+		} elseif ( $email_engagement_score >= 0.25 ) {
+			$bg_color = '#ffc107'; // Yellow
+		} elseif ( $email_engagement_score > 0 ) {
+			$bg_color = '#dc3545'; // Red
+		}
+
+		return sprintf(
+			'<span class="hizzlewp-badge" style="color: #fff; background-color: %s;">%s</span>',
+			$bg_color,
+			$email_engagement_score
+		);
+	}
+
+	/**
+	 * Calculate engagement score for the subscriber.
+	 *
+	 * @return float Engagement score between 0.00 and 1.00
+	 */
+	public function calculate_engagement_score() {
+		$total_emails_sent   = (int) $this->get( 'total_emails_sent' );
+		$total_emails_opened = (int) $this->get( 'total_emails_opened' );
+		$total_links_clicked = (int) $this->get( 'total_links_clicked' );
+
+		// Handle edge case where no emails have been sent.
+		if ( $total_emails_sent <= 0 ) {
+			return 0.00;
+		}
+
+		// Calculate basic engagement rates.
+		$open_rate  = $total_emails_opened / $total_emails_sent;
+		$click_rate = $total_links_clicked / $total_emails_sent;
+
+		// Base engagement score (weighted: opens 40%, clicks 60%)
+		$base_score = ( $open_rate * 0.4 ) + ( $click_rate * 0.6 );
+
+		// Calculate recency multiplier
+		$recency_multiplier = $this->calculate_recency_multiplier();
+
+		// Final score with recency factor.
+		// 80% base engagement + 20% recency factor.
+		$engagement_score = ( $base_score * 0.8 ) + ( $recency_multiplier * 0.2 );
+
+		// Ensure score is between 0.00 and 1.00
+		$engagement_score = max( 0.00, min( 1.00, $engagement_score ) );
+
+		// Round to 2 decimal places to match DECIMAL(3,2)
+		return round( $engagement_score, 2 );
+	}
+
+	/**
+	 * Calculate recency multiplier based on last engagement dates
+	 *
+	 * @return float Multiplier between 0.0 and 1.0
+	 */
+	private function calculate_recency_multiplier() {
+
+		// Calculate recency multiplier based on last engagement dates.
+		/** @var \Hizzle\Store\Date_Time $last_sent_date */
+		$last_sent_date = $this->get( 'last_email_sent_date' );
+
+		// If last sent date is not set, use current date.
+		if ( empty( $last_sent_date ) ) {
+			$last_sent_date = new \DateTime();
+		}
+
+		// Prepare the most recent engagement date.
+		/** @var \Hizzle\Store\Date_Time $most_recent */
+		$most_recent  = $this->get( 'last_email_opened_date' );
+		$last_clicked = $this->get( 'last_email_clicked_date' );
+
+		if ( $last_clicked ) {
+			/** @var \Hizzle\Store\Date_Time $last_clicked */
+			if ( ! $most_recent || $last_clicked > $most_recent ) {
+				$most_recent = $last_clicked;
+			}
+		}
+
+		// If no engagement dates, return low multiplier
+		if ( ! $most_recent ) {
+			return 0.1;
+		}
+
+		// Calculate days since last engagement
+		$days_diff = $last_sent_date->diff( $most_recent, true )->days;
+
+		// Return multiplier based on recency
+		// Very recent (within a week)
+		if ( $days_diff <= 7 ) {
+			return 1.0;
+		}
+
+		// Recent (within a month)
+		if ( $days_diff <= 30 ) {
+			return 0.9;
+		}
+
+		// Moderate (within 3 months)
+		if ( $days_diff <= 90 ) {
+			return 0.7;
+		}
+
+		// Old (within 6 months)
+		if ( $days_diff <= 180 ) {
+			return 0.5;
+		}
+
+		// Very old (over 6 months)
+		return 0.2;
+	}
+
+	/**
+	 * Delete a subscriber.
+	 *
+	 * @since  1.0.0
+	 * @param  bool $force_delete Should the data be deleted permanently.
+	 * @return bool|\WP_Error result
+	 */
+	public function delete( $force_delete = false ) {
+
+		$email = $this->get_email();
+		if ( true === parent::delete( $force_delete ) && is_string( $email ) && is_email( $email ) ) {
+			// Delete email logs.
+			noptin()->db()->delete_where( array( 'email' => $email ), 'email_logs' );
+
+			// Delete tasks.
+			noptin()->db()->delete_where( array( 'subject' => $email ), 'tasks' );
+		}
+	}
+}

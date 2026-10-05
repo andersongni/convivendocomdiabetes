@@ -1,0 +1,1766 @@
+<?php
+
+namespace Hizzle\Noptin\Subscribers;
+
+// Exit if accessed directly.
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Containers for a Noptin subscribers.
+ *
+ * @since 3.0.0
+ */
+class Records extends \Hizzle\Noptin\Objects\People {
+
+	/**
+	 * @var string the record class.
+	 */
+	public $record_class = '\Hizzle\Noptin\Subscribers\Record';
+
+	/**
+	 * @var string integration.
+	 */
+	public $integration = 'noptin';
+
+	/**
+	 * Constructor.
+	 *
+	 * @since 1.0.0
+	 * @return string
+	 */
+	public function __construct() {
+		$this->label                = __( 'Noptin Subscribers', 'newsletter-optin-box' );
+		$this->singular_label       = __( 'Subscriber', 'newsletter-optin-box' );
+		$this->type                 = 'subscriber';
+		$this->email_sender         = 'noptin';
+		$this->email_sender_options = 'noptin_subscriber_options';
+		$this->is_stand_alone       = false;
+		$this->can_list             = true;
+		$this->icon                 = array(
+			'icon' => 'admin-users',
+			'fill' => '#50575e',
+		);
+
+		// State transition.
+		foreach ( array_keys( $this->subscriber_states() ) as $state ) {
+			add_action( $state, array( $this, 'subscriber_state_changed' ), 11, 2 );
+		}
+
+		// Custom fields.
+		foreach ( $this->subscriber_fields( true ) as $merge_tag => $field ) {
+			if ( empty( $field['multiple'] ) ) {
+				add_action( "noptin_subscriber_{$merge_tag}_changed", array( $this, 'on_field_change' ), 10, 3 );
+			} else {
+				add_action( "noptin_subscriber_added_to_{$merge_tag}", array( $this, 'on_field_add' ), 10, 2 );
+				add_action( "noptin_subscriber_removed_from_{$merge_tag}", array( $this, 'on_field_add' ), 10, 2 );
+			}
+		}
+
+		// Email open/click.
+		add_action( 'log_noptin_subscriber_campaign_open', array( $this, 'on_open' ), 10, 2 );
+		add_action( 'log_noptin_subscriber_campaign_click', array( $this, 'on_click' ), 10, 3 );
+
+		// Anniversary dates.
+		\Hizzle\Noptin\Automation_Rules\Anniversary_Helper::register_trigger( 'noptin_subscriber_anniversary' );
+		add_action( 'check_noptin_subscriber_anniversary', array( $this, 'check_anniversary' ) );
+
+		// Subscribers table.
+		add_filter( 'noptin_subscribers_submenu', array( __CLASS__, 'filter_subscribers_collection_nav_submenus' ) );
+		add_filter( 'hizzle_rest_noptin_subscribers_admin_app_routes', array( __CLASS__, 'filter_subscribers_collection_admin_routes' ) );
+		add_filter( 'hizzle_rest_noptin_subscribers_collection_js_params', array( __CLASS__, 'filter_subscribers_collection_js_params' ) );
+		add_filter( 'hizzle_rest_noptin_subscribers_record_tabs', array( __CLASS__, 'filter_subscribers_collection_record_tabs' ), 1000 );
+
+		parent::__construct();
+	}
+
+	private function subscriber_states() {
+		$statuses = array(
+			'noptin_subscriber_created'      => __( 'Created', 'newsletter-optin-box' ),
+			'noptin_subscriber_saved'        => __( 'Saved', 'newsletter-optin-box' ),
+			'noptin_subscribers_import_item' => __( 'Imported', 'newsletter-optin-box' ),
+		);
+
+		foreach ( noptin_get_subscriber_statuses() as $status => $label ) {
+			if ( 'pending' === $status ) {
+				$label = __( 'Pending email confirmation', 'newsletter-optin-box' );
+			}
+
+			$statuses[ 'noptin_subscriber_status_set_to_' . $status ] = $label;
+		}
+
+		return $statuses;
+	}
+
+	public static function get_all_tags_as_options() {
+		static $tags = null;
+
+		if ( null === $tags ) {
+			$tags = get_noptin_subscriber_tags();
+		}
+
+		return empty( $tags ) ? array() : array_combine( $tags, $tags );
+	}
+
+	public static function subscriber_fields( $partial = false ) {
+		$fields = array(
+			'tags' => array(
+				'label'    => __( 'Tags', 'newsletter-optin-box' ),
+				'multiple' => true,
+				'options'  => null,
+			),
+		);
+
+		// Loop through all props.
+		foreach ( get_noptin_subscriber_filters() as $merge_tag => $options ) {
+
+			// Skip if no options.
+			if ( ! is_array( $options['options'] ) || in_array( $merge_tag, array( 'confirmed', 'source' ), true ) ) {
+				continue;
+			}
+
+			$fields[ $merge_tag ] = array(
+				'label'    => $options['label'],
+				'multiple' => ! empty( $options['is_multiple'] ),
+				'options'  => $partial ? array() : noptin_newslines_to_array( $options['options'] ),
+			);
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * Returns a list of available triggers.
+	 *
+	 * @return array $triggers The triggers.
+	 */
+	public function get_triggers() {
+
+		$triggers = array();
+
+		// Statuses.
+		foreach ( $this->subscriber_states() as $state => $label ) {
+			$triggers[ $state ] = array(
+				'label'       => sprintf(
+					'%s > %s',
+					$this->singular_label,
+					$label
+				),
+				'description' => sprintf(
+					/* translators: %s: Object type label and new state */
+					__( 'When a %1$s is %2$s', 'newsletter-optin-box' ),
+					strtolower( $this->singular_label ),
+					'noptin_subscriber_saved' === $state ? __( 'created or updated', 'newsletter-optin-box' ) : strtolower( $label )
+				),
+				'subject'     => 'subscriber',
+				'featured'    => in_array(
+					$state,
+					array(
+						'noptin_subscriber_status_set_to_pending',
+						'noptin_subscriber_status_set_to_subscribed',
+					),
+					true
+				),
+			);
+
+			if ( 'noptin_subscriber_status_set_to_pending' === $state ) {
+				$triggers[ $state ]['mail_config'] = array(
+					'object_type' => $this->object_type,
+					'label'       => ucwords(
+						sprintf(
+							/* translators: %s: Object type label. */
+							__( 'Confirm new %s', 'newsletter-optin-box' ),
+							$this->singular_label
+						)
+					),
+				);
+			}
+
+			if ( 'noptin_subscriber_status_set_to_subscribed' === $state ) {
+				$triggers[ $state ]['mail_config'] = array(
+					'object_type' => $this->object_type,
+					'label'       => ucwords(
+						sprintf(
+							/* translators: %s: Object type label. */
+							__( 'Welcome new %s', 'newsletter-optin-box' ),
+							$this->singular_label
+						)
+					),
+				);
+			}
+
+			if ( 'noptin_subscriber_status_set_to_unsubscribed' === $state ) {
+				$triggers[ $state ]['previous_name'] = 'unsubscribe';
+			}
+
+			// Check if the hook name contains a status change.
+			if ( false !== strpos( $state, 'noptin_subscriber_status_set_to_' ) ) {
+				$triggers[ $state ]['description'] = sprintf(
+					/* translators: %s: new state */
+					__( "When a subscriber's status is set to %1\$s", 'newsletter-optin-box' ),
+					strtolower( $label )
+				);
+
+				$triggers[ $state ]['extra_args'] = array(
+					'previous_status' => array(
+						'label'       => __( 'Previous status', 'newsletter-optin-box' ),
+						'description' => __( 'The previous subscriber status.', 'newsletter-optin-box' ),
+						'type'        => 'string',
+						'options'     => array_merge(
+							array( 'new' => __( 'New', 'newsletter-optin-box' ) ),
+							noptin_get_subscriber_statuses()
+						),
+						'primary'     => array(
+							'label'       => __( 'Previous status', 'newsletter-optin-box' ),
+							'description' => __( 'Only run when the subscriber changes from this status.', 'newsletter-optin-box' ),
+							'placeholder' => __( 'Any previous status', 'newsletter-optin-box' ),
+						),
+					),
+				);
+			}
+
+			if ( 'noptin_subscribers_import_item' === $state ) {
+				$triggers[ $state ]['previous_name'] = 'import_subscriber';
+				$triggers[ $state ]['extra_args']    = array(
+					'action' => array(
+						'label'   => __( 'Action', 'newsletter-optin-box' ),
+						'type'    => 'string',
+						'options' => array(
+							'updated' => __( 'Updated', 'newsletter-optin-box' ),
+							'created' => __( 'Created', 'newsletter-optin-box' ),
+						),
+					),
+				);
+			}
+		}
+
+		// Custom fields.
+		foreach ( $this->subscriber_fields() as $merge_tag => $field ) {
+			$field_options = 'tags' === $merge_tag
+				? array( __CLASS__, 'get_all_tags_as_options' )
+				: $field['options'];
+
+			if ( empty( $field['multiple'] ) ) {
+				$triggers[ "noptin_subscriber_{$merge_tag}_changed" ] = array(
+					'label'         => sprintf(
+						// translators: %1$s: Object type label, %2$s: Field label.
+						__( '%1$s > %2$s changed', 'newsletter-optin-box' ),
+						$this->singular_label,
+						$field['label']
+					),
+					'previous_name' => $merge_tag . '_changed',
+					'description'   => sprintf(
+						/* translators: %s: field label */
+						__( 'When %s changes', 'newsletter-optin-box' ),
+						strtolower( $field['label'] )
+					),
+					'subject'       => 'subscriber',
+					'featured'      => true,
+					'extra_args'    => array(
+						'new_value' => array(
+							'label'      => __( 'New value', 'newsletter-optin-box' ),
+							'type'       => 'string',
+							'deprecated' => 'new_value',
+							'group'      => $field['label'],
+							'options'    => $field_options,
+							'primary'    => array(
+								'label'       => sprintf(
+									// translators: %s: field label
+									__( 'New %s', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'description' => sprintf(
+									// translators: %s: field label
+									__( 'Only run when %s changes to this value.', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'placeholder' => __( 'Any new value', 'newsletter-optin-box' ),
+							),
+						),
+						'old_value' => array(
+							'label'      => __( 'Old value', 'newsletter-optin-box' ),
+							'type'       => 'string',
+							'deprecated' => 'old_value',
+							'group'      => $field['label'],
+							'options'    => $field_options,
+							'primary'    => array(
+								'label'       => sprintf(
+									// translators: %s: field label
+									__( 'Previous %s', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'description' => sprintf(
+									// translators: %s: field label
+									__( 'Only run when %s changes from this value.', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'placeholder' => __( 'Any previous value', 'newsletter-optin-box' ),
+							),
+						),
+					),
+					'icon'          => array(
+						'icon' => 'editor-table',
+						'fill' => '#008000',
+					),
+				);
+			} else {
+				$triggers[ "noptin_subscriber_added_to_{$merge_tag}" ] = array(
+					'label'         => sprintf(
+						// translators: %1$s: Object type label, %2$s: Field label.
+						__( '%1$s > Add to %2$s', 'newsletter-optin-box' ),
+						$this->singular_label,
+						$field['label']
+					),
+					'previous_name' => 'add_to_' . $merge_tag,
+					'description'   => sprintf(
+						/* translators: %s: field label */
+						__( 'When a %1$s is added to %2$s', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label ),
+						strtolower( $field['label'] )
+					),
+					'subject'       => 'subscriber',
+					'featured'      => true,
+					'extra_args'    => array(
+						'field_value' => array(
+							'label'      => __( 'New value', 'newsletter-optin-box' ),
+							'type'       => 'string',
+							'deprecated' => 'field_value',
+							'group'      => $field['label'],
+							'options'    => $field_options,
+							'primary'    => array(
+								'label'       => sprintf(
+									// translators: %s: field label
+									__( 'Filter by %s', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'description' => sprintf(
+									// translators: %s: field label
+									__( 'Only run when the subscriber is added to this value. Leave blank to match any value in %s.', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'placeholder' => __( 'Any value', 'newsletter-optin-box' ),
+							),
+						),
+					),
+					'icon'          => array(
+						'icon' => 'category',
+						'fill' => '#008000',
+					),
+				);
+
+				$triggers[ "noptin_subscriber_removed_from_{$merge_tag}" ] = array(
+					'label'         => sprintf(
+						// translators: %1$s: Object type label, %2$s: Field label.
+						__( '%1$s > Removed from %2$s', 'newsletter-optin-box' ),
+						$this->singular_label,
+						$field['label']
+					),
+					'previous_name' => 'remove_from_' . $merge_tag,
+					'description'   => sprintf(
+						/* translators: %s: field label */
+						__( 'When a %1$s is removed from %2$s', 'newsletter-optin-box' ),
+						strtolower( $this->label ),
+						strtolower( $field['label'] )
+					),
+					'subject'       => 'subscriber',
+					'featured'      => true,
+					'extra_args'    => array(
+						'field_value' => array(
+							'label'      => __( 'The removed value', 'newsletter-optin-box' ),
+							'type'       => 'string',
+							'deprecated' => 'field_value',
+							'group'      => $field['label'],
+							'options'    => $field_options,
+							'primary'    => array(
+								'label'       => sprintf(
+									// translators: %s: field label
+									__( 'Filter by %s', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'description' => sprintf(
+									// translators: %s: field label
+									__( 'Only run when the subscriber is removed from this value. Leave blank to match any value in %s.', 'newsletter-optin-box' ),
+									strtolower( $field['label'] )
+								),
+								'placeholder' => __( 'Any value', 'newsletter-optin-box' ),
+							),
+						),
+					),
+					'icon'          => array(
+						'icon' => 'category',
+						'fill' => '#008000',
+					),
+				);
+			}
+		}
+
+		$date_fields = wp_list_filter(
+			get_noptin_subscriber_smart_tags(),
+			array( 'conditional_logic' => 'date' )
+		);
+
+		return array_merge(
+			parent::get_triggers(),
+			$triggers,
+			// Anniversary.
+			array(
+				'noptin_subscriber_anniversary' => array(
+					'label'          => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Date Anniversary', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'    => sprintf(
+						/* translators: %s: Object type label. */
+						__( 'Triggered on the anniversary of a %s\'s date field, such as signup date, birth date, last email engagement, etc.', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label )
+					),
+					'subject'        => 'subscriber',
+					'featured'       => true,
+					'extra_settings' => array(
+						'field'       => array(
+							'el'               => 'select',
+							'label'            => __( 'Date Field', 'newsletter-optin-box' ),
+							'description'      => __( 'Choose a date field to monitor for each subscriber.', 'newsletter-optin-box' ),
+							'placeholder'      => __( 'Select a date field', 'newsletter-optin-box' ),
+							'options'          => wp_list_pluck( $date_fields, 'description' ),
+							'required'         => true,
+							'disableMergeTags' => true,
+						),
+						'timing'      => array(
+							'el'               => 'select',
+							'label'            => __( 'Timing', 'newsletter-optin-box' ),
+							'options'          => array(
+								'on'     => __( 'On the exact date', 'newsletter-optin-box' ),
+								'before' => __( 'Before the date', 'newsletter-optin-box' ),
+								'after'  => __( 'After the date', 'newsletter-optin-box' ),
+							),
+							'default'          => 'on',
+							'required'         => true,
+							'disableMergeTags' => true,
+						),
+						'days_before' => array(
+							'el'               => 'input',
+							'type'             => 'number',
+							'label'            => __( 'Days', 'newsletter-optin-box' ),
+							'placeholder'      => __( 'Enter a number', 'newsletter-optin-box' ),
+							'description'      => __( 'Number of days before the date', 'newsletter-optin-box' ),
+							'customAttributes' => array(
+								'min'    => 1,
+								'step'   => 1,
+								'max'    => 366,
+								'suffix' => array( __( 'Day', 'newsletter-optin-box' ), __( 'Days', 'newsletter-optin-box' ) ),
+							),
+							'conditions'       => array(
+								array(
+									'key'   => 'timing',
+									'value' => 'before',
+								),
+							),
+							'disableMergeTags' => true,
+						),
+						'days_after'  => array(
+							'el'               => 'input',
+							'type'             => 'number',
+							'label'            => __( 'Days', 'newsletter-optin-box' ),
+							'placeholder'      => __( 'Enter a number', 'newsletter-optin-box' ),
+							'description'      => __( 'Number of days after the date', 'newsletter-optin-box' ),
+							'customAttributes' => array(
+								'min'    => 1,
+								'step'   => 1,
+								'max'    => 366,
+								'suffix' => array( __( 'Day', 'newsletter-optin-box' ), __( 'Days', 'newsletter-optin-box' ) ),
+							),
+							'conditions'       => array(
+								array(
+									'key'   => 'timing',
+									'value' => 'after',
+								),
+							),
+							'disableMergeTags' => true,
+						),
+					),
+					'icon'           => array(
+						'icon' => 'calendar',
+						'fill' => '#008000',
+					),
+				),
+			),
+			// Email interactions.
+			array(
+				'open_email' => array(
+					'label'               => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Open Email', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'         => __( 'When a subscriber opens an email campaign', 'newsletter-optin-box' ),
+					'subject'             => 'subscriber',
+					'provides'            => array( 'noptin-campaign' ),
+					'icon'                => array(
+						'icon' => 'email',
+						'fill' => '#008000',
+					),
+					'has_wizard_settings' => true,
+				),
+				'link_click' => array(
+					'label'               => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Link Click', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'         => sprintf(
+						/* translators: %s: Object type label. */
+						__( 'When a %s clicks on a link in an email', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label )
+					),
+					'subject'             => 'subscriber',
+					'provides'            => array( 'noptin-campaign' ),
+					'extra_args'          => array(
+						'url' => array(
+							'label'      => __( 'Clicked URL', 'newsletter-optin-box' ),
+							'type'       => 'string',
+							'deprecated' => 'url',
+							'primary'    => true,
+						),
+					),
+					'icon'                => array(
+						'icon' => 'email',
+						'fill' => '#008000',
+					),
+					'has_wizard_settings' => true,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Fired when a subscriber state changes.
+	 *
+	 * @param \Hizzle\Noptin\Subscribers\Subscriber $subscriber The subscriber.
+	 * @param string|mixed The previous value.
+	 */
+	public function subscriber_state_changed( $subscriber, $from = null ) {
+
+		if ( is_numeric( $subscriber ) ) {
+			$subscriber = noptin_get_subscriber( $subscriber );
+		}
+
+		if ( empty( $subscriber ) || ! is_a( $subscriber, '\Hizzle\Noptin\Subscribers\Subscriber' ) ) {
+			return;
+		}
+
+		// Check that the current action is a valid trigger.
+		$hook = current_filter();
+
+		if ( ! in_array( $hook, array_keys( $this->subscriber_states() ), true ) ) {
+			return;
+		}
+
+		$args = array(
+			'email'      => $subscriber->get_email(),
+			'object_id'  => $subscriber->get_id(),
+			'subject_id' => $subscriber->get_id(),
+		);
+
+		// Check if the hook name contains a status change.
+		if ( false !== strpos( $hook, 'noptin_subscriber_status_set_to_' ) ) {
+			$args['unserialize'] = array(
+				'subscriber.status' => $subscriber->get_status(),
+			);
+
+			$args['activity'] = sprintf(
+				/* translators: %s: New status. */
+				__( 'Status set to %1$s', 'newsletter-optin-box' ),
+				$subscriber->get_status()
+			);
+
+			$args['extra_args'] = array(
+				'subscriber.previous_status' => 'new',
+			);
+
+			if ( is_string( $from ) && ! empty( $from ) ) {
+				$args['extra_args'] = array(
+					'subscriber.previous_status' => $from,
+				);
+			}
+		}
+
+		if ( 'noptin_subscribers_import_item' === $hook ) {
+			$args['extra_args'] = array(
+				'subscriber.action' => $from,
+			);
+		}
+
+		$this->trigger(
+			$hook,
+			$args
+		);
+	}
+
+	/**
+	 * Fired when a subscriber field changes.
+	 *
+	 * @param \Hizzle\Noptin\Subscribers\Subscriber $subscriber The subscriber.
+	 * @param string|mixed $from The previous value.
+	 * @param string|mixed $to The new value.
+	 */
+	public function on_field_change( $subscriber, $from, $to ) {
+
+		if ( empty( $subscriber ) || ! is_a( $subscriber, '\Hizzle\Noptin\Subscribers\Subscriber' ) ) {
+			return;
+		}
+
+		$this->trigger(
+			current_filter(),
+			array(
+				'email'      => $subscriber->get_email(),
+				'object_id'  => $subscriber->get_id(),
+				'subject_id' => $subscriber->get_id(),
+				'extra_args' => array(
+					'subscriber.old_value' => $from,
+					'subscriber.new_value' => $to,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Fired when a subscriber is added to a field.
+	 *
+	 * @param \Hizzle\Noptin\Subscribers\Subscriber $subscriber The subscriber.
+	 * @param string|mixed $value The new value.
+	 */
+	public function on_field_add( $subscriber, $value ) {
+
+		if ( empty( $subscriber ) || ! is_a( $subscriber, '\Hizzle\Noptin\Subscribers\Subscriber' ) ) {
+			return;
+		}
+
+		$this->trigger(
+			current_filter(),
+			array(
+				'email'      => $subscriber->get_email(),
+				'object_id'  => $subscriber->get_id(),
+				'subject_id' => $subscriber->get_id(),
+				'extra_args' => array(
+					'subscriber.field_value' => $value,
+				),
+			)
+		);
+	}
+
+	/**
+	* Fired when a subscriber opens an email campaign.
+	*
+	* @param \Hizzle\Noptin\Subscribers\Subscriber|int|string $subscriber Subscriber ID, email, or subscriber object.
+	* @param $campaign_id The campaign that was opened.
+	*/
+	public function on_open( $subscriber, $campaign_id ) {
+
+		$subscriber = noptin_get_subscriber( $subscriber );
+		if ( empty( $subscriber ) || ! is_a( $subscriber, '\Hizzle\Noptin\Subscribers\Subscriber' ) ) {
+			return;
+		}
+
+		$args = array(
+			'email'      => $subscriber->get_email(),
+			'object_id'  => $subscriber->get_id(),
+			'subject_id' => $subscriber->get_id(),
+			'provides'   => array(
+				'noptin-campaign' => $campaign_id,
+			),
+		);
+
+		$this->trigger( 'open_email', $args );
+	}
+
+	/**
+	* Fired when a subscriber clicks on a link in an email campaign.
+	*
+	* @param \Hizzle\Noptin\Subscribers\Subscriber|int|string $subscriber Subscriber ID, email, or subscriber object.
+	* @param $campaign_id The campaign that was opened.
+	* @param $url The url that was clicked.
+	*/
+	public function on_click( $subscriber, $campaign_id, $url ) {
+
+		$subscriber = noptin_get_subscriber( $subscriber );
+		if ( empty( $subscriber ) || ! is_a( $subscriber, '\Hizzle\Noptin\Subscribers\Subscriber' ) ) {
+			return;
+		}
+
+		$args = array(
+			'email'      => $subscriber->get_email(),
+			'object_id'  => $subscriber->get_id(),
+			'subject_id' => $subscriber->get_id(),
+			'provides'   => array(
+				'noptin-campaign' => $campaign_id,
+			),
+			'extra_args' => array(
+				'subscriber.url' => $url,
+			),
+		);
+
+		$this->trigger( 'link_click', $args );
+	}
+
+	/**
+	 * Checks for anniversary dates.
+	 *
+	 * @param \Hizzle\Noptin\Automation_Rules\Automation_Rule $rule The automation rule.
+	 */
+	public function check_anniversary( $rule ) {
+		$field       = $rule->get_trigger_setting( 'field' );
+		$timing      = $rule->get_trigger_setting( 'timing' );
+		$days_before = $rule->get_trigger_setting( 'days_before' );
+		$days_after  = $rule->get_trigger_setting( 'days_after' );
+
+		if ( empty( $field ) ) {
+			return;
+		}
+
+		if ( 'before' === $timing ) {
+			$add = 0 - ( DAY_IN_SECONDS * ( is_numeric( $days_before ) ? $days_before : 1 ) );
+		} elseif ( 'after' === $timing ) {
+			$add = DAY_IN_SECONDS * ( is_numeric( $days_after ) ? $days_after : 1 );
+		} else {
+			$add = 0;
+		}
+
+		$time = time() + $add;
+
+		/** @var \Hizzle\Noptin\Subscribers\Subscriber[] $subscribers */
+		$subscribers = noptin_get_subscribers(
+			array(
+				$field . '_query' => array(
+					'month' => gmdate( 'm', $time ),
+					'day'   => gmdate( 'd', $time ),
+				),
+			)
+		);
+
+		// Loop through the subscribers.
+		foreach ( $subscribers as $subscriber ) {
+			$this->trigger(
+				$rule->get_trigger_id(),
+				array(
+					'email'      => $subscriber->get_email(),
+					'object_id'  => $subscriber->get_id(),
+					'subject_id' => $subscriber->get_id(),
+					'rule_id'    => $rule->get_id(),
+				)
+			);
+		}
+	}
+
+	/**
+	 * Retrieves several subscribers.
+	 *
+	 * @param array $filters The available filters.
+	 * @return int[] $subscribers The subscriber IDs.
+	 */
+	public function get_all( $filters ) {
+		return noptin_get_subscribers(
+			array_merge(
+				$filters,
+				array(
+					'fields' => 'id',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Retrieves newsletter recipients.
+	 *
+	 * @param \Hizzle\Noptin\Emails\Email $email
+	 * @return int[] $subscribers The subscriber IDs.
+	 */
+	public function get_batched_newsletter_recipients( $options, $email, $batch_size, $offset ) {
+		// Prepare arguments.
+		$args = array(
+			'status' => 'subscribed',
+			'offset' => $offset,
+			'number' => $batch_size,
+			'fields' => 'id',
+		);
+
+		$manual_recipients = $email->get_manual_recipients_ids();
+		if ( ! empty( $manual_recipients ) ) {
+			$args['include'] = $manual_recipients;
+		} elseif ( noptin_has_alk() ) {
+			if ( is_array( $options ) ) {
+
+				// Backward compatibility.
+				if ( ! empty( $options['_subscriber_via'] ) ) {
+					if ( ! isset( $options['source'] ) ) {
+						$args['source'] = $options['_subscriber_via'];
+					}
+					unset( $options['_subscriber_via'] );
+				}
+
+				// Loop through available filters.
+				$filters = array_merge(
+					array_keys( get_noptin_subscriber_filters() ),
+					array( 'tags' )
+				);
+
+				foreach ( $filters as $filter ) {
+
+					// Filter by key.
+					$filtered = isset( $options[ $filter ] ) ? $options[ $filter ] : '';
+
+					if ( '' !== $filtered && array() !== $filtered ) {
+						$args[ $filter ] = $filtered;
+					}
+
+					// Exclude by key.
+					$filtered = isset( $options[ $filter . '_not' ] ) ? $options[ $filter . '_not' ] : '';
+
+					if ( '' !== $filtered && array() !== $filtered ) {
+						$args[ $filter . '_not' ] = $filtered;
+					}
+				}
+			}
+
+			// (Backwards compatibility) Subscription source.
+			$source = $email->get( '_subscriber_via' );
+
+			if ( '' !== $source && empty( $options['source'] ) ) {
+				$args['source'] = $source;
+			}
+
+			// Allow other plugins to filter the query.
+			$args = apply_filters( 'noptin_mass_mailer_subscriber_query', $args, $email );
+		}
+
+		// Run the query...
+		return noptin_get_subscribers( $args );
+	}
+
+	/**
+	 * Get the sender settings.
+	 *
+	 * @return array
+	 */
+	public function get_sender_settings() {
+		$fields = array();
+
+		foreach ( get_noptin_subscriber_filters() as $key => $filter ) {
+
+			// Skip status since emails can only be sent to active subscribers.
+			if ( 'status' === $key ) {
+				continue;
+			}
+
+			$multiple = 2 < count( $filter['options'] );
+			$options  = $filter['options'];
+
+			$fields[ $key ] = array(
+				'label'                => $filter['label'],
+				'type'                 => 'select',
+				'placeholder'          => __( 'Any', 'newsletter-optin-box' ),
+				'canSelectPlaceholder' => true,
+				'options'              => $options,
+				'description'          => ( empty( $filter['description'] ) || $filter['label'] === $filter['description'] ) ? '' : $filter['description'],
+			);
+
+			if ( $multiple || $filter['is_multiple'] ) {
+				$fields[ $key ]['placeholder'] = __( 'Optional. Leave blank to send to all', 'newsletter-optin-box' );
+				$fields[ $key ]['multiple']    = 'true';
+
+				$fields[ $key . '_not' ] = array_merge(
+					$fields[ $key ],
+					array(
+						'label'       => sprintf(
+							// translators: %s is the filter label, e.g, "Tags".
+							__( '%s - Exclude', 'newsletter-optin-box' ),
+							$filter['label']
+						),
+						'description' => '',
+					)
+				);
+			}
+		}
+
+		$all_tags = get_noptin_subscriber_tags();
+
+		$fields['tags'] = array(
+			'label'       => __( 'Tags', 'newsletter-optin-box' ),
+			'type'        => 'token',
+			'description' => __( 'Optional. Filter recipients by their tags.', 'newsletter-optin-box' ),
+			'suggestions' => $all_tags,
+		);
+
+		$fields['tags_not'] = array(
+			'label'       => __( 'Tags - Exclude', 'newsletter-optin-box' ),
+			'type'        => 'token',
+			'description' => __( 'Optional. Exclude recipients by their tags.', 'newsletter-optin-box' ),
+			'suggestions' => $all_tags,
+		);
+
+		return apply_filters( 'noptin_subscriber_sending_options', $fields );
+	}
+
+	/**
+	 * Retrieves a single person from a WordPress user.
+	 *
+	 * @param \WP_User $user The user.
+	 * @return Record $person The person.
+	 */
+	public function get_from_user( $user ) {
+		return new Record( $user->user_email );
+	}
+
+	/**
+	 * Retrieves a single person from an email address.
+	 *
+	 * @param string $email The email address.
+	 * @return Record $person The person.
+	 */
+	public function get_from_email( $email ) {
+		return new Record( $email );
+	}
+
+	/**
+	 * Retrieves the manual recipients.
+	 */
+	public function get_manual_recipients() {
+		return array(
+			$this->field_to_merge_tag( 'email' ) => $this->singular_label,
+		);
+	}
+
+	/**
+	 * Retrieves available fields.
+	 *
+	 */
+	public function get_fields() {
+
+		$fields  = array();
+		$buttons = array(
+			'manage_preferences_url'   => __( 'Manage your preferences', 'newsletter-optin-box' ),
+			'confirm_subscription_url' => __( 'Confirm your subscription', 'newsletter-optin-box' ),
+			'unsubscribe_url'          => __( 'Unsubscribe', 'newsletter-optin-box' ),
+			'resubscribe_url'          => __( 'Resubscribe', 'newsletter-optin-box' ),
+		);
+
+		$skip_settings = array( 'first_name', 'last_name', 'source' );
+		foreach ( get_noptin_subscriber_smart_tags() as $smart_tag => $field ) {
+			$prepared = array(
+				'label'        => $field['label'],
+				'description'  => $field['description'],
+				'type'         => $field['conditional_logic'],
+				'deprecated'   => $smart_tag,
+				'show_in_meta' => true,
+				'required'     => 'email' === $smart_tag,
+			);
+
+			if ( in_array( $smart_tag, $skip_settings, true ) ) {
+				$prepared['hide_action'] = 'true';
+			}
+
+			if ( isset( $field['options'] ) && is_array( $field['options'] ) ) {
+				$prepared['options']   = $field['options'];
+				$prepared['map_field'] = true;
+			}
+
+			if ( isset( $buttons[ $smart_tag ] ) ) {
+				$prepared['block'] = array(
+					'title'       => $field['label'],
+					'description' => sprintf(
+						/* translators: %s: Object link destination. */
+						__( 'Displays a button link to %s', 'newsletter-optin-box' ),
+						strtolower( $field['description'] )
+					),
+					'icon'        => 'admin-links',
+					'metadata'    => array(
+						'ancestor' => array( $this->context ),
+					),
+					'defaults'    => array(
+						'text' => $buttons[ $smart_tag ],
+						'url'  => $this->field_to_merge_tag( $smart_tag ),
+					),
+					'element'     => 'button',
+				);
+			}
+
+			if ( isset( $field['default'] ) && '' !== $field['default'] ) {
+				$prepared['default'] = $field['default'];
+			}
+
+			$fields[ $smart_tag ] = $prepared;
+		}
+
+		$fields['meta'] = $this->meta_key_tag_config();
+
+		// Add provided fields.
+		$fields = $this->add_provided( $fields );
+
+		return $fields;
+	}
+
+	/**
+	 * Retrieves a test object args.
+	 *
+	 * @since 3.0.0
+	 * @param \Hizzle\Noptin\Automation_Rules\Automation_Rule $rule
+	 * @throws \Exception
+	 * @return array
+	 */
+	public function get_test_args( $rule ) {
+
+		$subscriber_id = $this->get_test_id();
+
+		if ( empty( $subscriber_id ) ) {
+			throw new \Exception( 'No subscriber found.' );
+		}
+
+		$args = array(
+			'object_id'  => $subscriber_id,
+			'subject_id' => $subscriber_id,
+		);
+
+		if ( 'noptin_subscribers_import_item' === $rule->get_trigger_id() ) {
+			$args['extra_args'] = array(
+				'subscriber.action' => 'created',
+			);
+		}
+
+		if ( 'open_email' === $rule->get_trigger_id() || 'link_click' === $rule->get_trigger_id() ) {
+			$campaign_id = get_posts(
+				array(
+					'post_type'   => 'noptin-campaign',
+					'numberposts' => 1,
+					'fields'      => 'ids',
+				)
+			);
+
+			if ( ! empty( $campaign_id ) ) {
+				$args['provides'] = array(
+					'noptin-campaign' => $campaign_id[0],
+				);
+			} else {
+				throw new \Exception( 'No campaign found.' );
+			}
+
+			if ( 'link_click' === $rule->get_trigger_id() ) {
+				$args['extra_args'] = array(
+					'subscriber.url' => 'https://example.com',
+				);
+			}
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Retrieves a test ID.
+	 *
+	 */
+	public function get_test_id() {
+		$subscriber = get_current_noptin_subscriber_id();
+
+		if ( ! empty( $subscriber ) ) {
+			return $subscriber;
+		}
+
+		return (int) current(
+			noptin_get_subscribers(
+				array(
+					'number' => 1,
+					'fields' => 'id',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Returns a list of available (actions).
+	 *
+	 * @return array $actions The actions.
+	 */
+	public function get_actions() {
+		$actions = array_merge(
+			parent::get_actions(),
+			array(
+				'subscribe'         => array(
+					'id'              => 'subscribe',
+					'label'           => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Create or Update', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'     => sprintf(
+						/* translators: %s: Object type label. */
+						__( 'Create or update a %s', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label )
+					),
+					'callback'        => __CLASS__ . '::add_noptin_subscriber',
+					'extra_settings'  => array(
+						'update_existing' => array(
+							'label'   => __( 'Update existing subscribers', 'newsletter-optin-box' ),
+							'el'      => 'input',
+							'type'    => 'checkbox',
+							'default' => true,
+						),
+					),
+					'action_fields'   => array_keys( get_editable_noptin_subscriber_fields() ),
+					'advanced_fields' => array( 'confirmed', 'status', 'ip_address', 'conversion_page' ),
+					'callback_args'   => array( 'settings', 'rule' ),
+				),
+				'delete_subscriber' => array(
+					'id'             => 'delete_subscriber',
+					'label'          => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Delete', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'    => sprintf(
+						/* translators: %s: Object type label. */
+						__( 'Delete a %s', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label )
+					),
+					'callback'       => 'delete_noptin_subscriber',
+					'extra_settings' => array(
+						'email' => array(
+							'label'    => __( 'Subscriber ID or email address', 'newsletter-optin-box' ),
+							'type'     => 'string',
+							'default'  => '[[email]]',
+							'required' => true,
+						),
+					),
+				),
+				'unsubscribe'       => array(
+					'id'             => 'unsubscribe',
+					'label'          => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Unsubscribe', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'    => sprintf(
+						/* translators: %s: Object type label. */
+						__( 'Unsubscribe a %s', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label )
+					),
+					'callback'       => 'unsubscribe_noptin_subscriber',
+					'extra_settings' => array(
+						'email' => array(
+							'label'    => __( 'Subscriber ID or email address', 'newsletter-optin-box' ),
+							'type'     => 'string',
+							'default'  => '[[email]]',
+							'required' => true,
+						),
+					),
+				),
+				'custom-field'      => array(
+					'id'             => 'custom-field',
+					'label'          => sprintf(
+						/* translators: %s: Object type label. */
+						__( '%s > Update Custom Field', 'newsletter-optin-box' ),
+						$this->singular_label
+					),
+					'description'    => sprintf(
+						/* translators: %s: Object type label. */
+						__( 'Update a %s field', 'newsletter-optin-box' ),
+						strtolower( $this->singular_label )
+					),
+					'callback'       => __CLASS__ . '::update_subscriber_field',
+					'callback_args'  => array( 'settings', 'action_id' ),
+					'extra_settings' => array(
+						'email'       => array(
+							'label'    => __( 'Subscriber ID or email address', 'newsletter-optin-box' ),
+							'type'     => 'string',
+							'default'  => '[[email]]',
+							'required' => true,
+						),
+						'field_name'  => array(
+							'el'          => 'select',
+							'label'       => __( 'Custom Field', 'newsletter-optin-box' ),
+							'description' => __( 'Select the custom field to update', 'newsletter-optin-box' ),
+							'placeholder' => __( 'Select Field', 'newsletter-optin-box' ),
+							'options'     => wp_list_pluck( get_editable_noptin_subscriber_fields(), 'label' ),
+							'required'    => true,
+							'primary'     => true,
+						),
+						'field_value' => array(
+							'type'         => 'string',
+							'label'        => __( 'Field Value', 'newsletter-optin-box' ),
+							'description'  => __( 'Enter a value to assign the field', 'newsletter-optin-box' ),
+							'show_in_meta' => true,
+							'primary'      => true,
+						),
+					),
+				),
+			)
+		);
+
+		// Custom fields.
+		if ( ! class_exists( '\Noptin\Addons_Pack\Custom_Fields\Main' ) ) {
+			foreach ( $this->subscriber_fields() as $merge_tag => $field ) {
+				if ( 'confirmed' === $merge_tag ) {
+					$field['label'] = __( 'Email confirmation status', 'newsletter-optin-box' );
+				}
+
+				if ( empty( $field['multiple'] ) ) {
+					$actions[ "change_{$merge_tag}" ] = array(
+						'label'          => sprintf(
+							// translators: %1$s: Object type label, %2$s: Field label.
+							__( '%1$s > Update %2$s', 'newsletter-optin-box' ),
+							$this->singular_label,
+							$field['label']
+						),
+						'description'    => sprintf(
+							/* translators: %s: field label */
+							__( 'Update the subscriber\'s %s', 'newsletter-optin-box' ),
+							strtolower( $field['label'] )
+						),
+						'icon'           => array(
+							'icon' => 'editor-table',
+							'fill' => '#008000',
+						),
+						'callback'       => __CLASS__ . '::update_subscriber_field',
+						'callback_args'  => array( 'settings', 'action_id' ),
+						'extra_settings' => array(
+							'email'    => array(
+								'label'    => __( 'Subscriber ID or email address', 'newsletter-optin-box' ),
+								'type'     => 'string',
+								'default'  => '[[email]]',
+								'required' => true,
+							),
+							$merge_tag => array(
+								'el'        => 'select',
+								'label'     => $field['label'],
+								'options'   => $field['options'],
+								'required'  => true,
+								'map_field' => true,
+								'default'   => '',
+								'primary'   => true,
+							),
+						),
+					);
+				} else {
+					$actions[ "add_to_{$merge_tag}" ] = array(
+						'label'          => sprintf(
+							// translators: %1$s: Object type label, %2$s: Field label.
+							__( '%1$s > Add to %2$s', 'newsletter-optin-box' ),
+							$this->singular_label,
+							$field['label']
+						),
+						'description'    => sprintf(
+							/* translators: %s: field label */
+							__( 'Add the subscriber to %s', 'newsletter-optin-box' ),
+							strtolower( $field['label'] )
+						),
+						'icon'           => array(
+							'icon' => 'category',
+							'fill' => '#008000',
+						),
+						'callback'       => __CLASS__ . '::add_to_subscriber_field',
+						'callback_args'  => array( 'settings', 'action_id' ),
+						'extra_settings' => array(
+							'email'    => array(
+								'label'    => __( 'Subscriber ID or email address', 'newsletter-optin-box' ),
+								'type'     => 'string',
+								'default'  => '[[email]]',
+								'required' => true,
+							),
+							$merge_tag => array(
+								'el'        => 'tags' === $merge_tag ? 'input' : 'multi_checkbox_alt',
+								'label'     => $field['label'],
+								'options'   => $field['options'],
+								'required'  => true,
+								'map_field' => true,
+								'default'   => 'tags' === $merge_tag ? '' : array(),
+								'primary'   => true,
+							),
+						),
+					);
+
+					$actions[ "remove_from_{$merge_tag}" ] = array(
+						'label'          => sprintf(
+							// translators: %1$s: Object type label, %2$s: Field label.
+							__( '%1$s > Remove from %2$s', 'newsletter-optin-box' ),
+							$this->singular_label,
+							$field['label']
+						),
+						'description'    => sprintf(
+							/* translators: %s: field label */
+							__( 'Remove the subscriber from %s', 'newsletter-optin-box' ),
+							strtolower( $field['label'] )
+						),
+						'icon'           => array(
+							'icon' => 'category',
+							'fill' => '#008000',
+						),
+						'callback'       => __CLASS__ . '::remove_from_subscriber_field',
+						'callback_args'  => array( 'settings', 'action_id' ),
+						'extra_settings' => array(
+							'email'    => array(
+								'label'    => __( 'Subscriber ID or email address', 'newsletter-optin-box' ),
+								'type'     => 'string',
+								'default'  => '[[email]]',
+								'required' => true,
+							),
+							$merge_tag => array(
+								'el'        => 'tags' === $merge_tag ? 'input' : 'multi_checkbox_alt',
+								'label'     => $field['label'],
+								'options'   => $field['options'],
+								'required'  => true,
+								'default'   => 'tags' === $merge_tag ? '' : array(),
+								'map_field' => true,
+								'primary'   => true,
+							),
+						),
+					);
+				}
+			}
+		}
+
+		return $actions;
+	}
+
+	/**
+	 * Processes a subscriber action.
+	 *
+	 * @param array $args
+	 * @param \Hizzle\Noptin\Automation_Rules\Automation_Rule $rule — The automation rule.
+	 */
+	public static function add_noptin_subscriber( $args, $rule ) {
+		if ( empty( $args['source'] ) ) {
+			$trigger = $rule->get_trigger();
+
+			if ( $trigger && ! empty( $trigger->category ) ) {
+				$args['source'] = $trigger->category;
+			}
+		}
+
+		return add_noptin_subscriber( $args );
+	}
+
+	/**
+	 * Processes a subscriber action.
+	 *
+	 * @param array $args
+	 */
+	public static function update_subscriber_field( $args, $action_id = 'custom-field' ) {
+
+		if ( empty( $args['email'] ) ) {
+			return new \WP_Error( 'noptin_invalid_email', 'Invalid email address or subscriber ID.' );
+		}
+
+		$field_name  = '';
+		$action_args = array();
+
+		if ( 'custom-field' === $action_id ) {
+			$field_name  = isset( $args['field_name'] ) ? $args['field_name'] : '';
+			$action_args = array(
+				$field_name => isset( $args['field_value'] ) ? $args['field_value'] : '',
+			);
+		}
+
+		if ( 0 === strpos( $action_id, 'change_' ) ) {
+			$field_name  = str_replace( 'change_', '', $action_id );
+			$action_args = array(
+				$field_name => isset( $args[ $field_name ] ) ? $args[ $field_name ] : '',
+			);
+		}
+
+		if ( empty( $field_name ) ) {
+			return new \WP_Error( 'noptin_invalid_field', 'Invalid subscriber field.' );
+		}
+
+		if ( 'status' === $field_name ) {
+			update_noptin_subscriber_status( $args['email'], $action_args['status'] );
+			return true;
+		}
+
+		return update_noptin_subscriber(
+			$args['email'],
+			$action_args
+		);
+	}
+
+	/**
+	 * Processes a subscriber action.
+	 *
+	 * @param array $args
+	 */
+	public static function add_to_subscriber_field( $args, $action_id ) {
+
+		if ( empty( $args['email'] ) ) {
+			return new \WP_Error( 'noptin_invalid_email', 'Invalid email address or subscriber ID.' );
+		}
+
+		$field_name = str_replace( 'add_to_', '', $action_id );
+
+		return update_noptin_subscriber(
+			$args['email'],
+			array(
+				$field_name . '::add' => $args[ $field_name ] ?? array(),
+			)
+		);
+	}
+
+	/**
+	 * Processes a subscriber action.
+	 *
+	 * @param array $args
+	 */
+	public static function remove_from_subscriber_field( $args, $action_id ) {
+
+		if ( empty( $args['email'] ) ) {
+			return new \WP_Error( 'noptin_invalid_email', 'Invalid email address or subscriber ID.' );
+		}
+
+		$field_name = str_replace( 'remove_from_', '', $action_id );
+
+		return update_noptin_subscriber(
+			$args['email'],
+			array(
+				$field_name . '::remove' => $args[ $field_name ] ?? array(),
+			)
+		);
+	}
+
+	/**
+	 * Filters the subscriber's collection routes.
+	 *
+	 * @param array $params
+	 * @return array
+	 */
+	public static function filter_subscribers_collection_admin_routes( $routes ) {
+
+		$routes['noptin/subscribers/custom_fields'] = array(
+			'title' => __( 'Custom Fields', 'newsletter-optin-box' ),
+			'href'  => add_query_arg(
+				array(
+					'page' => 'noptin-settings',
+					'tab'  => 'fields',
+				),
+				admin_url( 'admin.php' )
+			),
+		);
+
+		// Field Manager.
+		$skip_fields = Fields_REST_API::get_skip_fields();
+
+		foreach ( self::subscriber_fields( true ) as $merge_tag => $field ) {
+			if ( in_array( $merge_tag, $skip_fields, true ) ) {
+				continue;
+			}
+
+			$routes[ "noptin/subscribers/{$merge_tag}_manager" ] = array(
+				'title' => empty( $field['label'] ) ? $merge_tag : $field['label'],
+				'href'  => add_query_arg(
+					array(
+						'noptin_cf' => $merge_tag,
+						'page'      => 'noptin-subscribers',
+					),
+					admin_url( 'admin.php' )
+				),
+			);
+		}
+
+		$routes['noptin/subscribers/add_segment'] = array(
+			'title' => __( 'Add New Segment', 'newsletter-optin-box' ),
+			'href'  => add_query_arg(
+				array(
+					'noptin_cf' => 'add-new',
+					'page'      => 'noptin-subscribers',
+				),
+				admin_url( 'admin.php' )
+			),
+		);
+
+		return $routes;
+	}
+
+	/**
+	 * Filters the subscriber's collection submenus.
+	 *
+	 * @param array $submenus
+	 * @return array
+	 */
+	public static function filter_subscribers_collection_nav_submenus( $submenus ) {
+		$current_cf = isset( $_GET['noptin_cf'] ) ? sanitize_text_field( wp_unslash( $_GET['noptin_cf'] ) ) : '';
+		foreach ( self::filter_subscribers_collection_admin_routes( array() ) as $route => $menu ) {
+			$submenus[ $route ] = array(
+				'text'      => $menu['title'],
+				'href'      => $menu['href'],
+				'isPressed' => $current_cf && strpos( $menu['href'], "noptin_cf={$current_cf}" ) !== false,
+			);
+		}
+
+		return $submenus;
+	}
+
+	/**
+	 * Filters the subscriber's collection JS params.
+	 *
+	 * @param array $params
+	 * @return array
+	 */
+	public static function filter_subscribers_collection_js_params( $params ) {
+
+		$params['avatar_url'] = noptin()->white_label->get( 'logo', noptin()->plugin_url . 'includes/assets/images/logo.png' );
+		$params['ignore']     = array_merge(
+			$params['ignore'],
+			array( 'activity', 'sent_campaigns' )
+		);
+
+		$params['hidden'] = array_merge(
+			$params['hidden'],
+			array( 'ip_address', 'conversion_page', 'confirm_key', 'date_modified' )
+		);
+
+		$params['badges']  = array( 'source', 'status' );
+		$params['id_prop'] = 'email';
+
+		$tip = sprintf(
+			// translators: %1$s is the opening link tag, %2$s is the closing link tag.
+			esc_html__( 'Store more information about your subscribers by %1$screating custom fields%2$s.', 'newsletter-optin-box' ),
+			'<a href="' . esc_url_raw( admin_url( 'admin.php?page=noptin-settings&tab=fields' ) ) . '">',
+			'</a>'
+		);
+
+		$upsell      = __( 'You can use tags to automate your email marketing.', 'newsletter-optin-box' );
+		$upsell_url  = noptin_get_guide_url( 'Email Subscribers', '/email-subscribers/tagging-subscribers/' );
+		$upsell_text = __( 'Learn More', 'newsletter-optin-box' );
+
+		foreach ( array( 'record_overview', 'record_create', 'import' ) as $route ) {
+			$params['fills'][] = array(
+				'name'    => "noptin_subscribers_{$route}_below",
+				'content' => $tip,
+			);
+
+			$params['fills'][] = array(
+				'name'   => "noptin_subscribers_{$route}_upsell",
+				'upsell' => array(
+					'buttonText' => $upsell_text,
+					'buttonURL'  => $upsell_url,
+					'content'    => $upsell,
+				),
+			);
+		}
+
+		return $params;
+	}
+
+	/**
+	 * Adds a emails and activity tabs to the record's overview string.
+	 *
+	 * @param array $tabs
+	 * @return array
+	 */
+	public static function filter_subscribers_collection_record_tabs( $tabs ) {
+
+		// Add emails.
+		$tabs['emails'] = array(
+			'title'        => __( 'Emails', 'newsletter-optin-box' ),
+			'type'         => 'table',
+			'emptyMessage' => __( 'No emails have been sent yet.', 'newsletter-optin-box' ),
+			'headers'      => array(
+				array(
+					'label'      => __( 'Title', 'newsletter-optin-box' ),
+					'name'       => 'title',
+					'is_primary' => true,
+					'url'        => 'url',
+				),
+				array(
+					'label'   => __( 'Sent', 'newsletter-optin-box' ),
+					'name'    => 'time',
+					'is_list' => true,
+					'item'    => '%s',
+					'args'    => array( 'i18n' ),
+					'align'   => 'center',
+				),
+				array(
+					'label'   => __( 'Opened', 'newsletter-optin-box' ),
+					'name'    => 'opens',
+					'is_list' => true,
+					'item'    => '%s',
+					'args'    => array( 'i18n' ),
+					'align'   => 'center',
+				),
+				array(
+					'label'   => __( 'Clicked on', 'newsletter-optin-box' ),
+					'name'    => 'clicks',
+					'is_list' => true,
+					'item'    => '%s - %s',
+					'args'    => array( 'key', 'i18n' ),
+					'align'   => 'center',
+				),
+				array(
+					'label' => __( 'Unsubscribed', 'newsletter-optin-box' ),
+					'name'  => 'unsubscribed',
+					'align' => 'right',
+				),
+			),
+			'callback'     => __CLASS__ . '::emails_callback',
+		);
+
+		// Add subscriber activity.
+		$tabs['activity'] = array(
+			'title'        => __( 'Activity', 'newsletter-optin-box' ),
+			'type'         => 'table',
+			'emptyMessage' => __( 'No activity has been recorded yet.', 'newsletter-optin-box' ),
+			'headers'      => array(
+				array(
+					'label' => __( 'Date', 'newsletter-optin-box' ),
+					'name'  => 'i18n',
+				),
+				array(
+					'label'      => __( 'Activity', 'newsletter-optin-box' ),
+					'name'       => 'activity',
+					'is_primary' => true,
+				),
+			),
+			'callback'     => __CLASS__ . '::activity_callback',
+		);
+
+		return $tabs;
+	}
+
+	/**
+	 * Retrieves the subscriber's emails.
+	 *
+	 * @param array $request
+	 * @return array
+	 */
+	public static function emails_callback( $request ) {
+
+		// Get the subscriber.
+		$subscriber = noptin_get_subscriber( $request['id'] );
+
+		if ( ! $subscriber->exists() ) {
+			return array();
+		}
+
+		// Get the email logs.
+		$logs = \Hizzle\Noptin\Emails\Logs\Main::query(
+			array(
+				'email'    => $subscriber->get_email(),
+				'activity' => array( 'send', 'open', 'click', 'unsubscribe' ),
+			)
+		);
+
+		if ( ! is_array( $logs ) || empty( $logs ) ) {
+			return array();
+		}
+
+		$prepared = array();
+
+		/** @var \Hizzle\Noptin\Emails\Logs\Log[] $logs */
+		foreach ( $logs as $log ) {
+			$campaign_id = $log->get( 'campaign_id' );
+
+			// Abort if no campaign ID.
+			if ( empty( $campaign_id ) ) {
+				continue;
+			}
+
+			// Ensure campaign entry exists.
+			if ( ! isset( $prepared[ $campaign_id ] ) ) {
+				$prepared[ $campaign_id ] = array(
+					'id'           => $campaign_id,
+					'title'        => $log->get_campaign_title(),
+					'url'          => $log->get_campaign_url(),
+					'time'         => array(),
+					'opens'        => array(),
+					'clicks'       => array(),
+					'unsubscribed' => '&mdash;',
+				);
+			}
+
+			// Prepare the date.
+			/** @var \Hizzle\Store\Date_Time $date */
+			$date = $log->get( 'date_created' );
+			$utc  = $date->utc();
+			$i18n = $date->context( 'view' );
+
+			// Use human readable time if the timestamp is less than 24 hours old.
+			if ( $date->getTimestamp() > ( time() - DAY_IN_SECONDS ) && $date->getTimestamp() < time() ) {
+				$i18n = sprintf(
+					/* translators: %s: Human-readable time difference. */
+					esc_html__( '%s ago', 'newsletter-optin-box' ),
+					human_time_diff( $date->getTimestamp() )
+				);
+			}
+
+			$date = array(
+				'key'  => $log->get( 'activity' ),
+				'utc'  => $utc,
+				'i18n' => $i18n,
+			);
+
+			switch ( $log->get( 'activity' ) ) {
+				case 'send':
+					$prepared[ $campaign_id ]['time'][] = $date;
+					break;
+				case 'open':
+					$prepared[ $campaign_id ]['opens'][] = $date;
+					break;
+				case 'click':
+					$url                                  = $log->get( 'activity_info' );
+					$prepared[ $campaign_id ]['clicks'][] = array(
+						'key'  => $url,
+						'utc'  => $utc,
+						'i18n' => $i18n,
+					);
+					break;
+				case 'unsubscribe':
+					$prepared[ $campaign_id ]['unsubscribed'] = __( 'Yes', 'newsletter-optin-box' );
+					break;
+			}
+		}
+
+		return array_values( $prepared );
+	}
+
+	/**
+	 * Retrieves the subscriber's activity.
+	 *
+	 * @param array $request
+	 * @return array
+	 */
+	public static function activity_callback( $request ) {
+
+		$subscriber = noptin_get_subscriber( $request['id'] );
+		$activity   = $subscriber->get_activity();
+
+		if ( ! is_array( $activity ) || empty( $activity ) ) {
+			return array();
+		}
+
+		$prepared = array();
+
+		foreach ( $activity as $index => $data ) {
+			$time = $data['time'];
+			$date = new \Hizzle\Store\Date_Time( "@{$time}", new \DateTimeZone( 'UTC' ) );
+			$utc  = $date->utc();
+			$i18n = $date->context( 'view' );
+
+			// Use human readable time if the timestamp is less than 24 hours old.
+			if ( $time > time() - DAY_IN_SECONDS && $time < time() ) {
+				$i18n = sprintf(
+				/* translators: %s: Human-readable time difference. */
+					__( '%s ago', 'newsletter-optin-box' ),
+					human_time_diff( $time )
+				);
+			}
+
+			$prepared[] = array(
+				'id'       => $index + 1,
+				'time'     => $time,
+				'utc'      => $utc,
+				'i18n'     => $i18n,
+				'activity' => wp_kses_post( $data['content'] ),
+			);
+		}
+
+		// Sort by time.
+		usort( $prepared, 'noptin_sort_by_time_key' );
+
+		return array_values( $prepared );
+	}
+}

@@ -1,0 +1,536 @@
+<?php
+
+namespace Hizzle\Noptin\Subscribers;
+
+// Exit if accessed directly.
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Main subscribers class.
+ *
+ * @since 3.0.0
+ */
+class Main {
+
+	private static $hook_suffix;
+
+	/**
+	 * Registers custom objects.
+	 *
+	 * @since 3.0.0
+	 */
+	public static function init() {
+		// Load functions.
+		require_once plugin_dir_path( __FILE__ ) . 'functions.php';
+
+		add_action( 'noptin_init', __CLASS__ . '::register_objects' );
+		add_filter( 'noptin_automation_rule_migrate_triggers', __CLASS__ . '::migrate_triggers' );
+		add_filter( 'noptin_subscriber_should_fire_has_changes_hook', __CLASS__ . '::should_fire_has_changes_hook', 10, 2 );
+		add_filter( 'hizzle_rest_noptin_subscribers_record_tabs', __CLASS__ . '::add_collection_subscriber_tabs' );
+		add_action( 'noptin_pre_load_actions_page', __NAMESPACE__ . '\Actions::init' );
+		add_action( 'noptin_subscribers_before_prepare_query', __CLASS__ . '::hide_blocked_subscribers' );
+		add_action( 'noptin_recalculate_subscriber_engagement_rate', __CLASS__ . '::recalculate_subscriber_engagement_rate' );
+		add_action( 'noptin_send_confirmation_email', array( __CLASS__, 'send_confirmation_email' ) );
+		// Activate deferred automation rule tasks after subscriber confirmation.
+		add_action( 'noptin_subscriber_status_set_to_subscribed', array( __CLASS__, 'activate_deferred_subscriber_tasks' ), 20, 2 );
+
+		// Subscribers menu.
+		if ( is_admin() ) {
+			add_action( 'admin_menu', array( __CLASS__, 'subscribers_menu' ), 30 );
+			add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_scripts' ) );
+			add_filter( 'get_noptin_admin_tools', array( __CLASS__, 'filter_admin_tools' ) );
+			add_action( 'noptin_send_confirmation_emails', array( __CLASS__, 'send_confirmation_emails' ) );
+		}
+
+		// Initialize the schema.
+		Schema::init();
+
+		// Initialize the privacy class.
+		Privacy::init();
+
+		// Initialize the manage preferences class.
+		Manage_Preferences::init();
+
+		// Initialize the bounce handler.
+		Bounce_Handler::init();
+
+		// Initialize the fields REST API.
+		Fields_REST_API::init();
+	}
+
+	/**
+	 * Registers custom objects.
+	 *
+	 * @since 3.0.0
+	 */
+	public static function register_objects() {
+		\Hizzle\Noptin\Objects\Store::add( new Records() );
+	}
+
+	/**
+	 * Migrates triggers.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array $triggers The triggers.
+	 */
+	public static function migrate_triggers( $triggers ) {
+
+		$triggers[] = array(
+			'id'         => 'new_subscriber',
+			'trigger_id' => 'new_subscriber',
+			'callback'   => function ( &$automation_rule ) {
+
+				/** @var \Hizzle\Noptin\DB\Automation_Rule $automation_rule */
+				if ( noptin_has_enabled_double_optin() && ! $automation_rule->get_trigger_setting( 'fire_after_confirmation' ) ) {
+					$automation_rule->set_trigger_id( 'noptin_subscriber_status_set_to_pending' );
+				} else {
+					$automation_rule->set_trigger_id( 'noptin_subscriber_status_set_to_subscribed' );
+				}
+
+				// Update the conditional logic.
+				$automation_rule->add_conditional_logic_rules(
+					array(),
+					array( 'fire_after_confirmation' )
+				);
+			},
+		);
+
+		return $triggers;
+	}
+
+	/**
+	 * Should fire has changes hook.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param bool  $should_fire The should fire.
+	 * @param array $changed_keys An array of changed keys.
+	 */
+	public static function should_fire_has_changes_hook( $should_fire, $changed_keys ) {
+
+		if ( ! $should_fire ) {
+			return $should_fire;
+		}
+
+		$ignore = array(
+			'activity',
+			'date_modified',
+			'date_created',
+			'confirm_key',
+			'total_emails_sent',
+			'total_emails_opened',
+			'total_links_clicked',
+			'last_email_sent_date',
+			'last_email_opened_date',
+			'last_email_clicked_date',
+			'email_engagement_score',
+		);
+
+		// Abort if all keys in the changes are in the ignore list.
+		if ( empty( array_diff( $changed_keys, $ignore ) ) ) {
+			return false;
+		}
+
+		return $should_fire;
+	}
+
+	/**
+	 * Registers collection subscriber tabs.
+	 *
+	 * @param array $tabs
+	 * @return array
+	 */
+	public static function add_collection_subscriber_tabs( $tabs ) {
+		$collections = \Hizzle\Noptin\Objects\Store::filtered( array( 'show_tab' => true ) );
+
+		foreach ( $collections as $collection ) {
+			$tabs[ $collection->type ] = array_merge(
+				$collection->get_custom_tab_details(),
+				array( 'callback' => __CLASS__ . '::process_collection_tab' )
+			);
+		}
+
+		return $tabs;
+	}
+
+	/**
+	 * Processes collection subscriber tabs.
+	 *
+	 * @param array $request
+	 * @return array
+	 */
+	public static function process_collection_tab( $request ) {
+		$subscriber = noptin_get_subscriber( $request['id'] );
+
+		if ( empty( $subscriber->get_email() ) ) {
+			return new \WP_Error( 'subscriber_not_found', 'Subscriber not found', array( 'status' => 400 ) );
+		}
+
+		if ( empty( $request['tab_id'] ) ) {
+			return new \WP_Error( 'tab_id_not_provided', 'Tab not provided', array( 'status' => 400 ) );
+		}
+
+		$collection = \Hizzle\Noptin\Objects\Store::get( $request['tab_id'] );
+
+		if ( empty( $collection ) ) {
+			return new \WP_Error( 'collection_not_found', 'Collection not found', array( 'status' => 400 ) );
+		}
+
+		return $collection->process_custom_tab( $subscriber->get_email() );
+	}
+
+	/**
+	 * New subscribers menu.
+	 */
+	public static function subscribers_menu() {
+		$is_field_page     = ! empty( $_GET['noptin_cf'] );
+		self::$hook_suffix = add_submenu_page(
+			'noptin',
+			esc_html__( 'Email Subscribers', 'newsletter-optin-box' ),
+			esc_html__( 'Subscribers', 'newsletter-optin-box' ),
+			get_noptin_collection_capability( 'subscribers' ),
+			'noptin-subscribers',
+			$is_field_page ? __CLASS__ . '::render_field_page' : '\Hizzle\WordPress\ScriptManager::render_collection'
+		);
+
+		if ( ! $is_field_page ) {
+			\Hizzle\WordPress\ScriptManager::add_collection(
+				self::$hook_suffix,
+				'noptin',
+				'subscribers'
+			);
+		}
+	}
+
+	/**
+	 * Renders the fields admin page.
+	 */
+	public static function render_field_page() {
+		if ( ! current_user_can( get_noptin_collection_capability( 'subscribers' ) ) ) {
+			return;
+		}
+
+		?>
+			<style>
+				table.hizzlewp-records-view-table tr th:nth-last-child(2) {
+					text-align: right;
+				}
+
+				table.hizzlewp-records-view-table tr td:nth-last-child(2)  .hizzlewp-records-view-table__cell-content-wrapper {
+					text-align: right;
+					display: block;
+				}
+			</style>
+			<div id="noptin-field-manager-app">
+				<!-- spinner -->
+				<span class="spinner" style="visibility: visible; float: none;"></span>
+				<!-- /spinner -->
+			</div>
+		<?php
+	}
+
+	/**
+	 * Enqueues scripts.
+	 *
+	 * @param string $hook The hook.
+	 */
+	public static function enqueue_scripts( $hook ) {
+		if ( self::$hook_suffix === $hook ) {
+			$script = 'hizzlewp-store-ui';
+
+			if ( ! empty( $_GET['noptin_cf'] ) ) {
+				$script = 'noptin-field-manager';
+
+				// Enqueue the field manager script.
+				$config = include plugin_dir_path( __FILE__ ) . 'assets/js/field-manager.asset.php';
+				wp_enqueue_script(
+					$script,
+					plugin_dir_url( __FILE__ ) . 'assets/js/field-manager.js',
+					$config['dependencies'],
+					$config['version'],
+					true
+				);
+
+				$data = array(
+					'brand'          => noptin()->white_label->get_details(),
+					'fields'         => self::get_field_manager_fields(),
+					'subscribersUrl' => add_query_arg( 'page', 'noptin-subscribers', admin_url( 'admin.php' ) ),
+				);
+
+				// Localize the script.
+				wp_add_inline_script(
+					$script,
+					'window.noptinFieldManager = ' . wp_json_encode( $data ) . ';',
+					'before'
+				);
+
+				self::preload_current_field_options();
+			}
+
+			wp_set_script_translations( $script, 'newsletter-optin-box', noptin()->plugin_path . 'languages' );
+		}
+	}
+
+	/**
+	 * Preloads the options for the field being managed into wp.apiFetch cache.
+	 */
+	private static function preload_current_field_options() {
+		$field = sanitize_text_field( wp_unslash( $_GET['noptin_cf'] ) );
+
+		if ( empty( $field ) || 'add-new' === $field ) {
+			return;
+		}
+
+		$path         = sprintf( '/noptin/v1/subscribers/fields/%s', rawurlencode( $field ) );
+		$preload_data = rest_preload_api_request( array(), $path );
+
+		wp_add_inline_script(
+			'wp-api-fetch',
+			sprintf(
+				'wp.apiFetch.use( wp.apiFetch.createPreloadingMiddleware( %s ) );',
+				wp_json_encode( $preload_data )
+			),
+			'after'
+		);
+	}
+
+	/**
+	 * Returns available fields for the field manager navigation menu.
+	 *
+	 * @return array<int, array<string, string>>
+	 */
+	private static function get_field_manager_fields() {
+		$fields   = array();
+		$existing = Records::subscriber_fields( true );
+		$skip     = Fields_REST_API::get_skip_fields();
+
+		foreach ( $existing as $merge_tag => $field ) {
+			if ( in_array( $merge_tag, $skip, true ) ) {
+				continue;
+			}
+
+			$label = ! empty( $field['label'] ) ? wp_strip_all_tags( $field['label'] ) : $merge_tag;
+
+			$fields[] = array(
+				'value' => (string) $merge_tag,
+				'label' => (string) $label,
+			);
+		}
+
+		return array_values( $fields );
+	}
+
+	/**
+	 * Filters admin tools to add subscriber related tools.
+	 *
+	 * @param array $tools The tools.
+	 * @return array
+	 */
+	public static function filter_admin_tools( $tools ) {
+		$tools['send_confirmation_emails'] = array(
+			'type'        => 'background',
+			'title'       => __( 'Send Confirmation Emails', 'newsletter-optin-box' ),
+			'description' => __( 'Send confirmation emails to all unconfirmed subscribers.', 'newsletter-optin-box' ),
+			'icon'        => 'email-alt',
+			'ajax_action' => 'noptin_send_confirmation_emails',
+			'button'      => array( 'text' => __( 'Send', 'newsletter-optin-box' ) ),
+			'confirm'     => __( 'Are you sure you want to send confirmation emails to all unconfirmed subscribers?', 'newsletter-optin-box' ),
+		);
+
+		return $tools;
+	}
+
+	/**
+	 * Sends confirmation emails to unconfirmed subscribers.
+	 */
+	public static function send_confirmation_emails() {
+		// Fetch unconfirmed subscribers.
+		$subscribers = noptin_get_subscribers(
+			array(
+				'confirmed' => 0,
+				'number'    => -1,
+				'fields'    => 'id',
+			)
+		);
+
+		if ( empty( $subscribers ) ) {
+			\Hizzle\Noptin\Admin\Tools::send_response( true, 'No unconfirmed subscribers found.' );
+		}
+
+		// Schedule sending of confirmation emails.
+		// We don't want to do this in a loop directly to avoid timeouts.
+		foreach ( $subscribers as $subscriber ) {
+			schedule_noptin_background_action(
+				time(),
+				'noptin_send_confirmation_email',
+				$subscriber
+			);
+		}
+
+		$message = sprintf(
+			'Scheduled sending of confirmation emails to %s unconfirmed subscribers.',
+			count( $subscribers )
+		);
+
+		\Hizzle\Noptin\Admin\Tools::send_response( true, $message );
+	}
+
+	/**
+	 * Sends a confirmation email to a subscriber.
+	 *
+	 * @param int $subscriber_id The subscriber ID.
+	 */
+	public static function send_confirmation_email( $subscriber_id ) {
+		$subscriber = noptin_get_subscriber( $subscriber_id );
+
+		if ( ! $subscriber->get_email() ) {
+			return;
+		}
+
+		return $subscriber->do_send_confirmation_email();
+	}
+
+	/**
+	 * Activates deferred automation rule tasks after subscriber confirmation.
+	 *
+	 * @param Subscriber $subscriber The subscriber.
+	 * @param string $from Previous subscriber status.
+	 */
+	public static function activate_deferred_subscriber_tasks( $subscriber, $from = '' ) {
+		if ( ! $subscriber->exists() || 'pending' !== $from ) {
+			return;
+		}
+
+		$tasks = \Hizzle\Noptin\Tasks\Main::query(
+			array(
+				'hook'           => 'noptin_run_automation_rule',
+				'status'         => 'manual',
+				'search'         => $subscriber->get_email(),
+				'search_columns' => array( 'subject', 'metadata' ),
+				'number'         => -1,
+			)
+		);
+
+		if ( empty( $tasks ) || is_wp_error( $tasks ) ) {
+			return;
+		}
+
+		/** @var \Hizzle\Noptin\Tasks\Task $task */
+		foreach ( $tasks as $task ) {
+			$deferred_recipient = $task->get_meta( 'deferred_recipient' );
+			$task_recipient     = $deferred_recipient ? $deferred_recipient : $task->get_subject();
+
+			if ( strtolower( (string) $task_recipient ) !== strtolower( $subscriber->get_email() ) ) {
+				continue;
+			}
+
+			$rule = noptin_get_automation_rule( $task->get_primary_id() );
+
+			if ( is_wp_error( $rule ) || ! $rule->exists() ) {
+				continue;
+			}
+
+			$delay = $rule->get_delay();
+
+			$task->set_status( 'pending' );
+			// If no delay, set to expire 1 minute ago so it runs immediately.
+			$task->set_date_scheduled( ! empty( $delay ) ? time() + $delay : time() - MINUTE_IN_SECONDS );
+			$task->add_log( 'Task activated after subscriber confirmation.' );
+			$task->save();
+		}
+	}
+
+	/**
+	 * Hides blocked subscribers.
+	 *
+	 * @param \Hizzle\Store\Query $query The query.
+	 */
+	public static function hide_blocked_subscribers( $query ) {
+		$excluded = wp_parse_list( $query->query_vars['status_not'] ?? array() );
+		$included = wp_parse_list( $query->query_vars['status'] ?? array() );
+
+		// Abort if we're already excluding blocked subscribers.
+		if ( in_array( 'blocked', $excluded, true ) ) {
+			return;
+		}
+
+		// Abort if we're already including blocked subscribers.
+		if ( in_array( 'blocked', $included, true ) ) {
+			return;
+		}
+
+		$excluded[] = 'blocked';
+		$query->set( 'status_not', $excluded );
+	}
+
+	/**
+	 * Recalculates the subscriber engagement rate.
+	 *
+	 * @param int $subscriber_id The subscriber ID.
+	 */
+	public static function recalculate_subscriber_engagement_rate( $subscriber_id ) {
+		global $wpdb;
+
+		// Get the subscriber.
+		$subscriber = noptin_get_subscriber( $subscriber_id );
+
+		if ( ! $subscriber || ! $subscriber->get_email() ) {
+			return;
+		}
+
+		$results = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT 
+        			activity,
+        			COUNT(*) as total,
+        			MAX(date_created) as last_date
+				FROM {$wpdb->prefix}noptin_email_logs
+    			WHERE email = %s AND activity IN ('send', 'open', 'click')
+    			GROUP BY activity
+				",
+				$subscriber->get_email()
+			),
+			ARRAY_A
+		);
+
+		// Initialize metrics
+		$metrics = array(
+			'send'  => array(
+				'count' => 0,
+				'last'  => null,
+			),
+			'open'  => array(
+				'count' => 0,
+				'last'  => null,
+			),
+			'click' => array(
+				'count' => 0,
+				'last'  => null,
+			),
+		);
+
+		// Map results
+		foreach ( $results as $row ) {
+			$metrics[ $row['activity'] ]['count'] = intval( $row['total'] );
+
+			// Dates are stored in UTC time, but without a timezone.
+			// Fix that.
+			if ( ! empty( $row['last_date'] ) ) {
+				$metrics[ $row['activity'] ]['last'] = new \Hizzle\Store\Date_Time( $row['last_date'], new \DateTimeZone( 'UTC' ) );
+			}
+		}
+
+		// Set metrics
+		$subscriber->set( 'total_emails_sent', $metrics['send']['count'] );
+		$subscriber->set( 'last_email_sent_date', $metrics['send']['last'] );
+		$subscriber->set( 'total_emails_opened', $metrics['open']['count'] );
+		$subscriber->set( 'last_email_opened_date', $metrics['open']['last'] );
+		$subscriber->set( 'total_links_clicked', $metrics['click']['count'] );
+		$subscriber->set( 'last_email_clicked_date', $metrics['click']['last'] );
+		$subscriber->set( 'email_engagement_score', $subscriber->calculate_engagement_score() );
+
+		// Save
+		$subscriber->save();
+	}
+}

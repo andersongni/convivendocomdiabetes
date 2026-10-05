@@ -1,11 +1,5 @@
-#This Apache config file was created by Duplicator Installer on 2021-01-21 03:30:18.
-#The original can be found in archived file with the name .htaccess__[HASH]
-
 # BEGIN WordPress
-# As diretrizes (linhas) entre "BEGIN WordPress" e "END WordPress" são
-# geradas dinamicamente e só devem ser modificadas através de filtros do WordPress.
-# Quaisquer alterações nas diretivas entre esses marcadores serão sobrescritas.
-<IfModule mod_rewrite.c>
+
 RewriteEngine On
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteBase /
@@ -13,6 +7,5 @@ RewriteRule ^index\.php$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . /index.php [L]
-</IfModule>
 
 # END WordPress

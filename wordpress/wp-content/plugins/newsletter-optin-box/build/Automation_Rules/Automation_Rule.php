@@ -1,0 +1,952 @@
+<?php
+
+/**
+ * Container for a single automation rule.
+ *
+ * @version 1.0.0
+ */
+
+namespace Hizzle\Noptin\Automation_Rules;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Automation Rule.
+ */
+class Automation_Rule extends \Hizzle\Store\Record {
+
+	/**
+	 * Are we creating a new rule?
+	 * @var bool
+	 * @since 1.12.0
+	 */
+	public $is_creating = false;
+
+	/**
+	 * @inheritdoc
+	 */
+	public function __construct( $record = 0, $args = array() ) {
+
+		parent::__construct( $record, $args );
+
+		// Check if we are creating a new rule.
+		if ( empty( $record ) && ! empty( $_GET['noptin-trigger'] ) && ! empty( $_GET['noptin-action'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+			$this->is_creating = true;
+
+			$this->set_trigger_id( sanitize_text_field( $_GET['noptin-trigger'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$this->set_action_id( sanitize_text_field( $_GET['noptin-action'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+			// Pre-fill the parent rule ID when branching from an existing rule.
+			if ( ! empty( $_GET['noptin-parent-id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$this->set_parent_id( absint( $_GET['noptin-parent-id'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			}
+
+			// Set default action and trigger settings.
+			$this->set_trigger_settings( array( 'conditional_logic' => noptin_get_default_conditional_logic() ) );
+			$this->set_action_settings( array() );
+		}
+	}
+
+	/**
+	 * Gets the action id.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_action_id( $context = 'view' ) {
+		return $this->get_prop( 'action_id', $context );
+	}
+
+	/**
+	 * Sets the action id.
+	 *
+	 * @param string $value Action id.
+	 */
+	public function set_action_id( $value ) {
+		$this->set_prop( 'action_id', sanitize_text_field( $value ) );
+		$this->sanitize_action_settings();
+	}
+
+	/**
+	 * Gets the action.
+	 */
+	public function get_action() {
+		return Actions\Main::get( $this->get_action_id() );
+	}
+
+	/**
+	 * Returns a single action setting.
+	 *
+	 * @param string $key The setting key.
+	 * @return mixed|null
+	 */
+	public function get_action_setting( $key ) {
+
+		$settings = $this->get_action_settings();
+		return isset( $settings[ $key ] ) ? $settings[ $key ] : null;
+	}
+
+	/**
+	 * Returns the action settings.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return array
+	 */
+	public function get_action_settings( $context = 'view' ) {
+		$value = $this->get_prop( 'action_settings', $context );
+		return is_array( $value ) ? $value : array();
+	}
+
+	/**
+	 * Sets the action settings.
+	 *
+	 * @param string|array $value Action settings.
+	 */
+	public function set_action_settings( $value ) {
+		$value = empty( $value ) ? array() : maybe_unserialize( $value );
+		$value = is_array( $value ) ? $value : array();
+		$this->set_prop( 'action_settings', $value );
+		$this->sanitize_action_settings();
+	}
+
+	/**
+	 * Gets the trigger id.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_trigger_id( $context = 'view' ) {
+		return $this->get_prop( 'trigger_id', $context );
+	}
+
+	/**
+	 * Sets the trigger id.
+	 *
+	 * @param string $value Trigger id.
+	 */
+	public function set_trigger_id( $value ) {
+		$this->set_prop( 'trigger_id', sanitize_text_field( $value ) );
+		$this->sanitize_trigger_settings();
+	}
+
+	/**
+	 * Gets the trigger.
+	 */
+	public function get_trigger() {
+		return Triggers\Main::get( $this->get_trigger_id() );
+	}
+
+	/**
+	 * Returns a single trigger setting.
+	 *
+	 * @param string $key The setting key.
+	 * @return mixed|null
+	 */
+	public function get_trigger_setting( $key ) {
+
+		$settings = $this->get_trigger_settings();
+		return isset( $settings[ $key ] ) ? $settings[ $key ] : null;
+	}
+
+	/**
+	 * Returns the trigger settings.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return array
+	 */
+	public function get_trigger_settings( $context = 'view' ) {
+		$value = $this->get_prop( 'trigger_settings', $context );
+		return is_array( $value ) ? $value : array();
+	}
+
+	/**
+	 * Sets the trigger settings.
+	 *
+	 * @param string|array $value Trigger settings.
+	 */
+	public function set_trigger_settings( $value ) {
+		$value = empty( $value ) ? array() : maybe_unserialize( $value );
+		$value = is_array( $value ) ? $value : array();
+		$this->set_prop( 'trigger_settings', $value );
+		$this->sanitize_trigger_settings();
+	}
+
+	/**
+	 * Returns the conditional logic settings.
+	 *
+	 * @return array
+	 */
+	public function get_conditional_logic() {
+		$conditional_logic = $this->get_trigger_setting( 'conditional_logic' );
+		$conditional_logic = is_array( $conditional_logic ) ? $conditional_logic : array();
+
+		return array_merge( noptin_get_default_conditional_logic(), $conditional_logic );
+	}
+
+	/**
+	 * Add conditional logic rules.
+	 *
+	 * @param array $rules The rules.
+	 */
+	public function add_conditional_logic_rules( $rules, $delete_settings = array(), $overwrite = array() ) {
+		$conditional_logic = array_merge( noptin_get_default_conditional_logic(), $this->get_conditional_logic() );
+		$existing_rules    = $conditional_logic['enabled'] ? $conditional_logic['rules'] : array();
+
+		$conditional_logic['rules']   = array_merge( $existing_rules, $rules );
+		$conditional_logic['enabled'] = ! empty( $conditional_logic['rules'] );
+
+		$new_settings = $this->get_trigger_settings();
+
+		if ( ! empty( $delete_settings ) ) {
+			foreach ( $delete_settings as $setting ) {
+				unset( $new_settings[ $setting ] );
+			}
+		}
+
+		if ( is_array( $overwrite ) ) {
+			$conditional_logic = array_merge( $conditional_logic, $overwrite );
+		}
+
+		$new_settings['conditional_logic'] = $conditional_logic;
+		$this->set_trigger_settings( $new_settings );
+	}
+
+	/**
+	 * Returns the rule status.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return bool
+	 */
+	public function get_status( $context = 'view' ) {
+		return $this->get_prop( 'status', $context );
+	}
+
+	/**
+	 * Sets the rule status.
+	 *
+	 * @param bool|int $value Rule status.
+	 */
+	public function set_status( $value ) {
+		$this->set_prop( 'status', ! empty( $value ) );
+	}
+
+	/**
+	 * Returns the number of seconds to wait before executing the rule.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return int|null
+	 */
+	public function get_delay( $context = 'view' ) {
+		return $this->get_prop( 'delay', $context );
+	}
+
+	/**
+	 * Sets the number of seconds to wait before executing the rule.
+	 *
+	 * @param int $value Delay in seconds.
+	 */
+	public function set_delay( $value ) {
+		$value = empty( $value ) ? null : absint( $value );
+		$this->set_prop( 'delay', $value );
+	}
+
+	/**
+	 * Gets the workflow display name.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_formatted_workflow_name() {
+		$name = $this->get_prop( 'workflow_name' );
+
+		if ( ! empty( $name ) ) {
+			return $name;
+		}
+
+		$trigger = $this->get_trigger();
+		$action  = $this->get_action();
+
+		$trigger_name = $trigger ? $trigger->get_name() : $this->get_trigger_id();
+		$action_name  = $action ? $action->get_name() : $this->get_action_id();
+
+		$names = array_filter( array( $trigger_name, $action_name ) );
+		return implode( ' → ', $names );
+	}
+
+	/**
+	 * Gets the workflow name.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return string
+	 */
+	public function get_workflow_name( $context = 'view' ) {
+		return $this->get_prop( 'workflow_name', $context );
+	}
+
+	/**
+	 * Sets the workflow name.
+	 *
+	 * @param string $value Workflow name.
+	 */
+	public function set_workflow_name( $value ) {
+		$this->set_prop( 'workflow_name', sanitize_text_field( $value ) );
+	}
+
+	/**
+	 * Gets the parent rule ID.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return int
+	 */
+	public function get_parent_id( $context = 'view' ) {
+		return absint( $this->get_prop( 'parent_id', $context ) );
+	}
+
+	/**
+	 * Sets the parent rule ID.
+	 *
+	 * @param int $value Parent rule ID.
+	 */
+	public function set_parent_id( $value ) {
+		$this->set_prop( 'parent_id', absint( $value ) );
+	}
+
+	/**
+	 * Gets the rule priority.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return int
+	 */
+	public function get_priority( $context = 'view' ) {
+		return absint( $this->get_prop( 'priority', $context ) );
+	}
+
+	/**
+	 * Sets the rule priority.
+	 *
+	 * @param int $value Rule priority. Lower values run first.
+	 */
+	public function set_priority( $value ) {
+		$this->set_prop( 'priority', absint( $value ) );
+	}
+
+	/**
+	 * Returns the number of times this rule has been run.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return int
+	 */
+	public function get_times_run( $context = 'view' ) {
+		return $this->get_prop( 'times_run', $context );
+	}
+
+	/**
+	 * Sets the number of times this rule has been run.
+	 *
+	 * @param int $value Delay in seconds.
+	 */
+	public function set_times_run( $value ) {
+		$value = empty( $value ) ? 0 : absint( $value );
+		$this->set_prop( 'times_run', $value );
+	}
+
+	/**
+	 * Get the date this rule was created.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return null|\Hizzle\Store\Date_Time
+	 */
+	public function get_created_at( $context = 'view' ) {
+		return $this->get_prop( 'created_at', $context );
+	}
+
+	/**
+	 * Set the date this rule was created.
+	 *
+	 * @param string|int|null|\Hizzle\Store\Date_Time $created_at Date this rule was created.
+	 */
+	public function set_created_at( $created_at ) {
+		$this->set_date_prop( 'created_at', $created_at );
+	}
+
+	/**
+	 * Get the date this rule was last modified.
+	 *
+	 * @param string $context What the value is for. Valid values are 'view' and 'edit'.
+	 * @return null|\Hizzle\Store\Date_Time
+	 */
+	public function get_updated_at( $context = 'view' ) {
+		return $this->get_prop( 'updated_at', $context );
+	}
+
+	/**
+	 * Set the date this rule was last modified.
+	 *
+	 * @param string|int|null|\Hizzle\Store\Date_Time $updated_at Date this rule was last modified.
+	 */
+	public function set_updated_at( $updated_at ) {
+		$this->set_date_prop( 'updated_at', $updated_at );
+	}
+
+	/**
+	 * Ensure the status, trigger_id, and trigger settings (minus conditional logic) mirror that of the parent rule.
+	 *
+	 * @param Automation_Rule $rule The rule to mirror to parent.
+	 * @param Automation_Rule $parent_rule The parent rule to mirror from.
+	 */
+	private static function mirror_to_parent( &$rule, $parent_rule ) {
+		// Abort if no parent.
+		if ( ! is_a( $parent_rule, self::class ) || ! $parent_rule->exists() ) {
+			return false;
+		}
+
+		// Abort if no child.
+		// Here we don't check for exists.
+		if ( ! is_a( $rule, self::class ) ) {
+			return false;
+		}
+
+		// Abort if child rule === parent rule to prevent self-reference and circular parent chains.
+		if ( $rule->get_id() === $parent_rule->get_id() ) {
+			return false;
+		}
+
+		$rule->set_status( $parent_rule->get_status() );
+		$rule->set_trigger_id( $parent_rule->get_trigger_id() );
+
+		$parent_trigger_settings = $parent_rule->get_trigger_settings();
+
+		$parent_trigger_settings['conditional_logic'] = $rule->get_conditional_logic();
+
+		$rule->set_trigger_settings( $parent_trigger_settings );
+
+		return true;
+	}
+
+	/**
+	 * Saves the rule.
+	 *
+	 * @return int|\WP_Error
+	 */
+	public function save() {
+		$this->set_updated_at( time() );
+
+		if ( ! $this->get_id() ) {
+			$this->set_created_at( time() );
+		}
+
+		// If we have no uuid, generate one.
+		if ( ! $this->get_meta( 'uuid' ) ) {
+			$this->update_meta( 'uuid', wp_generate_uuid4() );
+		}
+
+		// If we have a parent rule, ensure the status, trigger_id, and trigger settings (minus conditional logic) mirror that of the parent rule.
+		if ( $this->get_parent_id() ) {
+			$parent_rule = noptin_get_automation_rule( $this->get_parent_id() );
+			self::mirror_to_parent( $this, $parent_rule );
+		}
+
+		// And vice versa.
+		foreach ( $this->get_children() as $child_rule ) {
+			if ( self::mirror_to_parent( $child_rule, $this ) ) {
+				$child_rule->save();
+			}
+		}
+
+		return parent::save();
+	}
+
+	/**
+	 * Deletes the rule.
+	 *
+	 * @return int|\WP_Error
+	 */
+	public function delete( $fire_actions = true ) {
+		// Abort if rule doesn't exist.
+		if ( ! $this->exists() ) {
+			return new \WP_Error( 'noptin_automation_rule_not_found', 'Automation rule not found.' );
+		}
+
+		// Delete child rules first.
+		foreach ( $this->get_children() as $child_rule ) {
+			$child_rule->delete( $fire_actions );
+		}
+
+		$action = $this->get_action();
+
+		if ( ! empty( $action ) && $fire_actions ) {
+			$action->before_delete( $this );
+		}
+
+		return parent::delete();
+	}
+
+	/**
+	 * Fetches the rule's edit url.
+	 *
+	 * @return string
+	 */
+	public function get_edit_url() {
+
+		$edit_url = add_query_arg(
+			array(
+				'page'          => 'noptin-automation-rules',
+				'hizzlewp_path' => '/edit/' . $this->get_id(),
+			),
+			admin_url( 'admin.php' )
+		);
+
+		$email = $this->get_email_campaign();
+		if ( $email ) {
+			$edit_url = $email->get_edit_url();
+		}
+
+		return apply_filters( 'noptin_automation_rule_edit_url', $edit_url, $this );
+	}
+
+	/**
+	 * Returns the related email campaign.
+	 *
+	 * @return false|\Hizzle\Noptin\Emails\Email
+	 */
+	public function get_email_campaign() {
+
+		if ( 'email' !== $this->get_action_id() ) {
+			return false;
+		}
+
+		$settings = $this->get_action_settings();
+
+		if ( empty( $settings['automated_email_id'] ) ) {
+			return false;
+		}
+
+		$email = noptin_get_email_campaign_object( $settings['automated_email_id'] );
+
+		return $email->exists() ? $email : false;
+	}
+
+	/**
+	 * Sanitize the trigger settings.
+	 *
+	 */
+	private function sanitize_trigger_settings() {
+
+		// Fetch the trigger.
+		$trigger = $this->get_trigger();
+
+		if ( empty( $trigger ) ) {
+			return;
+		}
+
+		$trigger_settings = apply_filters( 'noptin_automation_rule_trigger_settings_' . $trigger->get_id(), $trigger->get_settings(), $this, $trigger );
+		$trigger_settings = apply_filters( 'noptin_automation_rule_trigger_settings', $trigger_settings, $this, $trigger );
+		$settings         = $this->prepare_settings( $this->get_trigger_settings(), $trigger_settings );
+
+		// Set the sanitized settings.
+		$this->set_prop( 'trigger_settings', $settings );
+	}
+
+	/**
+	 * Sanitize the action settings.
+	 *
+	 */
+	private function sanitize_action_settings() {
+
+		// Fetch the trigger.
+		$action = $this->get_action();
+
+		if ( empty( $action ) ) {
+			return;
+		}
+
+		$action_settings = apply_filters( 'noptin_automation_rule_action_settings_' . $action->get_id(), $action->get_settings(), $this, $action );
+		$action_settings = apply_filters( 'noptin_automation_rule_action_settings', $action_settings, $this, $action );
+		$settings        = $this->prepare_settings( $this->get_action_settings(), $action_settings );
+
+		// Set the sanitized settings.
+		$this->set_prop( 'action_settings', $settings );
+	}
+
+	/**
+	 * Prepares settings.
+	 *
+	 * @param array $options  The saved options.
+	 * @param array $settings The known settings.
+	 * @return array
+	 */
+	private function prepare_settings( $options, $settings ) {
+
+		// Prepare the options.
+		$prepared_options = array();
+
+		foreach ( $settings as $key => $args ) {
+			$default  = isset( $args['default'] ) ? $args['default'] : '';
+			$is_array = is_array( $default );
+			$value    = isset( $options[ $key ] ) ? $options[ $key ] : $default;
+
+			if ( $is_array && ! is_array( $value ) ) {
+				$value = noptin_parse_list( $value, true );
+			}
+
+			// If there are options, make sure the value is one of them.
+			if ( ! empty( $args['options'] ) && is_array( $args['options'] ) ) {
+				$choices = array_keys( $args['options'] );
+
+				if ( is_array( $value ) ) {
+					// Allow merge tags in array values
+					$filtered = array();
+					foreach ( $value as $single_value ) {
+						if ( in_array( $single_value, $choices ) || preg_match( '/\[\[.*?\]\]/', $single_value ) ) {  // phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
+							$filtered[] = $single_value;
+						}
+					}
+					$value = $filtered;
+				} else {
+					// Allow merge tags in single value
+					$value = ( in_array( $value, $choices ) || preg_match( '/\[\[.*?\]\]/', $value ) ) ? $value : $default;  // phpcs:ignore WordPress.PHP.StrictInArray.MissingTrueStrict
+				}
+			}
+
+			$prepared_options[ $key ] = $value;
+		}
+
+		if ( isset( $options['conditional_logic'] ) ) {
+			$prepared_options['conditional_logic'] = $options['conditional_logic'];
+		}
+
+		$prepared_options = wp_parse_args( $prepared_options, $options );
+		return $prepared_options;
+	}
+
+	/**
+	 * Fires the rule action.
+	 *
+	 * @param \Noptin_Abstract_Trigger $trigger  The trigger.
+	 * @param \Noptin_Abstract_Action $action  The action.
+	 * @param mixed $subject The subject.
+	 * @param array $args The arguments.
+	 * @return bool|\WP_Error
+	 */
+	public function maybe_run( $subject, $trigger, $action, $args ) {
+
+		if ( empty( $trigger ) ) {
+			return false;
+		}
+
+		// Missing actions can act as pass-through steps when there are child rules.
+		if ( empty( $action ) ) {
+			if ( empty( $this->get_children() ) ) {
+				return new \WP_Error( 'invalid_action', 'Invalid or unregistered action' );
+			}
+
+			$action = new Actions\Pass_Through( $this->get_action_id() );
+		}
+
+		// Check if the rule is valid.
+		if ( ! $this->get_status() || ! $trigger->is_rule_valid_for_args( $this, $args, $subject, $action ) ) {
+			log_noptin_message( 'Automation rule trigger "' . $trigger->get_name() . '" not valid for args.' );
+
+			return false;
+		}
+
+		// Run the automation rule.
+		return \Hizzle\Noptin\Tasks\Main::run_automation_rule( $subject, $this, $args, $trigger );
+	}
+
+	/**
+	 * Fetch rule data for JS.
+	 */
+	public function get_data( $context = 'view' ) {
+
+		$prepared = parent::get_data( $context );
+		$settings = array();
+		$trigger  = $this->get_trigger();
+		if ( ! empty( $trigger ) ) {
+			$prepared['smartTags'] = $trigger->get_known_smart_tags_for_js();
+
+			$trigger_settings = apply_filters( 'noptin_automation_rule_trigger_settings_' . $trigger->get_id(), $trigger->get_settings(), $this, $trigger );
+
+			// Trigger settings.
+			$settings['trigger'] = array(
+				'label'    => __( 'Trigger', 'newsletter-optin-box' ),
+				'prop'     => 'trigger_settings',
+				'settings' => array_merge(
+					array(
+						'action_id_info' => array(
+							'el'      => 'paragraph',
+							'content' => $trigger->get_description(),
+						),
+					),
+					$trigger_settings
+				),
+			);
+
+			// Conditional logic.
+			$settings['conditional_logic'] = array(
+				'label'    => __( 'Conditional Logic', 'newsletter-optin-box' ),
+				'prop'     => 'trigger_settings',
+				'settings' => array(
+					'conditional_logic' => array(
+						'label'       => __( 'Conditional Logic', 'newsletter-optin-box' ),
+						'el'          => 'conditional_logic',
+						'comparisons' => noptin_get_conditional_logic_comparisons(),
+						'fullWidth'   => true,
+						'default'     => array(
+							'enabled' => false,
+							'action'  => 'allow',
+							'type'    => 'all',
+							'rules'   => array(
+								array(
+									'condition' => 'is',
+									'type'      => 'date',
+									'value'     => gmdate( 'Y-m-d' ),
+								),
+							),
+						),
+					),
+				),
+			);
+		}
+
+		$action = $this->get_action();
+		if ( ! empty( $action ) ) {
+			$action_settings = apply_filters( 'noptin_automation_rule_action_settings_' . $action->get_id(), $action->get_settings(), $this, $action );
+			$other_sections  = array();
+
+			// Map fields.
+			$map_fields               = array();
+			$original_action_settings = $action_settings;
+
+			foreach ( $action_settings as $key => $data ) {
+				if ( isset( $data['description'] ) && isset( $data['label'] ) && $data['description'] === $data['label'] ) {
+					unset( $data['description'] );
+				}
+
+				if ( ! empty( $data['map_field'] ) ) {
+					$map_fields[ $key ] = $data;
+					unset( $action_settings[ $key ] );
+				} elseif ( ! empty( $data['settings'] ) && empty( $data['el'] ) ) {
+					$data['prop']           = $data['prop'] ?? 'action_settings';
+					$other_sections[ $key ] = $data;
+					unset( $action_settings[ $key ] );
+					unset( $original_action_settings[ $key ] );
+				}
+			}
+
+			// If less than 3 map fields, include them in action settings instead of separate section
+			if ( count( $map_fields ) > 0 && count( $map_fields ) < 3 ) {
+				$action_settings = array_merge(
+					array(
+						'map_field_tip' => array(
+							'content' => sprintf(
+								// translators: %s: The merge tag button.
+								esc_html__( 'Click the %s button to add dynamic values. You can combine multiple values in a single field.', 'newsletter-optin-box' ),
+								'<strong><code>[/]</code></strong>'
+							),
+							'el'      => 'paragraph',
+							'raw'     => true,
+						),
+					),
+					$original_action_settings
+				);
+				$map_fields      = array();
+			}
+
+			// Action settings.
+			$settings['action'] = array(
+				'label'    => __( 'Action', 'newsletter-optin-box' ),
+				'prop'     => 'action_settings',
+				'settings' => array_merge(
+					array(
+						'action_id_info' => array(
+							'el'      => 'paragraph',
+							'content' => $action->get_description(),
+						),
+					),
+					$action_settings
+				),
+			);
+
+			if ( ! empty( $map_fields ) ) {
+				$settings['map_fields'] = array(
+					'label'    => $action->get_map_fields_section_title(),
+					'prop'     => 'action_settings',
+					'settings' => array_merge(
+						array(
+							'map_field_tip' => array(
+								'content' => sprintf(
+									// translators: %s: The merge tag button.
+									esc_html__( 'Click the %s button to add dynamic values from your trigger. You can add multiple values to a single field.', 'newsletter-optin-box' ),
+									'<strong><code>[/]</code></strong>'
+								),
+								'el'      => 'paragraph',
+								'raw'     => true,
+							),
+						),
+						$map_fields
+					),
+				);
+			}
+
+			$settings = array_merge( $settings, $other_sections );
+		}
+
+		$settings = apply_filters( 'noptin_automation_rule_settings', $settings, $this, $trigger, $action );
+
+		$prepared['settings'] = $settings;
+
+		return $prepared;
+	}
+
+	/**
+	 * Returns the rule's children.
+	 *
+	 * @return Automation_Rule[]
+	 */
+	public function get_children() {
+		if ( ! $this->exists() ) {
+			return array();
+		}
+
+		$children = noptin_get_automation_rules(
+			array(
+				'parent_id' => $this->get_id(),
+				'orderby'   => array(
+					'priority' => 'ASC',
+					'id'       => 'ASC',
+				),
+			)
+		);
+
+		if ( empty( $children ) || is_wp_error( $children ) ) {
+			return array();
+		}
+
+		return $children;
+	}
+
+	/**
+	 * Returns the action info.
+	 *
+	 * @return string
+	 */
+	public function get_trigger_info() {
+		$trigger = $this->get_trigger();
+
+		if ( $trigger ) {
+			return wp_kses_post( $trigger->get_rule_table_description( $this ) );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Returns the action info.
+	 *
+	 * @return string
+	 */
+	public function get_action_info() {
+		$action = $this->get_action();
+
+		if ( $action ) {
+			return wp_kses_post( $action->get_rule_table_description( $this ) );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Returns the tree map, but only if this is a root rule (i.e. has no parent).
+	 *
+	 * @return string
+	 */
+	public function get_workflow_tree() {
+		if ( $this->get_parent_id() > 0 ) {
+			return false;
+		}
+
+		return $this->to_tree_map();
+	}
+
+	/**
+	 * Converts the rule and its children into a flat tree map.
+	 *
+	 * @param array<int, bool> $visited Visited rule IDs.
+	 * @param string|int       $parent_uuid Parent rule UUID, or 0 for a true root.
+	 *
+	 * @return array<string, array{id: int, parent_id: string|int, children: string[], data?: array}> Tree map of the rule and its children.
+	 */
+	public function to_tree_map( $visited = array(), $parent_uuid = 0 ) {
+		$id = (int) $this->get_id();
+
+		if ( $id && isset( $visited[ $id ] ) ) {
+			return array();
+		}
+
+		if ( $id ) {
+			$visited[ $id ] = true;
+		}
+
+		$uuid = $this->get_meta( 'uuid' );
+
+		if ( ! $uuid ) {
+			$uuid = wp_generate_uuid4();
+		}
+
+		$resolved_parent_uuid = $parent_uuid;
+
+		if ( empty( $resolved_parent_uuid ) && $this->get_parent_id() > 0 ) {
+			$parent = noptin_get_automation_rule( $this->get_parent_id() );
+
+			if ( $parent && ! is_wp_error( $parent ) && $parent->exists() ) {
+				$resolved_parent_uuid = $parent->get_meta( 'uuid' );
+
+				if ( ! $resolved_parent_uuid ) {
+					$resolved_parent_uuid = wp_generate_uuid4();
+				}
+			}
+		}
+
+		$map = array(
+			$uuid => array(
+				'id'        => $id,
+				'parent_id' => $resolved_parent_uuid,
+				'children'  => array(),
+				'action_id' => $this->get_action_id(),
+			),
+		);
+
+		if ( ! $this->exists() ) {
+			// Provide the unsaved rule data inline so the editor can bootstrap
+			// directly from treeMap without needing a separate automationRule payload.
+			$map[ $uuid ]['data'] = array(
+				'trigger_id'       => $this->get_trigger_id(),
+				'trigger_settings' => $this->get_trigger_settings(),
+				'action_id'        => $this->get_action_id(),
+				'action_settings'  => $this->get_action_settings(),
+			);
+
+			return $map;
+		}
+
+		foreach ( $this->get_children() as $child ) {
+			$child_map = $child->to_tree_map( $visited, $uuid );
+
+			if ( empty( $child_map ) ) {
+				continue;
+			}
+
+			$child_uuid = array_key_first( $child_map );
+
+			if ( $child_uuid ) {
+				$map[ $uuid ]['children'][] = $child_uuid;
+			}
+
+			$map = array_replace( $map, $child_map );
+		}
+
+		return $map;
+	}
+}

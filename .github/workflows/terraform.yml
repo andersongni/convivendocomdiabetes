@@ -177,6 +177,7 @@ jobs:
       - name: Load Terraform state from branch
         id: state
         if: steps.gate.outputs.skip == 'false'
+        working-directory: .
         run: |
           git fetch origin "$TF_STATE_BRANCH:$TF_STATE_BRANCH" 2>/dev/null || true
           if git show "$TF_STATE_BRANCH:terraform.tfstate" >/dev/null 2>&1; then
@@ -221,6 +222,7 @@ jobs:
           inputs.run_apply == 'yes' &&
           steps.gate.outputs.skip == 'false' &&
           steps.state.outputs.skip != 'true'
+        working-directory: .
         run: |
           set -euo pipefail
           TMP="$(mktemp -d)"

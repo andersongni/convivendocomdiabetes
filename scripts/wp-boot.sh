@@ -158,33 +158,8 @@ if [ -d /var/www/html/wp-content/uploads ]; then
   chmod 775 /var/www/html/wp-content/uploads 2>/dev/null || true
 fi
 
-# Desativa plugins pesados/ausentes e limpa bloat do WP Statistics (~180MB / 1M linhas)
-echo "[wp] Otimizando plugins e banco..."
-HEAVY_PLUGINS=(
-  wp-statistics
-  wp-file-manager
-  all-in-one-wp-migration
-  wordpress-importer
-  regenerate-thumbnails
-  phoenix-media-rename
-  health-check
-  wp-maintenance-mode
-  glue-for-yoast-seo-amp
-  elementor
-  wordfence
-  amp
-  contact-form-7
-  # Front pesado / pouco essencial no request
-  google-publisher
-  insta-gallery
-  auto-post-thumbnail-pro
-  sucuri-scanner
-)
-for plugin in "${HEAVY_PLUGINS[@]}"; do
-  wp plugin deactivate "${plugin}" --allow-root --path=/var/www/html >/dev/null 2>&1 || true
-done
-
-# Libera espaço no MySQL se as tabelas do Statistics ainda existirem
+# Libera espaço no MySQL se tabelas legadas do WP Statistics ainda existirem
+echo "[wp] Limpando tabelas legadas (se existirem)..."
 for table in wp_statistics_visitor wp_statistics_pages wp_statistics_search wp_statistics_exclusions wp_statistics_useronline; do
   wp db query "TRUNCATE TABLE \`${table}\`" --allow-root --path=/var/www/html >/dev/null 2>&1 || true
 done

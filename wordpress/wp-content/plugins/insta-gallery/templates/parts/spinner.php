@@ -1,1 +1,0 @@
-<div class="insta-gallery-spinner"></div>

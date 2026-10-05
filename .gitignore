@@ -2,7 +2,6 @@
 .env
 .env.*
 !.env.example
-railway.secrets
 wp-config.php
 wordpress/wp-config.php
 wordpress/wp-config-local.php

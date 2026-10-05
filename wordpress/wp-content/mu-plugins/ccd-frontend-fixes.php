@@ -43,6 +43,23 @@ add_action(
 #wpadminbar #wp-admin-bar-wpseo-menu {
 	display: none !important;
 }
+
+/* Menu superior: sem selecao de texto / cursor de insercao */
+.navigation-bar,
+.navigation-bar a,
+.main_menu_col,
+.main_menu_col a,
+ul.main-menu,
+ul.main-menu a,
+ul.dropdown-menu,
+ul.dropdown-menu a,
+#menu-menu-principal,
+#menu-menu-principal a {
+	-webkit-user-select: none !important;
+	user-select: none !important;
+	cursor: pointer !important;
+	caret-color: transparent !important;
+}
 CSS;
 
 		echo "<style id=\"ccd-frontend-fixes\">\n{$css}\n</style>\n";

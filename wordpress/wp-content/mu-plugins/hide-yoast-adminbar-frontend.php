@@ -1,11 +1,24 @@
 <?php
 /**
- * Hide Yoast SEO from the frontend admin bar.
- * Prevents the notification badge from leaking into the site header.
+ * Plugin Name: CCD Hide Frontend Admin Bar
+ * Description: Oculta a barra superior do WordPress no front, mesmo com usuario logado.
  */
-add_action( 'admin_bar_menu', function ( $wp_admin_bar ) {
-	if ( is_admin() ) {
-		return;
-	}
-	$wp_admin_bar->remove_node( 'wpseo-menu' );
-}, 999 );
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * No front: nunca mostrar a admin bar (visitante ou logado).
+ * No wp-admin a barra continua disponivel.
+ */
+add_filter(
+	'show_admin_bar',
+	static function ( $show ) {
+		if ( is_admin() ) {
+			return $show;
+		}
+		return false;
+	},
+	99
+);

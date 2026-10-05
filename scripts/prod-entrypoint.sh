@@ -43,5 +43,15 @@ a2dismod mpm_event 2>/dev/null || true
 a2dismod mpm_worker 2>/dev/null || true
 a2enmod mpm_prefork 2>/dev/null || true
 
+# Railway injeta PORT dinamico; Apache da imagem ouve 80 por padrao.
+export PORT="${PORT:-80}"
+echo "[wp] binding Apache to PORT=${PORT}"
+if [ -f /etc/apache2/ports.conf ]; then
+  sed -ri "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
+fi
+if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+  sed -ri "s/<VirtualHost \\*:[0-9]+>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
+fi
+
 # docker-entrypoint prepara o filesystem do WordPress; em seguida sobe o app
 exec docker-entrypoint.sh bash /usr/local/bin/wp-boot.sh

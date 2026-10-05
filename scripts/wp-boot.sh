@@ -200,15 +200,24 @@ APACHE_SERVER_NAME="${APACHE_SERVER_NAME:-localhost}"
 printf '%s\n' "ServerName ${APACHE_SERVER_NAME}" > /etc/apache2/conf-available/servername.conf
 a2enconf servername >/dev/null 2>&1 || true
 
-echo "[wp] Apache (ServerName=${APACHE_SERVER_NAME})"
+# Garante Listen no PORT do Railway (pode ter sido sobrescrito)
+PORT="${PORT:-80}"
+if [ -f /etc/apache2/ports.conf ]; then
+  sed -ri "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
+fi
+if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+  sed -ri "s/<VirtualHost \\*:[0-9]+>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
+fi
+
+echo "[wp] Apache (ServerName=${APACHE_SERVER_NAME} PORT=${PORT})"
 
 # Pre-aquece a home no cache assim que o Apache aceitar conexoes
 (
   warm_host="${APACHE_SERVER_NAME}"
   for _i in 1 2 3 4 5 6 7 8 9 10 12 15; do
-    if curl -fsS -o /dev/null -H "Host: ${warm_host}" "http://127.0.0.1/" 2>/dev/null; then
-      curl -fsS -o /dev/null -H "Host: ${warm_host}" "http://127.0.0.1/" 2>/dev/null || true
-      echo "[wp] cache home aquecido"
+    if curl -fsS -o /dev/null -H "Host: ${warm_host}" "http://127.0.0.1:${PORT}/" 2>/dev/null; then
+      curl -fsS -o /dev/null -H "Host: ${warm_host}" "http://127.0.0.1:${PORT}/wp-login.php" 2>/dev/null || true
+      echo "[wp] cache/health aquecido"
       break
     fi
     sleep 1

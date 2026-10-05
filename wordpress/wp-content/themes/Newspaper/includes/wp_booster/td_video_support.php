@@ -6,9 +6,20 @@
 class td_video_support{
 
 	private static $on_save_post_post_id; // here we keep the post_id when the save_post hook runs. We need the post_id to pass it to the other hook @see on_add_attachment_set_featured_image
-	private static $fb_access_token = '';
-
 	private static $caching_time = 10800; //seconds -> 3 hours
+
+	/**
+	 * Facebook Graph token from env/constant (never hardcode secrets in the repo).
+	 *
+	 * @return string
+	 */
+	private static function get_fb_access_token() {
+		if ( defined( 'TD_FACEBOOK_ACCESS_TOKEN' ) && TD_FACEBOOK_ACCESS_TOKEN !== '' ) {
+			return (string) TD_FACEBOOK_ACCESS_TOKEN;
+		}
+		$token = getenv( 'TD_FACEBOOK_ACCESS_TOKEN' );
+		return is_string( $token ) ? $token : '';
+	}
 
     // flag to make sure we run the 'on_save_post_get_video_thumb' save_post hook only once..
     // ..this is mainly bacause on gutenberg editor this hook runs twice and triggers a duplicate on video thumb generation
@@ -333,7 +344,7 @@ class td_video_support{
 				break;
 
 			case 'facebook':
-				$facebook_api_json = td_remote_http::get_page('https://graph.facebook.com/v2.7/' . self::get_facebook_id($videoUrl) . '/thumbnails?access_token=' . self::$fb_access_token , __CLASS__);
+				$facebook_api_json = td_remote_http::get_page('https://graph.facebook.com/v2.7/' . self::get_facebook_id($videoUrl) . '/thumbnails?access_token=' . self::get_fb_access_token() , __CLASS__);
 
                 if ( $facebook_api_json !== false ) {
 					$facebook_api = @json_decode($facebook_api_json);

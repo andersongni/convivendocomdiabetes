@@ -45,6 +45,23 @@ if [ -n "${CCD_RECAPTCHA_SECRET_KEY:-}" ]; then
   wp config set CCD_RECAPTCHA_SECRET_KEY "${CCD_RECAPTCHA_SECRET_KEY}" --type=constant --allow-root --path=/var/www/html
 fi
 
+# Secrets opcionais (YouTube/Facebook/Dropbox/Google Drive) — so grava se a env existir.
+for CCD_SECRET_VAR in \
+  TD_YOUTUBE_API_KEY \
+  TD_GOOGLE_API_KEY \
+  TD_FACEBOOK_ACCESS_TOKEN \
+  ELFINDER_DROPBOX_APPKEY \
+  ELFINDER_DROPBOX_APPSECRET \
+  ELFINDER_DROPBOX_ACCESS_TOKEN \
+  ELFINDER_GOOGLEDRIVE_CLIENTID \
+  ELFINDER_GOOGLEDRIVE_CLIENTSECRET
+do
+  CCD_SECRET_VAL="$(eval "printf '%s' \"\${${CCD_SECRET_VAR}:-}\"")"
+  if [ -n "${CCD_SECRET_VAL}" ]; then
+    wp config set "${CCD_SECRET_VAR}" "${CCD_SECRET_VAL}" --type=constant --allow-root --path=/var/www/html
+  fi
+done
+
 if [ -n "${WP_HOME:-}" ]; then
   wp config set WP_HOME "${WP_HOME}" --type=constant --allow-root --path=/var/www/html
   wp config set WP_SITEURL "${WP_SITEURL:-$WP_HOME}" --type=constant --allow-root --path=/var/www/html

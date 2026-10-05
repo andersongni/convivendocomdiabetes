@@ -58,7 +58,7 @@ jobs:
   import:
     name: Import existing Railway
     needs: validate
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.import == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.import
     runs-on: ubuntu-24.04
     environment: railway
     steps:
@@ -190,10 +190,7 @@ jobs:
   apply:
     name: Apply
     needs: plan
-    if: >
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.apply == 'true' &&
-      github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.apply && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: railway
     defaults:

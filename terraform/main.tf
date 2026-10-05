@@ -41,11 +41,11 @@ resource "railway_service" "wordpress" {
   project_id         = railway_project.this.id
   source_repo        = var.github_repo
   source_repo_branch = var.github_branch
-  config_path        = "railway.toml"
+  # Railway depreciou config_path (railway.toml); nao enviar via API.
 
   lifecycle {
     # Volume de uploads e regiao sao geridos no painel Railway.
-    ignore_changes = [regions, volume]
+    ignore_changes = [regions, volume, config_path]
   }
 
   depends_on = [railway_service.mysql]

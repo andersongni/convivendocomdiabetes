@@ -18,6 +18,7 @@ COPY wordpress/wp-content/ /tmp/site-wp-content/
 COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
 COPY scripts/wp-boot.sh /usr/local/bin/wp-boot.sh
+COPY scripts/bind-apache-ports.sh /usr/local/bin/bind-apache-ports.sh
 
 RUN set -eux; \
   cp -a /usr/src/wordpress/. /var/www/html/; \
@@ -37,8 +38,8 @@ RUN set -eux; \
     fi; \
   done; \
   a2enconf performance; \
-  sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh; \
-  chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh; \
+  sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
+  chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   rm -f /var/www/html/wp-config.php; \
   chown -R www-data:www-data /var/www/html
 

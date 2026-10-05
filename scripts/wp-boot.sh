@@ -198,14 +198,10 @@ APACHE_SERVER_NAME="${APACHE_SERVER_NAME:-localhost}"
 printf '%s\n' "ServerName ${APACHE_SERVER_NAME}" > /etc/apache2/conf-available/servername.conf
 a2enconf servername >/dev/null 2>&1 || true
 
-# Garante Listen no PORT do Railway (pode ter sido sobrescrito)
+# Garante Listen no PORT do Railway e em :80 (dominio publico)
 PORT="${PORT:-80}"
-if [ -f /etc/apache2/ports.conf ]; then
-  sed -ri "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
-fi
-if [ -f /etc/apache2/sites-available/000-default.conf ]; then
-  sed -ri "s/<VirtualHost \\*:[0-9]+>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
-fi
+# shellcheck disable=SC1091
+. /usr/local/bin/bind-apache-ports.sh
 
 echo "[wp] Apache (ServerName=${APACHE_SERVER_NAME} PORT=${PORT})"
 

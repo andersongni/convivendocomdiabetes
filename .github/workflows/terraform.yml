@@ -213,7 +213,17 @@ jobs:
           TF_VAR_wp_admin_password: ${{ secrets.WP_ADMIN_PASSWORD }}
         run: |
           PASSWORD="${TF_VAR_wp_admin_password:-CcdTrocar123!}"
-          terraform apply -input=false -auto-approve -var="wp_admin_password=$PASSWORD"
+          # Evita drifts de volume/serviço; aplica só as variáveis gerenciadas.
+          terraform apply -input=false -auto-approve \
+            -target=railway_variable.wordpress_db_host \
+            -target=railway_variable.wordpress_db_user \
+            -target=railway_variable.wordpress_db_password \
+            -target=railway_variable.wordpress_db_name \
+            -target=railway_variable.wp_admin_user \
+            -target=railway_variable.wp_admin_password \
+            -target=railway_variable.wp_admin_email \
+            -target=railway_variable.wp_title \
+            -var="wp_admin_password=$PASSWORD"
 
       - name: Save Terraform state to branch
         if: >

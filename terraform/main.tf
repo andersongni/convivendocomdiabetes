@@ -31,8 +31,8 @@ resource "railway_service" "mysql" {
   }
 
   lifecycle {
-    # Regiao/replicas e startCommand do plugin MySQL podem divergir do schema TF.
-    ignore_changes = [regions]
+    # Regiao/replicas/volume do plugin MySQL podem divergir do schema TF.
+    ignore_changes = [regions, volume]
   }
 }
 

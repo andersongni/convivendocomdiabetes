@@ -44,7 +44,8 @@ resource "railway_service" "wordpress" {
   config_path        = "railway.toml"
 
   lifecycle {
-    ignore_changes = [regions]
+    # Volume de uploads e regiao sao geridos no painel Railway.
+    ignore_changes = [regions, volume]
   }
 
   depends_on = [railway_service.mysql]

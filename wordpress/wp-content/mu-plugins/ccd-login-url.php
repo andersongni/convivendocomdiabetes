@@ -40,6 +40,16 @@ function ccd_forbid_wp_login_php()
 		return;
 	}
 
+	// Healthcheck do Railway usa /wp-login.php (config atual do serviço).
+	$ua = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
+	if ($ua !== '' && stripos($ua, 'RailwayHealthCheck') !== false) {
+		status_header(200);
+		header('Content-Type: text/plain; charset=UTF-8');
+		header('Cache-Control: no-store');
+		echo 'ok';
+		exit;
+	}
+
 	global $wp_query;
 	if ($wp_query instanceof WP_Query) {
 		$wp_query->set_404();

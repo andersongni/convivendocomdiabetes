@@ -19,12 +19,18 @@ on:
     inputs:
       import:
         description: "Importar recursos Railway existentes para o state (uma vez)"
-        type: boolean
-        default: false
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
       apply:
-        description: "Aplicar mudancas de infra no Railway"
-        type: boolean
-        default: false
+        description: "Aplicar mudancas de infra no Railway (escolha yes)"
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
 
 permissions:
   contents: write
@@ -47,6 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Show dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "import=${{ inputs.import }}"
+          echo "apply=${{ inputs.apply }}"
+
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
@@ -58,7 +72,7 @@ jobs:
   import:
     name: Import existing Railway
     needs: validate
-    if: github.event_name == 'workflow_dispatch' && inputs.import
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.import == 'yes' }}
     runs-on: ubuntu-24.04
     environment: railway
     steps:
@@ -130,6 +144,7 @@ jobs:
     needs: [validate, import]
     if: always() && needs.validate.result == 'success' && (needs.import.result == 'success' || needs.import.result == 'skipped')
     runs-on: ubuntu-24.04
+    environment: railway
     defaults:
       run:
         working-directory: terraform
@@ -190,7 +205,7 @@ jobs:
   apply:
     name: Apply
     needs: plan
-    if: github.event_name == 'workflow_dispatch' && inputs.apply && github.ref == 'refs/heads/main'
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == 'yes' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     environment: railway
     defaults:

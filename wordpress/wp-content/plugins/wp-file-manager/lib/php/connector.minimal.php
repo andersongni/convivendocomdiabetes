@@ -10,11 +10,11 @@ require './autoload.php';
 // https://www.dropbox.com/developers/apps
 // ===============================================
 elFinder::$netDrivers['dropbox2'] = 'Dropbox2';
-define('ELFINDER_DROPBOX_APPKEY', 'suj08stcviy2pqc');
-define('ELFINDER_DROPBOX_APPSECRET', '96t0zgyb54eh139');
+define('ELFINDER_DROPBOX_APPKEY', getenv('ELFINDER_DROPBOX_APPKEY') ?: '');
+define('ELFINDER_DROPBOX_APPSECRET', getenv('ELFINDER_DROPBOX_APPSECRET') ?: '');
 elFinder::$netDrivers['googledrive'] = 'GoogleDrive';
-define('ELFINDER_GOOGLEDRIVE_CLIENTID',     '933711622570-lkksj61v1tvf4upucptcbvsd3dln1512.apps.googleusercontent.com');
-define('ELFINDER_GOOGLEDRIVE_CLIENTSECRET', 'BqW5OeYafXYpmI1vjHktjkfG');
+define('ELFINDER_GOOGLEDRIVE_CLIENTID', getenv('ELFINDER_GOOGLEDRIVE_CLIENTID') ?: '');
+define('ELFINDER_GOOGLEDRIVE_CLIENTSECRET', getenv('ELFINDER_GOOGLEDRIVE_CLIENTSECRET') ?: '');
 /**
  * Simple function to demonstrate how to control file access using "accessControl" callback.
  * This method will disable accessing files/folders starting from '.' (dot)

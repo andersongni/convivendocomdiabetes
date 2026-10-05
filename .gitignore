@@ -18,14 +18,19 @@ terraform/terraform.tfvars
 terraform/tfplan
 terraform/*.tfplan
 
-# Dump de dados (local). Schema versionado em db/schema.sql
+# Dump / artefatos de migracao (local)
 dump-database.sql
+dump-filtered.sql
 backup-local-*.sql
+old-host-upload-links.txt
+old-host-upload-links-only.txt
+rail_home.html
 uploads-sync.tgz
+uploads-essential.tgz
 *.sql
 !db/schema.sql
 
-# Mídia, cache e backups
+# Midia, cache e backups
 wordpress/wp-content/uploads/
 wordpress/wp-content/cache/
 wordpress/wp-content/upgrade/
@@ -54,7 +59,7 @@ wordpress/wp-content/debug.log
 *.wpress
 *.partial
 
-# Logs e temporários
+# Logs e temporarios
 logs/
 *.log
 *.tmp

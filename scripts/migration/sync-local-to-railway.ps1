@@ -9,10 +9,10 @@
   4) Opcional: empacota uploads e sobe para volume/servico
 
 .EXAMPLE
-  .\scripts\sync-local-to-railway.ps1
+  .\scripts\migration\sync-local-to-railway.ps1
 
 .EXAMPLE
-  .\scripts\sync-local-to-railway.ps1 -SyncUploads
+  .\scripts\migration\sync-local-to-railway.ps1 -SyncUploads
 #>
 param(
   [string]$SiteUrl = "https://convivendocomdiabetes-production.up.railway.app",
@@ -23,7 +23,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Root = Split-Path $PSScriptRoot -Parent
+# scripts/migration -> raiz do repo
+$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $Root
 
 function Assert-Cmd($name) {
@@ -32,15 +33,39 @@ function Assert-Cmd($name) {
   }
 }
 
+function Invoke-Railway {
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+  # CLI escreve warnings no stderr; no PowerShell isso vira erro nativo se Stop.
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $out = & railway @Args 2>&1
+    $text = ($out | ForEach-Object { "$_" }) -join "`n"
+    return $text
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+}
+
 Assert-Cmd docker
 Assert-Cmd railway
 
-Write-Host "==> Garantindo chave SSH no Railway (GitHub)..."
-railway ssh keys github 2>&1 | Out-Host
+Write-Host "==> Checando chaves SSH no Railway..."
+$keys = Invoke-Railway ssh keys list
+if ($keys -notmatch "Fingerprint:") {
+  Write-Host "Nenhuma chave registrada. Tentando importar do GitHub..."
+  Invoke-Railway ssh keys github | Out-Host
+  $keys = Invoke-Railway ssh keys list
+  if ($keys -notmatch "Fingerprint:") {
+    throw "Registre uma chave: railway ssh keys add -k `$env:USERPROFILE\.ssh\railway_ed25519.pub"
+  }
+} else {
+  Write-Host "Chave SSH ja registrada."
+}
 
 # Credenciais MySQL do Railway
 Write-Host "==> Lendo variaveis do MySQL no Railway..."
-$mysqlKv = railway variable list --service MySQL --kv
+$mysqlKv = Invoke-Railway variable list --service MySQL --kv
 $map = @{}
 foreach ($line in ($mysqlKv -split "`n")) {
   if ($line -match '^(MYSQL[A-Z_]+)=(.*)$') {
@@ -72,13 +97,16 @@ if ($UseExistingDump) {
   }
 }
 
-# Tunel SSH
+# Tunel SSH (railway no Windows e shim npm/.ps1 — usa cmd.exe)
 Write-Host "==> Abrindo tunel SSH MySQL em 127.0.0.1:$TunnelPort ..."
-$tunnel = Start-Process -FilePath "railway" `
-  -ArgumentList @("connect", "MySQL", "--ssh", "--tunnel-only", "-P", "$TunnelPort") `
+$outLog = Join-Path $env:TEMP "railway-tunnel-out.log"
+$errLog = Join-Path $env:TEMP "railway-tunnel-err.log"
+Remove-Item $outLog, $errLog -ErrorAction SilentlyContinue
+$tunnel = Start-Process -FilePath "cmd.exe" `
+  -ArgumentList @("/c", "railway connect MySQL --ssh --tunnel-only -P $TunnelPort") `
   -PassThru -WindowStyle Hidden `
-  -RedirectStandardOutput "$env:TEMP\railway-tunnel-out.log" `
-  -RedirectStandardError "$env:TEMP\railway-tunnel-err.log"
+  -RedirectStandardOutput $outLog `
+  -RedirectStandardError $errLog
 
 try {
   $ready = $false
@@ -89,32 +117,44 @@ try {
       if ($tcp.TcpTestSucceeded) { $ready = $true; break }
     } catch {}
     if ($tunnel.HasExited) {
-      Get-Content "$env:TEMP\railway-tunnel-err.log" -ErrorAction SilentlyContinue | Write-Host
-      throw "Tunel SSH encerrou cedo. Rode: railway ssh keys github"
+      if (Test-Path $errLog) { Get-Content $errLog | Write-Host }
+      if (Test-Path $outLog) { Get-Content $outLog | Write-Host }
+      throw "Tunel SSH encerrou cedo. Verifique: railway ssh keys list"
     }
   }
   if (-not $ready) { throw "Tunel SSH nao ficou pronto na porta $TunnelPort." }
 
-  Write-Host "==> Importando dump no Railway (rede privada via SSH)..."
+  # Volume MySQL no Railway e 500MB: remove dados pesados (Wordfence/stats) antes do import.
+  $filteredDump = Join-Path $Root "dump-filtered.sql"
+  Write-Host "==> Filtrando tabelas pesadas (Wordfence/stats) -> dump-filtered.sql"
+  python "$PSScriptRoot\filter-dump.py" $DumpPath $filteredDump
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $filteredDump)) {
+    throw "Falha ao filtrar dump."
+  }
+
+  $bt = [string][char]96
+  Write-Host "==> Recriando database $dbName no Railway..."
+  $wipeSql = "DROP DATABASE IF EXISTS ${bt}${dbName}${bt}; CREATE DATABASE ${bt}${dbName}${bt} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+  docker run --rm mysql:8.0 `
+    mysql --protocol=TCP -h"host.docker.internal" "-P$TunnelPort" -u"$dbUser" "-p$dbPass" --ssl-mode=PREFERRED `
+    -e "$wipeSql"
+  if ($LASTEXITCODE -ne 0) { throw "DROP/CREATE database falhou." }
+
+  Write-Host "==> Importando dump filtrado no Railway (rede privada via SSH)..."
   & "$PSScriptRoot\import-dump.ps1" `
     -DbHost "127.0.0.1" `
     -DbPort $TunnelPort `
     -User $dbUser `
     -Password $dbPass `
     -Database $dbName `
-    -DumpPath $DumpPath `
+    -DumpPath $filteredDump `
     -SiteUrl $SiteUrl
 
-  Write-Host "==> Search-replace de dominios UOL -> Railway..."
-  $sql = @"
-UPDATE wp_options SET option_value='$SiteUrl' WHERE option_name IN ('siteurl','home');
-"@
+  Write-Host "==> Garantindo siteurl/home -> $SiteUrl"
+  $sql = "UPDATE wp_options SET option_value='$SiteUrl' WHERE option_name IN ('siteurl','home');"
   docker run --rm mysql:8.0 `
-    mysql -h"host.docker.internal" -P$TunnelPort -u"$dbUser" -p"$dbPass" --ssl-mode=PREFERRED "$dbName" `
-    -e $sql | Out-Host
-
-  # Substitui URLs antigas no conteudo (via WP-CLI no container remoto seria ideal; aqui via SQL simples nao cobre serialized.
-  # Dispara restart do WP para o entrypoint rodar search-replace com wp-cli.
+    mysql --protocol=TCP -h"host.docker.internal" "-P$TunnelPort" -u"$dbUser" "-p$dbPass" --ssl-mode=PREFERRED "$dbName" `
+    -e "$sql" | Out-Host
 } finally {
   if ($tunnel -and -not $tunnel.HasExited) {
     Write-Host "==> Encerrando tunel SSH..."
@@ -135,7 +175,7 @@ if ($SyncUploads) {
 }
 
 Write-Host "==> Reiniciando WordPress no Railway..."
-railway restart --service convivendocomdiabetes --yes 2>&1 | Out-Host
+Invoke-Railway restart --service convivendocomdiabetes --yes --json | Out-Host
 
 Write-Host ""
 Write-Host "Pronto."

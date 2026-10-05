@@ -116,14 +116,24 @@ if [ -n "${WP_HOME:-}" ]; then
     echo "[wp] Atualizando URLs ${CURRENT_URL} -> ${TARGET_URL}"
     wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true
     wp option update siteurl "${TARGET_URL}" --allow-root --path=/var/www/html || true
-    # Reescreve dominios antigos no conteudo (so quando URL mudou)
-    wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "http://localhost:8080" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
   else
-    echo "[wp] URLs ja corretas — sem search-replace"
+    echo "[wp] siteurl/home OK (${TARGET_URL})"
   fi
+  # Sem dependencia do host antigo: reescreve qualquer URL residual no conteudo
+  echo "[wp] Removendo URLs do host antigo do banco..."
+  wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+  wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+  wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+  wp search-replace "http://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+  wp search-replace "http://localhost:8080" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+fi
+
+# Volume de uploads pode montar como root; garante escrita do Apache/plugins
+if [ -d /var/www/html/wp-content/uploads ]; then
+  # Sem fallback para host externo — midia deve existir neste volume
+  rm -f /var/www/html/wp-content/uploads/.htaccess
+  chown -R www-data:www-data /var/www/html/wp-content/uploads || true
+  find /var/www/html/wp-content/uploads -type d -exec chmod 775 {} + 2>/dev/null || true
 fi
 
 echo "[wp] Apache"

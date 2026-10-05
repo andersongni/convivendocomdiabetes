@@ -13,8 +13,7 @@ dump-database.sql
 *.md
 .env
 .env.*
-scripts/import-dump.ps1
-scripts/import-dump.sh
+scripts/migration/
 wordpress/wp-config.php
 wordpress/wp-content/uploads
 wordpress/wp-content/cache

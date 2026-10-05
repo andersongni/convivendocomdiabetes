@@ -50,12 +50,10 @@ if [ -n "${WP_HOME:-}" ]; then
   wp config set WP_SITEURL "${WP_SITEURL:-$WP_HOME}" --type=constant --allow-root --path=/var/www/html
 fi
 
-# Railway termina TLS no proxy; forca HTTPS nos assets/admin quando WP_HOME e https
-if [[ "${WP_HOME:-}" == https://* ]]; then
-  wp config set FORCE_SSL_ADMIN true --raw --type=constant --allow-root --path=/var/www/html
-else
-  wp config set FORCE_SSL_ADMIN false --raw --type=constant --allow-root --path=/var/www/html
-fi
+# Railway termina TLS no proxy (ccd-https-proxy detecta X-Forwarded-Proto).
+# Nao forcar FORCE_SSL_ADMIN: o healthcheck interno e HTTP e /wp-login.php
+# responderia 302, falhando o deploy. O admin publico continua em HTTPS.
+wp config set FORCE_SSL_ADMIN false --raw --type=constant --allow-root --path=/var/www/html
 
 db_ready() {
   php -r "

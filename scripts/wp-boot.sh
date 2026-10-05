@@ -72,7 +72,6 @@ SITE_URL="${WP_HOME:-http://localhost:8080}"
 if ! wp core is-installed --allow-root --path=/var/www/html >/dev/null 2>&1; then
   echo "[wp] WordPress nao instalado — bootstrap inicial"
 
-  # Evita wp db *: a imagem nao tem cliente mysql. Se tabelas existirem sem install, core install falha e reinicia.
   wp core install \
     --url="${SITE_URL}" \
     --title="${WP_TITLE:-Convivendo com Diabetes}" \
@@ -90,9 +89,9 @@ else
   echo "[wp] WordPress ja instalado"
 fi
 
-# WP 6.0.x nao roda Twenty Twenty-Five/Four/Three. Forca um tema compativel.
+# Ativa um tema twenty* disponivel (core oficial traz os atuais)
 THEME_OK=0
-for theme in twentytwentytwo twentytwentyone twentytwenty; do
+for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do
   if [ -d "/var/www/html/wp-content/themes/${theme}" ]; then
     echo "[wp] Tentando ativar tema ${theme}"
     if wp theme activate "${theme}" --allow-root --path=/var/www/html; then
@@ -102,13 +101,13 @@ for theme in twentytwentytwo twentytwentyone twentytwenty; do
   fi
 done
 if [ "$THEME_OK" -ne 1 ]; then
-  echo "[wp] AVISO: nao foi possivel ativar um tema twenty* compativel com WP 6.0"
+  echo "[wp] AVISO: nao foi possivel ativar um tema twenty*"
+  ls -la /var/www/html/wp-content/themes || true
 fi
 
 if [ -n "${WP_HOME:-}" ]; then
   TARGET_URL="${WP_SITEURL:-$WP_HOME}"
   CURRENT_URL="$(wp option get siteurl --allow-root --path=/var/www/html 2>/dev/null || true)"
-  # Normaliza http->https e host Railway
   if [ -n "$CURRENT_URL" ] && [ "$CURRENT_URL" != "$TARGET_URL" ]; then
     echo "[wp] Atualizando URLs ${CURRENT_URL} -> ${TARGET_URL}"
     wp option update home "${WP_HOME}" --allow-root --path=/var/www/html || true

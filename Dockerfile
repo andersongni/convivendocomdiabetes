@@ -9,15 +9,18 @@ RUN a2dismod mpm_event 2>/dev/null || true \
 
 COPY --from=wpcli /usr/local/bin/wp /usr/local/bin/wp
 
-COPY wordpress/ /var/www/html/
+# Core oficial (temas twenty* + WP atual) + conteudo do site UOL
+COPY wordpress/wp-content/ /tmp/site-wp-content/
 COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
 COPY scripts/wp-boot.sh /usr/local/bin/wp-boot.sh
 
-# O COPY do site UOL sobrescreve os temas default; restaura um tema core para a home nao ficar em branco.
 RUN set -eux; \
+  cp -a /usr/src/wordpress/. /var/www/html/; \
+  rm -rf /var/www/html/wp-content; \
+  mv /tmp/site-wp-content /var/www/html/wp-content; \
   for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do \
-    if [ -d "/usr/src/wordpress/wp-content/themes/$theme" ]; then \
+    if [ -d "/usr/src/wordpress/wp-content/themes/$theme" ] && [ ! -d "/var/www/html/wp-content/themes/$theme" ]; then \
       cp -a "/usr/src/wordpress/wp-content/themes/$theme" /var/www/html/wp-content/themes/; \
     fi; \
   done; \

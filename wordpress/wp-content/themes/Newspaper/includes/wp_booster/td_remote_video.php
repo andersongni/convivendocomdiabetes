@@ -40,7 +40,8 @@ class td_remote_video {
 	 */
 	private static function youtube_api_get_videos_info($video_ids) {
 		$video_ids_comma = implode(',', $video_ids);
-		$api_url = 'https://www.googleapis.com/youtube/v3/videos?id=' . $video_ids_comma . '&part=id,contentDetails,snippet,player&key=AIzaSyBneuqXGHEXQiJlWUOv23_FA4CzpsHaS6I';
+		$yt_key = defined( 'TD_YOUTUBE_API_KEY' ) ? TD_YOUTUBE_API_KEY : '';
+		$api_url = 'https://www.googleapis.com/youtube/v3/videos?id=' . $video_ids_comma . '&part=id,contentDetails,snippet,player&key=' . rawurlencode( $yt_key );
 		$json_api_response = td_remote_http::get_page($api_url, __CLASS__);
 
 		// check for a response

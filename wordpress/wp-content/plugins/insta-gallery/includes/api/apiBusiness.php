@@ -57,7 +57,6 @@ class QLIGG_API_Business extends QLIGG_API
   {
 
 
-    //// D $access_token = 'EAAL21vuJ66UBANfHW7BPzayczZAO33HgLGSR96fBAbVeTp0WGppv6JadOvIi3USfp2oxFp9ZCdjYSp1me9uSZCrONuwpke7PFH2Om560WXhCVfWrKiZCSK2sM2lnInWMiUmIggQZA1tDsWjHZCPzdQevaE7COgJdUfHiW7g6q7mwZDZD';
     $limit = 50; //$num = min( $num, 200 );
 
     $response = $this->remoteGet("{$this->graph_url}/{$account_id}/media", array(

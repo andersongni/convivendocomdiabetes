@@ -6,7 +6,7 @@
 class td_video_support{
 
 	private static $on_save_post_post_id; // here we keep the post_id when the save_post hook runs. We need the post_id to pass it to the other hook @see on_add_attachment_set_featured_image
-	private static $fb_access_token = 'EAAC0twN8wjQBAPOUhZAWJohvqwr4iEeGooiNEKoRkkJ0KMik9nSX6xiiMZCZBSgRRai8ZAHjZCzniq36dZBgbJw93Vsom56qBi24CqesirT2sNZBvN6yTylhjDED9ri4iShPON3grZAF0fpUijQTSmzxOO71h70fN7lFpN0YLhV3Ugs2ZCaZAdvfZAd';
+	private static $fb_access_token = '';
 
 	private static $caching_time = 10800; //seconds -> 3 hours
 

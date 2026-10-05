@@ -53,19 +53,7 @@ $opts = array(
 			'accessControl' => 'access'                     // disable and hide dot starting files (OPTIONAL)
 		),
 		
-		array(
-			'driver' => 'Dropbox2',
-			'path' => '/',
-			'access_token' => 'RFS31sZeVSAAAAAAAAAACPXbsEefFC3-kmaRKlPopXAyW34bPedEY9i3raJC5gp0',
-		),
-		
-		/*array(
-			'driver' => 'GoogleDrive',
-			'client_id' => '933711622570-lkksj61v1tvf4upucptcbvsd3dln1512.apps.googleusercontent.com',
-            'client_secret' => 'BqW5OeYafXYpmI1vjHktjkfG',
-			'path' => '/',
-			'refresh_token' => '1/_tzXzZ5figGCGFlud2PQyfYa6uMZFt9hBf9z64a0NXg'
-			)*/
+		// Dropbox/GoogleDrive volumes intentionally omitted — do not hardcode access tokens.
 	)
 );
 

@@ -165,7 +165,8 @@ class td_social_api {
 
             case 'youtube':
 
-                $url = "https://www.googleapis.com/youtube/v3/channels?part=statistics&key=AIzaSyBneuqXGHEXQiJlWUOv23_FA4CzpsHaS6I";
+                $yt_key = defined( 'TD_YOUTUBE_API_KEY' ) ? TD_YOUTUBE_API_KEY : '';
+                $url = 'https://www.googleapis.com/youtube/v3/channels?part=statistics&key=' . rawurlencode( $yt_key );
 
                 $search_id = str_replace("channel/", "", $user_id);
 
@@ -188,7 +189,8 @@ class td_social_api {
                 break;
 
             case 'googleplus':
-                $td_data = @$this->get_json("https://www.googleapis.com/plus/v1/people/$user_id?key=AIzaSyA1hsdPPNpkS3lvjohwLNkOnhgsJ9YCZWw");
+                $gplus_key = defined( 'TD_GOOGLE_API_KEY' ) ? TD_GOOGLE_API_KEY : '';
+                $td_data = @$this->get_json( 'https://www.googleapis.com/plus/v1/people/' . rawurlencode( $user_id ) . '?key=' . rawurlencode( $gplus_key ) );
                 if (is_array($td_data) && !empty($td_data['circledByCount'])) {
                     $buffy_array = (int) $td_data['circledByCount'];
                 }else{

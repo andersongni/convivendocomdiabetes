@@ -19,7 +19,7 @@ resource "railway_project" "this" {
 }
 
 # MySQL gerenciado do Railway aparece como imagem mysql + volume.
-# Build/deploy extras continuam no railway.toml do app WordPress.
+# Build/deploy do WordPress: .railway/railway.ts (Infrastructure as Code).
 resource "railway_service" "mysql" {
   name         = var.mysql_service_name
   project_id   = railway_project.this.id

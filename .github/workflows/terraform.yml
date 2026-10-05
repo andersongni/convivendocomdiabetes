@@ -6,14 +6,14 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/terraform.yml"
-      - "railway.toml"
+      - ".railway/**"
       - "scripts/terraform-import.sh"
   pull_request:
     branches: [main]
     paths:
       - "terraform/**"
       - ".github/workflows/terraform.yml"
-      - "railway.toml"
+      - ".railway/**"
       - "scripts/terraform-import.sh"
   workflow_dispatch:
     inputs:

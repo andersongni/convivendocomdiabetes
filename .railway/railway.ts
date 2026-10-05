@@ -56,15 +56,6 @@ export default defineRailway(() => {
       WP_TITLE: preserve(),
       CCD_RECAPTCHA_SITE_KEY: preserve(),
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
-      // Secrets opcionais de integracao (definir no painel Railway; nao versionar)
-      TD_YOUTUBE_API_KEY: preserve(),
-      TD_GOOGLE_API_KEY: preserve(),
-      TD_FACEBOOK_ACCESS_TOKEN: preserve(),
-      ELFINDER_DROPBOX_APPKEY: preserve(),
-      ELFINDER_DROPBOX_APPSECRET: preserve(),
-      ELFINDER_DROPBOX_ACCESS_TOKEN: preserve(),
-      ELFINDER_GOOGLEDRIVE_CLIENTID: preserve(),
-      ELFINDER_GOOGLEDRIVE_CLIENTSECRET: preserve(),
     },
   });
 

@@ -4,17 +4,9 @@ error_reporting(0); // Set E_ALL for debuging
 
 // load composer autoload before load elFinder autoload If you need composer
 require '../vendor/autoload.php';
-//require '../vendor/nao-pon/flysystem-google-drive/src/GoogleDriveAdapter.php';
 // elFinder autoload
 require './autoload.php';
-// https://www.dropbox.com/developers/apps
-// ===============================================
-elFinder::$netDrivers['dropbox2'] = 'Dropbox2';
-define('ELFINDER_DROPBOX_APPKEY', getenv('ELFINDER_DROPBOX_APPKEY') ?: '');
-define('ELFINDER_DROPBOX_APPSECRET', getenv('ELFINDER_DROPBOX_APPSECRET') ?: '');
-elFinder::$netDrivers['googledrive'] = 'GoogleDrive';
-define('ELFINDER_GOOGLEDRIVE_CLIENTID', getenv('ELFINDER_GOOGLEDRIVE_CLIENTID') ?: '');
-define('ELFINDER_GOOGLEDRIVE_CLIENTSECRET', getenv('ELFINDER_GOOGLEDRIVE_CLIENTSECRET') ?: '');
+
 /**
  * Simple function to demonstrate how to control file access using "accessControl" callback.
  * This method will disable accessing files/folders starting from '.' (dot)
@@ -39,31 +31,19 @@ function access($attr, $path, $data, $volume, $isDir, $relpath) {
 // Documentation for connector options:
 // https://github.com/Studio-42/elFinder/wiki/Connector-configuration-options
 
-$roots = array(
-	// Items volume
-	array(
-		'driver'        => 'LocalFileSystem',           // driver for accessing file system (REQUIRED)
-		'path'          => '../files/',                 // path to files (REQUIRED)
-		'URL'           => dirname($_SERVER['PHP_SELF']) . '/../files/', // URL to files (REQUIRED)
-		'uploadDeny'    => array('all'),                // All Mimetypes not allowed to upload
-		'uploadAllow'   => array('all'),// Mimetype `image` and `text/plain` allowed to upload
-		'uploadOrder'   => array('deny', 'allow'),      // allowed Mimetype `image` and `text/plain` only
-		'accessControl' => 'access'                     // disable and hide dot starting files (OPTIONAL)
-	),
-);
-
-$dropbox_token = getenv('ELFINDER_DROPBOX_ACCESS_TOKEN') ?: '';
-if ($dropbox_token !== '') {
-	$roots[] = array(
-		'driver' => 'Dropbox2',
-		'path' => '/',
-		'access_token' => $dropbox_token,
-	);
-}
-
 $opts = array(
 	'debug' => true,
-	'roots' => $roots,
+	'roots' => array(
+		array(
+			'driver'        => 'LocalFileSystem',
+			'path'          => '../files/',
+			'URL'           => dirname($_SERVER['PHP_SELF']) . '/../files/',
+			'uploadDeny'    => array('all'),
+			'uploadAllow'   => array('all'),
+			'uploadOrder'   => array('deny', 'allow'),
+			'accessControl' => 'access'
+		),
+	)
 );
 
 // run elFinder

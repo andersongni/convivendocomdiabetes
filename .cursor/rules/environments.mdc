@@ -1,0 +1,35 @@
+---
+description: Escopo de ambientes — localhost, Railway via IaC, domínio legado só consulta
+alwaysApply: true
+---
+
+# Ambientes (CCD)
+
+## Escopo de trabalho
+
+1. **Desenvolver e validar só no localhost** (`docker compose`, `http://localhost:8080`).
+2. **Promover para Railway** via código no repo + IaC (`.railway/railway.ts`, Terraform em `terraform/` quando aplicável) e push na `main` / deploy do serviço `*.up.railway.app`.
+3. **Estrutura de banco**: mudanças de schema vão em migrations versionadas em `db/` (não editar produção “na mão”; não depender de dump completo para DDL).
+4. **`convivendocomdiabetes.com` / `www`**: ambiente legado em hold. **Só consulta/referência.** Não alterar DNS, Cloudflare, conteúdo, plugins, nem anexar esse domínio ao Railway.
+
+## Proibido
+
+- Apontar ou anexar `convivendocomdiabetes.com` / `www.convivendocomdiabetes.com` ao Railway.
+- Mudar DNS/Cloudflare do domínio legado.
+- Tratar o site público legado como alvo de deploy ou smoke-test de mudanças novas.
+
+## Alvos válidos
+
+| Ambiente | URL / acesso | Uso |
+|----------|----------------|-----|
+| Local | `http://localhost:8080` | Desenvolvimento e QA |
+| Railway | `https://convivendocomdiabetes-production.up.railway.app` (ou domínio Railway gerado) | Deploy promovido via IaC + git |
+| Legado | `https://www.convivendocomdiabetes.com` | Consulta apenas |
+
+## Fluxo esperado
+
+```
+localhost (código + migrations) → commit/push → Railway (IaC/Dockerfile/boot aplica) 
+```
+
+O domínio legado fica fora desse fluxo até decisão explícita futura do usuário.

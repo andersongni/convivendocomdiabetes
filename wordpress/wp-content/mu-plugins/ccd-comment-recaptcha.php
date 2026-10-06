@@ -72,6 +72,14 @@ add_action('wp_enqueue_scripts', static function () {
 		null,
 		true
 	);
+	// Stubs ate o ccd-comment-form registrar os handlers reais.
+	wp_add_inline_script(
+		'google-recaptcha',
+		'window.ccdOnRecaptchaSuccess=window.ccdOnRecaptchaSuccess||function(){};'
+		. 'window.ccdOnRecaptchaExpired=window.ccdOnRecaptchaExpired||function(){};'
+		. 'window.ccdOnRecaptchaError=window.ccdOnRecaptchaError||function(){};',
+		'before'
+	);
 });
 
 add_action('comment_form_after_fields', 'ccd_recaptcha_render_field');
@@ -88,7 +96,10 @@ function ccd_recaptcha_render_field()
 
 	$keys = ccd_recaptcha_keys();
 	echo '<p class="ccd-recaptcha-field" style="margin:1em 0;">';
-	echo '<div class="g-recaptcha" data-sitekey="' . esc_attr($keys['site']) . '"></div>';
+	echo '<div class="g-recaptcha" data-sitekey="' . esc_attr($keys['site']) . '"'
+		. ' data-callback="ccdOnRecaptchaSuccess"'
+		. ' data-expired-callback="ccdOnRecaptchaExpired"'
+		. ' data-error-callback="ccdOnRecaptchaError"></div>';
 	echo '</p>';
 }
 

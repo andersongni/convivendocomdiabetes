@@ -112,7 +112,7 @@ add_action(
 		}
 
 		$handle = 'ccd-comment-form';
-		wp_register_style( $handle, false, array(), '1.1.1' );
+		wp_register_style( $handle, false, array(), '1.1.2' );
 		wp_enqueue_style( $handle );
 		wp_add_inline_style(
 			$handle,
@@ -136,7 +136,8 @@ add_action(
 	padding: 0 !important;
 	box-sizing: border-box;
 }
-.comments-title {
+.comments-title,
+h2.comments-title {
 	margin: 0 0 1.35rem !important;
 	padding: 0 !important;
 	color: var(--ccd-ink) !important;
@@ -479,7 +480,7 @@ add_action(
 CSS
 		);
 
-		wp_register_script( $handle, false, array(), '1.1.1', true );
+		wp_register_script( $handle, false, array(), '1.1.2', true );
 		wp_enqueue_script( $handle );
 
 		$require_name_email = (bool) get_option( 'require_name_email' );

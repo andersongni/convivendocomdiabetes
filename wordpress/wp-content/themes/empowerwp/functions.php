@@ -273,3 +273,64 @@ add_action('after_setup_theme', function () {
 	add_action('admin_menu', 'empower_remove_mesmerize_demos_menu_item', 20);
 	add_filter('cloudpress\customizer\feature_popups', 'empower_remove_demo_import_popup');
 });
+
+/**
+ * HTML semantico: menu offcanvas como <nav> com rotulo acessivel.
+ *
+ * @param array<string, mixed> $args Menu args.
+ * @return array<string, mixed>
+ */
+add_filter(
+	'wp_nav_menu_args',
+	static function ( $args ) {
+		$menu_id = isset( $args['menu_id'] ) ? (string) $args['menu_id'] : '';
+		if ( $menu_id === 'offcanvas_menu' ) {
+			$args['container']      = 'nav';
+			$args['container_aria_label'] = __( 'Menu móvel', 'empowerwp' );
+		}
+		return $args;
+	}
+);
+
+/**
+ * Skip link em portugues e landmarks estaveis no CSS do tema.
+ */
+add_action(
+	'wp_enqueue_scripts',
+	static function () {
+		$handle = 'empower-semantic-html';
+		wp_register_style( $handle, false, array(), '1.0.0' );
+		wp_enqueue_style( $handle );
+		wp_add_inline_style(
+			$handle,
+			<<<'CSS'
+header.header-top,
+main#page-content,
+footer.footer,
+nav.navigation-bar,
+aside.sidebar,
+article.hentry,
+section.post-comments,
+section.comments-form {
+	display: block;
+}
+main#page-content:focus {
+	outline: none;
+}
+CSS
+		);
+	},
+	30
+);
+
+add_filter(
+	'gettext',
+	static function ( $translation, $text, $domain ) {
+		if ( $domain === 'mesmerize' && $text === 'Skip to content' ) {
+			return 'Ir para o conteúdo';
+		}
+		return $translation;
+	},
+	10,
+	3
+);

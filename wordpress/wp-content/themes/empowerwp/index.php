@@ -1,0 +1,32 @@
+<?php mesmerize_get_header(); ?>
+
+<main id="page-content" class="content blog-page" tabindex="-1">
+	<div class="gridContainer <?php mesmerize_page_content_wrapper_class(); ?>">
+		<div class="row">
+			<div class="col-xs-12 <?php mesmerize_posts_wrapper_class(); ?>">
+				<div class="post-list row" <?php mesmerize_print_blog_list_attrs(); ?>>
+					<?php
+					if ( have_posts() ) :
+						while ( have_posts() ) :
+							the_post();
+							get_template_part( 'template-parts/content', get_post_format() );
+						endwhile;
+					else :
+						get_template_part( 'template-parts/content', 'none' );
+					endif;
+					?>
+				</div>
+				<nav class="navigation-c" aria-label="<?php echo esc_attr__( 'Paginação do blog', 'empowerwp' ); ?>">
+					<?php
+					if ( have_posts() ) :
+						mesmerize_print_pagination();
+					endif;
+					?>
+				</nav>
+			</div>
+			<?php get_sidebar(); ?>
+		</div>
+	</div>
+</main>
+
+<?php get_footer(); ?>

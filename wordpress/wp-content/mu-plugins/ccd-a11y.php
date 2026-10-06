@@ -50,7 +50,7 @@ add_action(
 		if ( ! ccd_a11y_is_local() || ! function_exists( 'ccd_page_cache_purge_all' ) ) {
 			return;
 		}
-		$ver = '1.7.4';
+		$ver = '1.8.2';
 		if ( get_option( 'ccd_a11y_cache_bust' ) === $ver ) {
 			return;
 		}
@@ -121,6 +121,24 @@ function ccd_a11y_primary_category() {
 }
 
 /**
+ * Primeira letra maiuscula, demais minusculas (UTF-8).
+ *
+ * @param string $text Texto.
+ * @return string
+ */
+function ccd_a11y_sentence_case( $text ) {
+	$text = trim( (string) $text );
+	if ( $text === '' ) {
+		return '';
+	}
+	$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $text, 'UTF-8' ) : strtolower( $text );
+	$first = function_exists( 'mb_substr' ) ? mb_substr( $lower, 0, 1, 'UTF-8' ) : substr( $lower, 0, 1 );
+	$rest  = function_exists( 'mb_substr' ) ? mb_substr( $lower, 1, null, 'UTF-8' ) : substr( $lower, 1 );
+	$first = function_exists( 'mb_strtoupper' ) ? mb_strtoupper( $first, 'UTF-8' ) : strtoupper( $first );
+	return $first . $rest;
+}
+
+/**
  * Archives: hero sem prefixo "Categoria:" / "Tag:".
  * Posts: hero mostra so a categoria principal; titulo vai para o conteudo.
  */
@@ -132,11 +150,11 @@ add_filter(
 		}
 		if ( is_category() ) {
 			$name = single_cat_title( '', false );
-			return is_string( $name ) && $name !== '' ? esc_html( $name ) : $title;
+			return is_string( $name ) && $name !== '' ? esc_html( ccd_a11y_sentence_case( $name ) ) : $title;
 		}
 		if ( is_tag() ) {
 			$name = single_tag_title( '', false );
-			return is_string( $name ) && $name !== '' ? esc_html( $name ) : $title;
+			return is_string( $name ) && $name !== '' ? esc_html( ccd_a11y_sentence_case( $name ) ) : $title;
 		}
 		if ( ! is_singular( 'post' ) ) {
 			return $title;
@@ -148,7 +166,7 @@ add_filter(
 		return sprintf(
 			'<a href="%s" rel="category tag">%s</a>',
 			esc_url( get_category_link( $cat->term_id ) ),
-			esc_html( $cat->name )
+			esc_html( ccd_a11y_sentence_case( $cat->name ) )
 		);
 	},
 	20
@@ -244,13 +262,21 @@ add_action(
 				$header = '<h1 class="ccd-post-entry-title">' . esc_html( $title ) . '</h1>' . $byline;
 
 				$replaced = preg_replace(
-					'#<div class="meta">\s*.*?\s*</div>\s*<h1[^>]*>\s*</h1>#s',
-					$header,
+					'#<header class="entry-header">\s*<div class="meta">\s*.*?\s*</div>\s*<h1[^>]*>\s*</h1>\s*</header>#s',
+					'<header class="entry-header">' . $header . '</header>',
 					$html,
 					1
 				);
 				if ( ! is_string( $replaced ) || $replaced === $html ) {
-					$replaced = preg_replace( '#<h1>\s*</h1>#', $header, $html, 1 );
+					$replaced = preg_replace(
+						'#<div class="meta">\s*.*?\s*</div>\s*<h1[^>]*>\s*</h1>#s',
+						$header,
+						$html,
+						1
+					);
+				}
+				if ( ! is_string( $replaced ) || $replaced === $html ) {
+					$replaced = preg_replace( '#<h1[^>]*>\s*</h1>#', $header, $html, 1 );
 				}
 				if ( ! is_string( $replaced ) ) {
 					$replaced = $html;
@@ -543,14 +569,13 @@ body.single-post .header:not(.header-homepage) .header-description-row {
 	z-index: 1;
 	text-align: center;
 }
-.header[style*="background-image"]:not(.header-homepage) .inner-header-description,
-.header.custom-mobile-image:not(.header-homepage) .inner-header-description {
+.header:not(.header-homepage) .inner-header-description {
 	display: flex !important;
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
 	box-sizing: border-box;
-	/* Altura util do /blog/ (~184px), independente do padding do menu. */
+	/* Altura util padronizada (base /receitas/ ~184px). */
 	height: 11.5rem !important;
 	min-height: 11.5rem !important;
 	max-height: 11.5rem !important;
@@ -587,7 +612,19 @@ body.single-post .header:not(.header-homepage) .header-description-row {
 	paint-order: stroke fill;
 }
 
-.header:not(.header-homepage) .hero-title {
+/*
+ * Hero interno unico (base /receitas/): mesmo tamanho, tipografia e centro.
+ * Inclui posts (categoria no hero) — sem overrides menores.
+ */
+.header:not(.header-homepage) .hero-title,
+.header:not(.header-homepage) .hero-title a,
+body.single-post .header:not(.header-homepage) .hero-title,
+body.single-post .header:not(.header-homepage) .hero-title a,
+.archive .header:not(.header-homepage) .hero-title,
+.page .header:not(.header-homepage) .hero-title,
+.blog .header:not(.header-homepage) .hero-title,
+.search .header:not(.header-homepage) .hero-title,
+.error404 .header:not(.header-homepage) .hero-title {
 	display: block !important;
 	float: none !important;
 	clear: both !important;
@@ -596,10 +633,15 @@ body.single-post .header:not(.header-homepage) .header-description-row {
 	margin: 0 auto !important;
 	padding: 0 1rem !important;
 	box-sizing: border-box;
+	color: #ffffff !important;
+	font-family: var(--ccd-a11y-title) !important;
 	font-size: 2.75rem !important;
 	font-weight: 800 !important;
 	line-height: 1.18 !important;
-	letter-spacing: 0.9px;
+	letter-spacing: 0.9px !important;
+	text-align: center !important;
+	text-transform: none !important;
+	text-decoration: none !important;
 	-webkit-text-stroke: 1.45px #061018;
 	text-shadow:
 		1px 0 0 #061018,
@@ -615,27 +657,10 @@ body.single-post .header:not(.header-homepage) .header-description-row {
 	display: none !important;
 }
 
-/* Posts: categoria no hero; titulo na 1a linha do conteudo */
-body.single-post .header:not(.header-homepage) .hero-title {
-	font-size: 2.15rem !important;
-	font-weight: 800 !important;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	line-height: 1.25 !important;
-}
-body.single-post .header:not(.header-homepage) .hero-title a {
-	color: #ffffff !important;
-	text-decoration: none !important;
-	-webkit-text-stroke: 1.45px #061018;
-	text-shadow:
-		1px 0 0 #061018,
-		-1px 0 0 #061018,
-		0 1px 0 #061018,
-		0 -1px 0 #061018,
-		0 2px 8px rgba(0, 0, 0, 0.45);
-}
 body.single-post .header:not(.header-homepage) .hero-title a:hover,
-body.single-post .header:not(.header-homepage) .hero-title a:focus {
+body.single-post .header:not(.header-homepage) .hero-title a:focus,
+.header:not(.header-homepage) .hero-title a:hover,
+.header:not(.header-homepage) .hero-title a:focus {
 	color: #ffffff !important;
 	text-decoration: none !important;
 }
@@ -681,12 +706,14 @@ body.single-post nav.navigation.post-navigation {
 }
 
 @media (max-width: 767px) {
-	.header:not(.header-homepage) .hero-title {
+	.header:not(.header-homepage) .hero-title,
+	.header:not(.header-homepage) .hero-title a,
+	body.single-post .header:not(.header-homepage) .hero-title,
+	body.single-post .header:not(.header-homepage) .hero-title a {
 		font-size: 1.85rem !important;
+		line-height: 1.18 !important;
+		letter-spacing: 0.9px !important;
 		padding: 0 0.75rem !important;
-	}
-	body.single-post .header:not(.header-homepage) .hero-title {
-		font-size: 1.45rem !important;
 	}
 }
 
@@ -807,7 +834,8 @@ body {
 }
 .footer,
 .footer-simple,
-div.footer {
+div.footer,
+footer.footer {
 	background-color: #0f2a38 !important;
 	background-image: none !important;
 }
@@ -1200,11 +1228,11 @@ CSS;
 			array( 'ccd-a11y-nunito' ),
 			null
 		);
-		wp_register_style( 'ccd-a11y', false, array( 'ccd-a11y-pacifico' ), '1.7.4' );
+		wp_register_style( 'ccd-a11y', false, array( 'ccd-a11y-pacifico' ), '1.8.2' );
 		wp_enqueue_style( 'ccd-a11y' );
 		wp_add_inline_style( 'ccd-a11y', $css );
 
-		wp_register_script( 'ccd-a11y', false, array(), '1.7.4', true );
+		wp_register_script( 'ccd-a11y', false, array(), '1.8.2', true );
 		wp_enqueue_script( 'ccd-a11y' );
 		wp_add_inline_script(
 			'ccd-a11y',

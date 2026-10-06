@@ -289,15 +289,17 @@ article .noptin-popup-close {
 	align-items: center !important;
 	justify-content: center !important;
 	opacity: 1 !important;
-	background: #01579b !important;
+	background: linear-gradient(135deg, var(--ccd-blue) 0%, var(--ccd-blue-deep) 100%) !important;
+	background-color: var(--ccd-blue) !important;
 	color: #ffffff !important;
-	border: 2px solid #013a63 !important;
+	border: 0 !important;
 	border-radius: 999px !important;
 	width: 2.5rem !important;
 	height: 2.5rem !important;
-	box-shadow: 0 3px 10px rgba(1, 58, 99, 0.35) !important;
+	box-shadow: 0 10px 22px rgba(3, 169, 244, 0.28) !important;
 	cursor: pointer !important;
 	z-index: 100000000 !important;
+	transition: filter 0.15s ease, box-shadow 0.2s ease;
 }
 .noptin-popup .noptin-popup-close svg,
 .noptin-popup-template-holder .noptin-popup-close svg {
@@ -316,8 +318,10 @@ article .noptin-popup-close {
 }
 .noptin-popup .noptin-popup-close:hover,
 .noptin-popup-template-holder .noptin-popup-close:hover {
-	background: #013a63 !important;
-	border-color: #01243d !important;
+	filter: brightness(1.03);
+	background: linear-gradient(135deg, var(--ccd-blue) 0%, var(--ccd-blue-deep) 100%) !important;
+	background-color: var(--ccd-blue) !important;
+	box-shadow: 0 12px 26px rgba(3, 169, 244, 0.34) !important;
 }
 @media (max-width: 600px) {
 	.noptin-form-id-2859 .noptin-optin-form-wrapper {
@@ -335,7 +339,7 @@ article .noptin-popup-close {
 CSS;
 
 	// Sem depender do handle do Noptin (pode nao existir em todas as paginas).
-	wp_register_style('ccd-noptin-form', false, array(), '1.3.1');
+	wp_register_style('ccd-noptin-form', false, array(), '1.3.2');
 	wp_enqueue_style('ccd-noptin-form');
 	wp_add_inline_style('ccd-noptin-form', $css);
 }, 20);

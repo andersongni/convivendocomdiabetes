@@ -1,12 +1,15 @@
+# Variaveis: apenas localhost via arquivo .env (ver .env.example).
+# Railway nao usa este compose — ver .env.railway.example e .railway/railway.ts.
+
 services:
   db:
     image: mysql:8.0
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: convivend62e9f3c_ccd
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
-      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: ${WORDPRESS_DB_NAME:-convivend62e9f3c_ccd}
+      MYSQL_USER: ${WORDPRESS_DB_USER:-wordpress}
+      MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
     volumes:
       - db_data:/var/lib/mysql
       - ./dump-database.sql:/docker-entrypoint-initdb.d/01-dump.sql:ro
@@ -14,7 +17,7 @@ services:
       - "3306:3306"
     command: --max_allowed_packet=256M --innodb_buffer_pool_size=512M
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpass"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 60
@@ -28,11 +31,15 @@ services:
         condition: service_healthy
     ports:
       - "8080:80"
+    env_file:
+      - .env
     environment:
-      WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: convivend62e9f3c_ccd
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST:-db:3306}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:-convivend62e9f3c_ccd}
+      WP_HOME: ${WP_HOME:-http://localhost:8080}
+      WP_SITEURL: ${WP_SITEURL:-http://localhost:8080}
       CCD_RECAPTCHA_SITE_KEY: ${CCD_RECAPTCHA_SITE_KEY:-}
       CCD_RECAPTCHA_SECRET_KEY: ${CCD_RECAPTCHA_SECRET_KEY:-}
       # 1 = re-copia plugins/themes do host no boot (ou use scripts/sync-local-wp-content.ps1)

@@ -33,3 +33,12 @@ localhost (código + migrations) → commit/push → Railway (IaC/Dockerfile/boo
 ```
 
 O domínio legado fica fora desse fluxo até decisão explícita futura do usuário.
+
+## Variáveis de ambiente
+
+| Arquivo | Ambiente |
+|---------|----------|
+| `.env` / `.env.example` | Localhost (Docker Compose) |
+| `.env.railway.example` | Catálogo Railway (dashboard / `.railway/railway.ts`) |
+
+Não colocar `WP_ADMIN_*` nem secrets de produção no `.env` local. Não carregar `.env` local no Railway.

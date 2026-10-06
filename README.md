@@ -41,10 +41,19 @@ Uploads (`wordpress/wp-content/uploads/`) e dumps SQL **não** entram no Git nem
 - (Opcional) [Railway CLI](https://docs.railway.com/guides/cli) para sync/migração
 - (Opcional) Terraform 1.x para infra
 
+## Variáveis de ambiente
+
+| Arquivo | Ambiente | Uso |
+|---------|----------|-----|
+| `.env` / `.env.example` | **Localhost** | Docker Compose (`http://localhost:8080`) |
+| `.env.railway.example` | **Railway** | Referência; valores no dashboard / IaC (`.railway/railway.ts`) |
+
+Não misturar: o Compose não lê `.env.railway*`. O domínio legado `convivendocomdiabetes.com` não faz parte do Railway.
+
 ## Rodar local
 
 ```bash
-cp .env.example .env   # se quiser ajustar vars
+cp .env.example .env   # so vars de localhost
 docker compose up -d
 ```
 
@@ -63,9 +72,9 @@ docker compose down
 
 1. Push na branch `main` → build/deploy automático do serviço WordPress.
 2. MySQL gerenciado + volume de uploads persistente.
-3. Variáveis e domínio: configurados via Terraform / dashboard Railway (ver `.env.example` e `terraform/`).
+3. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
 
-Healthcheck: `/wp-login.php` (ver `.railway/railway.ts`).
+Healthcheck: asset estático em `/wp-includes/js/jquery/jquery.min.js` (ver `.railway/railway.ts`).
 
 Alterações de infra Railway via CLI:
 

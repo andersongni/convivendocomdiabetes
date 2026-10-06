@@ -45,6 +45,7 @@ export default defineRailway(() => {
     volumeMounts: {
       "/var/www/html/wp-content/uploads": wpUploads5g,
     },
+    // Vars do Railway (nao usar .env local). Catalogo: .env.railway.example
     env: {
       WORDPRESS_DB_HOST: preserve(),
       WORDPRESS_DB_NAME: preserve(),

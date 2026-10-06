@@ -1,0 +1,21 @@
+name: CCD first-party CodeQL
+
+# WordPress core, third-party plugins and unused themes generate hundreds of
+# vendor findings we do not maintain. Scan only first-party / IaC surfaces.
+paths:
+  - scripts
+  - .github
+  - .railway
+  - terraform
+  - db
+  - wordpress/wp-content/mu-plugins
+  - wordpress/wp-content/themes/empowerwp
+
+paths-ignore:
+  - "**/node_modules/**"
+  - "**/vendor/**"
+  - "**/*.min.js"
+  - wordpress/wp-includes/**
+  - wordpress/wp-admin/**
+  - wordpress/wp-content/plugins/**
+  - wordpress/wp-content/themes/mesmerize/**

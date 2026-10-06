@@ -34,6 +34,14 @@ localhost (código + migrations) → commit/push → Railway (IaC/Dockerfile/boo
 
 O domínio legado fica fora desse fluxo até decisão explícita futura do usuário.
 
+## O que promove vs o que não promove
+
+| Promove (git + IaC) | Não promove |
+|---------------------|-------------|
+| Temas, mu-plugins, plugins versionados, Dockerfile, boot scripts | Dump/conteúdo de usuários, comentários, posts editados só no DB |
+| UX/a11y (`ccd-a11y` ativo em localhost e Railway; kill-switch `CCD_A11Y_DISABLE`) | Secrets e URLs exclusivos do ambiente (`WORDPRESS_DB_*`, `WP_ADMIN_*`, reCAPTCHA, `WP_HOME`/`WP_SITEURL`) |
+| Migrations em `db/` | Domínio legado `convivendocomdiabetes.com` |
+
 ## Variáveis de ambiente
 
 | Arquivo | Ambiente |

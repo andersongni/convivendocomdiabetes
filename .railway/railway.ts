@@ -46,6 +46,7 @@ export default defineRailway(() => {
       "/var/www/html/wp-content/uploads": wpUploads5g,
     },
     // Vars do Railway (nao usar .env local). Catalogo: .env.railway.example
+    // Codigo/UX do repo promove via git; DB de usuarios e secrets ficam em preserve().
     env: {
       WORDPRESS_DB_HOST: preserve(),
       WORDPRESS_DB_NAME: preserve(),
@@ -57,6 +58,7 @@ export default defineRailway(() => {
       WP_TITLE: preserve(),
       CCD_RECAPTCHA_SITE_KEY: preserve(),
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
+      // Opcional: CCD_A11Y_DISABLE=1 desliga tipografia/hero a11y em producao
     },
   });
 

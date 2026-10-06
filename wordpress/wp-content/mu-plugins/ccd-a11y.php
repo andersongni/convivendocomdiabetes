@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: CCD Acessibilidade (localhost)
- * Description: Tipografia e contraste mais acessiveis. Ativo apenas em localhost — nao aplica no Railway.
+ * Plugin Name: CCD Acessibilidade
+ * Description: Tipografia, contraste e UX de hero. Ativo em localhost e Railway; desligar com CCD_A11Y_DISABLE.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -9,26 +9,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Gate: so localhost / ambiente local.
+ * A11y/UX CCD ativo em todos os ambientes (kill-switch: CCD_A11Y_DISABLE).
  */
-function ccd_a11y_is_local() {
-	if ( defined( 'CCD_A11Y_FORCE' ) && CCD_A11Y_FORCE ) {
-		return true;
-	}
+function ccd_a11y_enabled() {
 	if ( defined( 'CCD_A11Y_DISABLE' ) && CCD_A11Y_DISABLE ) {
 		return false;
 	}
+	return true;
+}
 
-	$env = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production';
-	if ( $env === 'local' || $env === 'development' ) {
-		return true;
-	}
-
-	$host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
-	$host = is_string( $host ) ? strtolower( $host ) : '';
-	return in_array( $host, array( 'localhost', '127.0.0.1', '::1' ), true )
-		|| str_ends_with( $host, '.local' )
-		|| str_ends_with( $host, '.test' );
+/**
+ * Compat: nome antigo do gate localhost.
+ *
+ * @return bool
+ */
+function ccd_a11y_is_local() {
+	return ccd_a11y_enabled();
 }
 
 /**
@@ -37,7 +33,7 @@ function ccd_a11y_is_local() {
 add_filter(
 	'inner_header_show_subtitle',
 	static function ( $show ) {
-		return ccd_a11y_is_local() ? false : $show;
+		return ccd_a11y_enabled() ? false : $show;
 	}
 );
 
@@ -47,10 +43,10 @@ add_filter(
 add_action(
 	'init',
 	static function () {
-		if ( ! ccd_a11y_is_local() || ! function_exists( 'ccd_page_cache_purge_all' ) ) {
+		if ( ! ccd_a11y_enabled() || ! function_exists( 'ccd_page_cache_purge_all' ) ) {
 			return;
 		}
-		$ver = '1.8.2';
+		$ver = '1.9.0';
 		if ( get_option( 'ccd_a11y_cache_bust' ) === $ver ) {
 			return;
 		}
@@ -145,7 +141,7 @@ function ccd_a11y_sentence_case( $text ) {
 add_filter(
 	'mesmerize_header_title',
 	static function ( $title ) {
-		if ( ! ccd_a11y_is_local() ) {
+		if ( ! ccd_a11y_enabled() ) {
 			return $title;
 		}
 		if ( is_category() ) {
@@ -175,7 +171,7 @@ add_filter(
 add_action(
 	'mesmerize_before_inner_page_header_content',
 	static function () {
-		if ( ! ccd_a11y_is_local() || ! is_singular( 'post' ) ) {
+		if ( ! ccd_a11y_enabled() || ! is_singular( 'post' ) ) {
 			return;
 		}
 		$GLOBALS['ccd_a11y_hero_ob'] = true;
@@ -217,7 +213,7 @@ add_action(
 add_filter(
 	'mesmerize_show_post_meta',
 	static function ( $show ) {
-		if ( ccd_a11y_is_local() && is_singular( 'post' ) ) {
+		if ( ccd_a11y_enabled() && is_singular( 'post' ) ) {
 			return false;
 		}
 		return $show;
@@ -230,7 +226,7 @@ add_filter(
 add_action(
 	'template_redirect',
 	static function () {
-		if ( ! ccd_a11y_is_local() || ! is_singular( 'post' ) ) {
+		if ( ! ccd_a11y_enabled() || ! is_singular( 'post' ) ) {
 			return;
 		}
 		ob_start(
@@ -312,13 +308,13 @@ add_action(
 add_action(
 	'wp_enqueue_scripts',
 	static function () {
-		if ( ! ccd_a11y_is_local() || is_admin() ) {
+		if ( ! ccd_a11y_enabled() || is_admin() ) {
 			return;
 		}
 
 		$css = <<<'CSS'
 /* =========================================================
- * CCD A11y — contraste (localhost only)
+ * CCD A11y — contraste / tipografia
  * Titulos: Nunito (arredondada) + negrito + contorno
  * ========================================================= */
 :root {
@@ -1228,11 +1224,11 @@ CSS;
 			array( 'ccd-a11y-nunito' ),
 			null
 		);
-		wp_register_style( 'ccd-a11y', false, array( 'ccd-a11y-pacifico' ), '1.8.2' );
+		wp_register_style( 'ccd-a11y', false, array( 'ccd-a11y-pacifico' ), '1.9.0' );
 		wp_enqueue_style( 'ccd-a11y' );
 		wp_add_inline_style( 'ccd-a11y', $css );
 
-		wp_register_script( 'ccd-a11y', false, array(), '1.8.2', true );
+		wp_register_script( 'ccd-a11y', false, array(), '1.9.0', true );
 		wp_enqueue_script( 'ccd-a11y' );
 		wp_add_inline_script(
 			'ccd-a11y',
@@ -1330,7 +1326,7 @@ add_filter(
 add_filter(
 	'the_content',
 	static function ( $content ) {
-		if ( ! ccd_a11y_is_local() || ! is_string( $content ) || $content === '' ) {
+		if ( ! ccd_a11y_enabled() || ! is_string( $content ) || $content === '' ) {
 			return $content;
 		}
 

@@ -67,6 +67,12 @@ div.wpforms-container-full#wpforms-2765 {
 	border: 1px solid rgba(3, 169, 244, 0.18);
 	border-radius: 22px;
 	box-shadow: 0 18px 40px rgba(3, 169, 244, 0.08);
+	position: relative;
+	z-index: 1;
+	/* Evita caret/selecao no padding do card (fora dos inputs) */
+	-webkit-user-select: none;
+	user-select: none;
+	caret-color: transparent;
 }
 
 div.wpforms-container-full#wpforms-2765 .wpforms-form {
@@ -75,6 +81,13 @@ div.wpforms-container-full#wpforms-2765 .wpforms-form {
 
 div.wpforms-container-full#wpforms-2765 .wpforms-field {
 	padding: 0 0 1rem;
+	position: relative;
+	z-index: 1;
+}
+
+/* Labels escondidos do WPForms nao devem roubar clique/foco */
+div.wpforms-container-full#wpforms-2765 .wpforms-label-hide {
+	pointer-events: none !important;
 }
 
 div.wpforms-container-full#wpforms-2765 .wpforms-field input[type="text"],
@@ -91,6 +104,12 @@ div.wpforms-container-full#wpforms-2765 .wpforms-field textarea {
 	padding: 0.9rem 1.05rem !important;
 	box-shadow: none !important;
 	transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+	position: relative;
+	z-index: 2;
+	scroll-margin-top: 130px;
+	-webkit-user-select: text;
+	user-select: text;
+	caret-color: auto;
 }
 
 div.wpforms-container-full#wpforms-2765 .wpforms-field textarea {
@@ -184,6 +203,70 @@ CSS;
 		wp_register_style( 'ccd-contact-form', false, array(), null );
 		wp_enqueue_style( 'ccd-contact-form' );
 		wp_add_inline_style( 'ccd-contact-form', $css );
+
+		wp_register_script( 'ccd-contact-form', false, array(), null, true );
+		wp_enqueue_script( 'ccd-contact-form' );
+		wp_add_inline_script(
+			'ccd-contact-form',
+			<<<'JS'
+(function () {
+	var form = document.getElementById('wpforms-2765');
+	if (!form) return;
+
+	function navHeight() {
+		var nav = document.querySelector('.navigation-bar.fixto-fixed') || document.querySelector('.navigation-bar');
+		return nav ? Math.ceil(nav.getBoundingClientRect().height) : 120;
+	}
+
+	function keepFieldBelowNav(el) {
+		if (!el || !el.getBoundingClientRect) return;
+		var top = el.getBoundingClientRect().top;
+		var pad = navHeight() + 16;
+		if (top < pad) {
+			window.scrollBy(0, top - pad);
+			return true;
+		}
+		return false;
+	}
+
+	function correctFocus(el) {
+		// Browser scroll-into-view pode colocar o campo sob o menu; corrige em etapas.
+		keepFieldBelowNav(el);
+		requestAnimationFrame(function () {
+			keepFieldBelowNav(el);
+			setTimeout(function () {
+				keepFieldBelowNav(el);
+			}, 50);
+			setTimeout(function () {
+				keepFieldBelowNav(el);
+			}, 150);
+		});
+	}
+
+	form.querySelectorAll('input:not([type="hidden"]), textarea').forEach(function (el) {
+		el.addEventListener('focus', function () {
+			correctFocus(el);
+		});
+	});
+
+	// Clique no padding do card nao deve focar campo nem criar caret fantasma.
+	form.addEventListener(
+		'mousedown',
+		function (event) {
+			var t = event.target;
+			if (!t) return;
+			if (t.matches('input, textarea, button, label, select, a')) return;
+			if (t.closest('input, textarea, button, label, select, a')) return;
+			event.preventDefault();
+			if (document.activeElement && form.contains(document.activeElement)) {
+				document.activeElement.blur();
+			}
+		},
+		true
+	);
+})();
+JS
+		);
 	},
 	30
 );

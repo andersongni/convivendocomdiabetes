@@ -60,6 +60,26 @@ ul.dropdown-menu a,
 	cursor: pointer !important;
 	caret-color: transparent !important;
 }
+
+/*
+ * Menu sticky (fixto-fixed) cobre o topo da viewport.
+ * scroll-padding evita que focus/caret de inputs fiquem sob o header.
+ */
+html {
+	scroll-padding-top: 130px;
+}
+.navigation-bar.fixto-fixed {
+	pointer-events: auto !important;
+	isolation: isolate;
+}
+a[href],
+button,
+input,
+textarea,
+select,
+[tabindex]:not([tabindex="-1"]) {
+	scroll-margin-top: 130px;
+}
 CSS;
 
 		echo "<style id=\"ccd-frontend-fixes\">\n{$css}\n</style>\n";

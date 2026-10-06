@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !.env.railway.example
+exposed.secrets.md
 wp-config.php
 wordpress/wp-config.php
 wordpress/wp-config-local.php

@@ -106,10 +106,11 @@ CSS;
 }, 20);
 
 /**
- * Atualiza uma vez o estado do form 2859 (imagem local + altura).
+ * Alinha o form 2859 ao Railway: popup no load + imagem/altura locais.
+ * Versao 3: optinType=popup (no local estava inpost e o modal nao abria).
  */
 add_action('init', static function () {
-	if (get_option('ccd_noptin_form_2859_fixed') === '2') {
+	if (get_option('ccd_noptin_form_2859_fixed') === '3') {
 		return;
 	}
 
@@ -121,9 +122,29 @@ add_action('init', static function () {
 	$state['image']      = content_url('uploads/2022/07/Bia-2-2.png');
 	$state['formHeight'] = '0px';
 	$state['formRadius'] = '23px';
+	$state['formWidth']  = isset($state['formWidth']) && $state['formWidth'] !== ''
+		? $state['formWidth']
+		: '620px';
+	$state['optinType']  = 'popup';
+	$state['optinStatus'] = 'true';
+
+	// Triggers iguais ao HTML de producao Railway.
+	$state['triggerPopup'] = 'immeadiate';
+	if (empty($state['timeDelayDuration'])) {
+		$state['timeDelayDuration'] = '4';
+	}
+	if (!isset($state['DisplayOncePerSession'])) {
+		$state['DisplayOncePerSession'] = false; // false => once per session (label do Noptin e invertida)
+	}
+	if (empty($state['slideDirection'])) {
+		$state['slideDirection'] = 'bottom_right';
+	}
 
 	update_post_meta(2859, '_noptin_state', $state);
-	update_option('ccd_noptin_form_2859_fixed', '2', false);
+	update_post_meta(2859, '_noptin_optin_type', 'popup');
+	update_option('ccd_noptin_form_2859_fixed', '3', false);
+
+	wp_cache_delete('noptin_popup_forms', 'noptin');
 
 	$dir = WP_CONTENT_DIR . '/cache/ccd-page';
 	if (is_dir($dir)) {

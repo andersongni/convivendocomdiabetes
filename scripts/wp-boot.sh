@@ -153,7 +153,10 @@ fi
 
 # Volume de uploads: nao fazer chown -R em todo boot (volume grande = minutos)
 if [ -d /var/www/html/wp-content/uploads ]; then
-  rm -f /var/www/html/wp-content/uploads/.htaccess
+  # Mantem .htaccess amigavel (Options -Indexes + ErrorDocument) se existir na imagem/host.
+  if [ ! -f /var/www/html/wp-content/uploads/.htaccess ] && [ -f /var/www/html/wp-content/uploads/.htaccess.ccd ]; then
+    cp -a /var/www/html/wp-content/uploads/.htaccess.ccd /var/www/html/wp-content/uploads/.htaccess
+  fi
   chown www-data:www-data /var/www/html/wp-content/uploads 2>/dev/null || true
   chmod 775 /var/www/html/wp-content/uploads 2>/dev/null || true
 fi

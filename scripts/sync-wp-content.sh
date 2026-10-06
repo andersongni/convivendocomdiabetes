@@ -51,7 +51,7 @@ for tree in plugins themes mu-plugins languages; do
   sync_tree "$tree"
 done
 
-for f in index.php .htaccess advanced-cache.php; do
+for f in index.php .htaccess advanced-cache.php ccd-http-error.php ccd-http-error-404-template.php ccd-env-urls-lib.php; do
   if [ -f "$HOST_CONTENT/$f" ]; then
     cp -a "$HOST_CONTENT/$f" "$DEST/$f"
   fi

@@ -341,18 +341,45 @@ function add_noptin_subscriber( $fields, $silent = false ) {
 		$fields['last_name']  = empty( $fields['last_name'] ) ? $names[1] : trim( $fields['last_name'] );
 	}
 
+	// Schema moderno: last_name/status/date_modified (não second_name/active).
+	$pending = isset( $fields['active'] )
+		? (int) $fields['active']
+		: ( get_noptin_option( 'double_optin', false ) ? 1 : 0 );
+	$now     = current_time( 'mysql' );
+
 	$database_fields = array(
-		'email'        => $fields['email'],
-		'first_name'   => empty( $fields['first_name'] ) ? '' : $fields['first_name'],
-		'second_name'  => empty( $fields['last_name'] ) ? '' : $fields['last_name'],
-		'confirm_key'  => isset( $fields['confirm_key'] ) ? $fields['confirm_key'] : md5( $fields['email'] . wp_generate_password( 32, true, true ) ),
-		'date_created' => ! empty( $fields['date_created'] ) ? gmdate( 'Y-m-d', strtotime( $fields['date_created'] ) ) : current_time( 'Y-m-d' ),
-		'active'       => isset( $fields['active'] ) ? (int) $fields['active'] : ( get_noptin_option( 'double_optin', false ) ? 1 : 0 ),
-		'confirmed'    => ! empty( $fields['confirmed'] ),
+		'email'                   => $fields['email'],
+		'first_name'              => empty( $fields['first_name'] ) ? '' : $fields['first_name'],
+		'last_name'               => empty( $fields['last_name'] ) ? '' : $fields['last_name'],
+		'confirm_key'             => isset( $fields['confirm_key'] ) ? $fields['confirm_key'] : md5( $fields['email'] . wp_generate_password( 32, true, true ) ),
+		'date_created'            => ! empty( $fields['date_created'] ) ? gmdate( 'Y-m-d H:i:s', strtotime( $fields['date_created'] ) ) : $now,
+		'date_modified'           => $now,
+		'status'                  => $pending ? 'pending' : 'subscribed',
+		'confirmed'               => ! empty( $fields['confirmed'] ) ? 1 : 0,
+		'email_engagement_score'  => 0,
 	);
 
-	if ( ! $wpdb->insert( $table, $database_fields, '%s' ) ) {
-		return 'An error occurred. Try again.';
+	if ( ! empty( $fields['source'] ) ) {
+		$database_fields['source'] = $fields['source'];
+	} elseif ( ! empty( $fields['_subscriber_via'] ) ) {
+		$database_fields['source'] = $fields['_subscriber_via'];
+	}
+
+	if ( ! empty( $fields['ip_address'] ) ) {
+		$database_fields['ip_address'] = $fields['ip_address'];
+	}
+
+	if ( ! empty( $fields['conversion_page'] ) ) {
+		$database_fields['conversion_page'] = $fields['conversion_page'];
+	}
+
+	if ( ! $wpdb->insert( $table, $database_fields ) ) {
+		$cause = $wpdb->last_error ? $wpdb->last_error : __( 'falha ao gravar o assinante', 'newsletter-optin-box' );
+		return sprintf(
+			/* translators: %s: database or validation error details */
+			__( 'Não foi possível concluir o cadastro: %s', 'newsletter-optin-box' ),
+			$cause
+		);
 	}
 
 	$id = $wpdb->insert_id;

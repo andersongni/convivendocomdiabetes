@@ -112,9 +112,15 @@ div.wpforms-container-full#wpforms-2765 .wpforms-field textarea {
 	caret-color: auto;
 }
 
+div.wpforms-container-full#wpforms-2765 .wpforms-field input[type="text"],
+div.wpforms-container-full#wpforms-2765 .wpforms-field input[type="email"] {
+	border-radius: 999px !important;
+}
+
 div.wpforms-container-full#wpforms-2765 .wpforms-field textarea {
 	min-height: 160px !important;
 	resize: vertical;
+	border-radius: var(--ccd-radius) !important;
 }
 
 div.wpforms-container-full#wpforms-2765 .wpforms-field input::placeholder,
@@ -155,7 +161,7 @@ div.wpforms-container-full#wpforms-2765 .wpforms-submit {
 	background: linear-gradient(135deg, var(--ccd-blue) 0%, var(--ccd-blue-deep) 100%) !important;
 	color: #fff !important;
 	font-size: 1rem !important;
-	font-weight: 700 !important;
+	font-weight: 600 !important;
 	letter-spacing: 0.02em;
 	line-height: 1.2 !important;
 	box-shadow: 0 10px 22px rgba(3, 169, 244, 0.28) !important;

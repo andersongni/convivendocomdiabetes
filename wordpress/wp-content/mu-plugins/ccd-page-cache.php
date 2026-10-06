@@ -74,6 +74,13 @@ add_action(
 				if (stripos($html, '</html>') === false) {
 					return $html;
 				}
+				$lib = WP_CONTENT_DIR . '/ccd-env-urls-lib.php';
+				if (is_readable($lib)) {
+					require_once $lib;
+					if (function_exists('ccd_env_url_rewrite')) {
+						$html = ccd_env_url_rewrite($html);
+					}
+				}
 				$dir = dirname($file);
 				if (!is_dir($dir)) {
 					wp_mkdir_p($dir);

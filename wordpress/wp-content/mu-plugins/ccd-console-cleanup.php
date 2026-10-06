@@ -25,9 +25,14 @@ add_action('wp_default_scripts', static function ($scripts) {
 });
 
 /**
- * Reescreve URLs do Gravatar para um endpoint first-party.
+ * Reescreve URLs do Gravatar para um endpoint first-party (fora do REST).
  * O Tracking Prevention do browser bloqueia storage de secure.gravatar.com.
  */
+add_filter('query_vars', static function ($vars) {
+	$vars[] = 'ccd_avatar';
+	return $vars;
+});
+
 add_filter('get_avatar_url', static function ($url, $id_or_email, $args) {
 	if (!is_string($url) || strpos($url, 'gravatar.com') === false) {
 		return $url;
@@ -45,81 +50,58 @@ add_filter('get_avatar_url', static function ($url, $id_or_email, $args) {
 
 	return add_query_arg(
 		array(
-			's' => max(1, min(512, $size)),
-			'd' => $default,
-			'r' => $rating,
+			'ccd_avatar' => $hash,
+			's'          => max(1, min(512, $size)),
+			'd'          => $default,
+			'r'          => $rating,
 		),
-		rest_url('ccd/v1/avatar/' . $hash)
+		home_url('/')
 	);
 }, 10, 3);
 
-add_action('rest_api_init', static function () {
-	register_rest_route(
-		'ccd/v1',
-		'/avatar/(?P<hash>[a-f0-9]+)',
-		array(
-			'methods'             => 'GET',
-			'callback'            => 'ccd_serve_proxied_avatar',
-			'permission_callback' => '__return_true',
-			'args'                => array(
-				'hash' => array(
-					'required' => true,
-					'type'     => 'string',
-				),
-				's'    => array(
-					'default'           => 96,
-					'sanitize_callback' => static function ($value) {
-						return max(1, min(512, (int) $value));
-					},
-				),
-				'd'    => array(
-					'default'           => 'mm',
-					'sanitize_callback' => static function ($value) {
-						$value = (string) $value;
-						if (preg_match('#^https?://#i', $value)) {
-							return esc_url_raw($value);
-						}
-						return sanitize_key($value);
-					},
-				),
-				'r'    => array(
-					'default'           => 'g',
-					'sanitize_callback' => static function ($value) {
-						return sanitize_key((string) $value);
-					},
-				),
-			),
-		)
-	);
-});
-
-/**
- * Proxy + cache em disco dos avatares Gravatar.
- *
- * @param WP_REST_Request $request Request.
- */
-function ccd_serve_proxied_avatar(WP_REST_Request $request)
-{
-	$hash = strtolower((string) $request['hash']);
-	if (strlen($hash) < 32) {
-		return new WP_Error('ccd_avatar_invalid', 'Invalid avatar hash.', array('status' => 400));
+add_action('template_redirect', static function () {
+	$hash = get_query_var('ccd_avatar');
+	if (!is_string($hash) || $hash === '') {
+		$hash = isset($_GET['ccd_avatar']) ? (string) wp_unslash($_GET['ccd_avatar']) : '';
+	}
+	$hash = preg_replace('/[^a-f0-9]/', '', strtolower($hash));
+	if ($hash === '' || strlen($hash) < 32) {
+		return;
 	}
 
-	$size    = (int) $request->get_param('s');
-	$default = (string) $request->get_param('d');
-	$rating  = (string) $request->get_param('r');
+	$size    = isset($_GET['s']) ? max(1, min(512, (int) $_GET['s'])) : 96;
+	$default = isset($_GET['d']) ? (string) wp_unslash($_GET['d']) : 'mm';
+	$rating  = isset($_GET['r']) ? sanitize_key((string) wp_unslash($_GET['r'])) : 'g';
 
-	if ($default === '') {
-		$default = 'mm';
+	if (preg_match('#^https?://#i', $default)) {
+		$default = esc_url_raw($default);
+	} else {
+		$default = sanitize_key($default);
+		if ($default === '') {
+			$default = 'mm';
+		}
 	}
 	if ($rating === '') {
 		$rating = 'g';
 	}
 
+	ccd_serve_proxied_avatar($hash, $size, $default, $rating);
+}, 0);
+
+/**
+ * Proxy + cache em disco dos avatares Gravatar.
+ *
+ * @param string $hash    Gravatar hash.
+ * @param int    $size    Size.
+ * @param string $default Default image.
+ * @param string $rating  Rating.
+ */
+function ccd_serve_proxied_avatar($hash, $size, $default, $rating)
+{
 	$uploads   = wp_upload_dir();
 	$cache_dir = trailingslashit($uploads['basedir']) . 'ccd-avatars';
 	if (!wp_mkdir_p($cache_dir)) {
-		return new WP_Error('ccd_avatar_cache', 'Could not create avatar cache.', array('status' => 500));
+		ccd_stream_fallback_avatar($size);
 	}
 
 	$index_file = $cache_dir . '/index.php';
@@ -149,9 +131,9 @@ function ccd_serve_proxied_avatar(WP_REST_Request $request)
 	$response = wp_remote_get(
 		$remote,
 		array(
-			'timeout'    => 8,
+			'timeout'     => 8,
 			'redirection' => 3,
-			'user-agent' => 'WordPress/' . get_bloginfo('version') . '; ' . home_url('/'),
+			'user-agent'  => 'WordPress/' . get_bloginfo('version') . '; ' . home_url('/'),
 		)
 	);
 
@@ -165,6 +147,10 @@ function ccd_serve_proxied_avatar(WP_REST_Request $request)
 		$type = 'image/jpeg';
 	}
 	$type = strtok($type, ';');
+
+	if ($body === '') {
+		ccd_stream_fallback_avatar($size);
+	}
 
 	file_put_contents($cache_file, $body, LOCK_EX);
 	file_put_contents(
@@ -190,6 +176,7 @@ function ccd_stream_fallback_avatar($size)
 		. '<path d="M12 72c4-18 16-28 28-28s24 10 28 28" fill="#eee"/>'
 		. '</svg>';
 
+	status_header(200);
 	header('Content-Type: image/svg+xml; charset=UTF-8');
 	header('Content-Length: ' . (string) strlen($svg));
 	header('Cache-Control: public, max-age=300');
@@ -208,6 +195,7 @@ function ccd_stream_fallback_avatar($size)
  */
 function ccd_stream_avatar_file($file, $type, $ttl)
 {
+	status_header(200);
 	header('Content-Type: ' . $type);
 	header('Content-Length: ' . (string) filesize($file));
 	header('Cache-Control: public, max-age=' . (int) $ttl);

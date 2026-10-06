@@ -7,4 +7,8 @@ if [ -f /usr/local/bin/sync-wp-content.sh ]; then
   bash /usr/local/bin/sync-wp-content.sh
 fi
 
+# Erros HTTP amigaveis (ErrorDocument no conf de performance)
+a2enmod rewrite >/dev/null 2>&1 || true
+a2enconf performance >/dev/null 2>&1 || true
+
 exec docker-entrypoint.sh "$@"

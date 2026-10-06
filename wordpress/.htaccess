@@ -1,3 +1,8 @@
+# CCD: erros HTTP amigaveis (403 de pastas uploads, 404 de arquivo, etc.)
+ErrorDocument 403 /wp-content/ccd-http-error.php?code=403
+ErrorDocument 404 /wp-content/ccd-http-error.php?code=404
+ErrorDocument 500 /wp-content/ccd-http-error.php?code=500
+
 # BEGIN WordPress
 
 RewriteEngine On

@@ -58,8 +58,21 @@ if ($mtime === false || (time() - $mtime) > $ttl) {
 	return;
 }
 
+$html = file_get_contents($file);
+if ($html === false) {
+	return;
+}
+
+$lib = WP_CONTENT_DIR . '/ccd-env-urls-lib.php';
+if (is_readable($lib)) {
+	require_once $lib;
+	if (function_exists('ccd_env_url_rewrite')) {
+		$html = ccd_env_url_rewrite($html);
+	}
+}
+
 header('Content-Type: text/html; charset=UTF-8');
 header('X-CCD-Cache: HIT');
 header('Cache-Control: public, max-age=60');
-readfile($file);
+echo $html;
 exit;

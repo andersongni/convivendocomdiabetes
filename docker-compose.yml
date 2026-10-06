@@ -49,9 +49,11 @@ services:
     command: ["apache2-foreground"]
     volumes:
       - ./wordpress/wp-config.php:/var/www/html/wp-config.php:ro
+      - ./wordpress/.htaccess:/var/www/html/.htaccess:ro
       - ./scripts/local-entrypoint.sh:/usr/local/bin/local-entrypoint.sh:ro
       - ./scripts/sync-wp-content.sh:/usr/local/bin/sync-wp-content.sh:ro
       - ./docker/opcache-local.ini:/usr/local/etc/php/conf.d/opcache-local.ini:ro
+      - ./docker/apache-performance.conf:/etc/apache2/conf-available/performance.conf:ro
       # Host (lento no Windows) so para sync; PHP le do volume Linux abaixo
       - ./wordpress/wp-content:/host-wp-content:ro
       - wp_content:/var/www/html/wp-content

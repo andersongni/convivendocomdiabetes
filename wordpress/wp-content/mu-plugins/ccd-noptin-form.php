@@ -1,12 +1,138 @@
 <?php
 /**
  * Plugin Name: CCD Noptin Form
- * Description: Garante o shortcode [noptin-form], imagem local e layout do formulario 2859.
+ * Description: Garante o shortcode [noptin-form], imagem local, layout e mensagens PT do formulario 2859.
  */
 
 if (!defined('ABSPATH')) {
 	exit;
 }
+
+/**
+ * Autocomplete no campo de e-mail do Noptin (aviso do navegador / Lighthouse).
+ * O markup e impresso via noptin_field_type_frontend_optin_markup (nao via noptin_display_email_input).
+ */
+add_action(
+	'noptin_field_type_frontend_optin_markup',
+	static function ( $field ) {
+		$type = '';
+		if ( is_array( $field ) && isset( $field['type']['type'] ) ) {
+			$type = (string) $field['type']['type'];
+		}
+		if ( $type !== 'email' ) {
+			return;
+		}
+		ob_start(
+			static function ( $html ) {
+				if ( ! is_string( $html ) || $html === '' || stripos( $html, 'autocomplete=' ) !== false ) {
+					return $html;
+				}
+				$out = preg_replace(
+					'/(<input\b(?=[^>]*\btype=(["\'])email\2)[^>]*?)(\s*\/?>)/is',
+					'$1 autocomplete="email"$3',
+					$html,
+					1
+				);
+				return is_string( $out ) ? $out : $html;
+			}
+		);
+	},
+	0
+);
+add_action(
+	'noptin_field_type_frontend_optin_markup',
+	static function ( $field ) {
+		$type = '';
+		if ( is_array( $field ) && isset( $field['type']['type'] ) ) {
+			$type = (string) $field['type']['type'];
+		}
+		if ( $type !== 'email' ) {
+			return;
+		}
+		if ( ob_get_level() > 0 ) {
+			ob_end_flush();
+		}
+	},
+	1000
+);
+
+/**
+ * Mensagens do formulario em portugues (com causa quando aplicavel).
+ */
+add_filter('default_noptin_form_messages', static function ($messages) {
+	if (!is_array($messages)) {
+		return $messages;
+	}
+
+	$pt = array(
+		'success'                => 'Obrigado por se inscrever na newsletter!',
+		'invalid_email'          => 'Informe um endereco de e-mail valido.',
+		'required_field_missing' => 'Preencha todos os campos obrigatorios.',
+		'accept_terms'           => 'Aceite os termos e condicoes para continuar.',
+		'already_subscribed'     => 'Este e-mail ja esta inscrito na newsletter. Obrigado!',
+		'error'                  => 'Nao foi possivel concluir o cadastro. Tente novamente em instantes.',
+		'unsubscribed'           => 'Voce foi descadastrado com sucesso.',
+		'not_subscribed'         => 'Este e-mail nao esta inscrito na newsletter.',
+		'updated'                => 'Obrigado! Seus dados foram atualizados.',
+	);
+
+	foreach ($pt as $key => $text) {
+		if (isset($messages[$key]) && is_array($messages[$key])) {
+			$messages[$key]['default'] = $text;
+		}
+	}
+
+	return $messages;
+});
+
+/**
+ * Traduz erros genericos do Noptin e anexa a causa do banco quando existir.
+ */
+add_action('noptin_form_error', static function ($listener) {
+	if (!is_object($listener) || !isset($listener->error) || !is_wp_error($listener->error)) {
+		return;
+	}
+
+	global $wpdb;
+
+	$map = array(
+		'An error occurred. Try again.'                       => 'Nao foi possivel concluir o cadastro.',
+		'An error occurred'                                   => 'Nao foi possivel concluir o cadastro.',
+		'Please provide a valid email address'                => 'Informe um endereco de e-mail valido.',
+		'Please provide a valid email address.'               => 'Informe um endereco de e-mail valido.',
+		'Oops. Something went wrong. Please try again later.' => 'Nao foi possivel concluir o cadastro. Tente novamente em instantes.',
+	);
+
+	$rewritten = new WP_Error();
+
+	foreach ($listener->error->get_error_codes() as $code) {
+		foreach ($listener->error->get_error_messages($code) as $message) {
+			$translated = $message;
+			foreach ($map as $en => $pt) {
+				if (strcasecmp(trim((string) $message), $en) === 0) {
+					$translated = $pt;
+					break;
+				}
+			}
+
+			$has_cause = (bool) preg_match('/conclus[aã]o do cadastro:/iu', $translated)
+				|| (bool) preg_match('/concluir o cadastro:/iu', $translated);
+
+			if (
+				!$has_cause
+				&& !empty($wpdb->last_error)
+				&& stripos($translated, $wpdb->last_error) === false
+				&& preg_match('/cadastro|erro|error/i', $translated)
+			) {
+				$translated = rtrim($translated, '.') . '. Causa: ' . $wpdb->last_error;
+			}
+
+			$rewritten->add($code, $translated);
+		}
+	}
+
+	$listener->error = $rewritten;
+});
 
 /**
  * Processa shortcodes em widgets de texto/HTML (alguns contextos nao passam por the_content).
@@ -49,14 +175,33 @@ add_filter('noptin_form_formRadius', static function ($radius, $form) {
  */
 add_action('wp_enqueue_scripts', static function () {
 	$css = <<<'CSS'
+:root {
+	--ccd-blue: #03a9f4;
+	--ccd-blue-deep: #0288d1;
+	--ccd-blue-soft: #e8f7fd;
+	--ccd-blue-line: #7ecff7;
+	--ccd-ink: #2b3a42;
+	--ccd-surface: #ffffff;
+	--ccd-radius: 14px;
+}
+
+/* Mesma identidade visual do formulario de contato */
 .noptin-form-id-2859 .noptin-optin-form-wrapper {
 	overflow: visible !important;
 	min-height: auto !important;
 	height: auto !important;
-	border-radius: 23px !important;
+	width: min(100%, 620px) !important;
+	border-radius: 22px !important;
+	border: 1px solid rgba(3, 169, 244, 0.18) !important;
 	border-style: solid !important;
-	padding: 24px !important;
+	border-color: rgba(3, 169, 244, 0.18) !important;
+	border-width: 1px !important;
+	padding: 1.75rem 1.5rem 1.5rem !important;
 	box-sizing: border-box;
+	background: linear-gradient(180deg, var(--ccd-blue-soft) 0%, var(--ccd-surface) 42%) !important;
+	background-color: var(--ccd-surface) !important;
+	color: var(--ccd-ink) !important;
+	box-shadow: 0 18px 40px rgba(3, 169, 244, 0.12) !important;
 }
 .noptin-form-id-2859 .noptin-form-header {
 	align-items: center;
@@ -75,23 +220,112 @@ add_action('wp_enqueue_scripts', static function () {
 	max-width: none !important;
 	object-fit: cover !important;
 	border-radius: 50% !important;
+	border: 2px solid #fff !important;
+	box-shadow: 0 4px 12px rgba(3, 169, 244, 0.2);
 }
 .noptin-form-id-2859 .noptin-form-heading {
-	font-size: 22px !important;
+	font-size: 1.25rem !important;
 	line-height: 1.35 !important;
+	font-weight: 600 !important;
+	color: var(--ccd-ink) !important;
 }
-.noptin-form-id-2859 .noptin-form-submit {
-	border-radius: 8px !important;
+.noptin-form-id-2859 .noptin-form-field__email,
+.noptin-form-id-2859 input.noptin-form-field,
+.noptin-form-id-2859 .noptin-form-field {
+	border-radius: 999px !important;
+	min-height: 3rem !important;
+	border: 1.5px solid rgba(3, 169, 244, 0.28) !important;
+	background: var(--ccd-surface) !important;
+	color: var(--ccd-ink) !important;
+	padding: 0.85rem 1.05rem !important;
+	font-size: 1rem !important;
+	box-shadow: none !important;
+}
+.noptin-form-id-2859 .noptin-form-field__email:focus,
+.noptin-form-id-2859 input.noptin-form-field:focus {
+	outline: none !important;
+	border-color: var(--ccd-blue) !important;
+	box-shadow: 0 0 0 4px rgba(3, 169, 244, 0.16) !important;
+}
+.noptin-form-id-2859 .noptin-form-submit,
+.noptin-form-id-2859 input.noptin-form-submit,
+.noptin-form-id-2859 input[type="submit"].noptin-form-submit {
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	width: 100% !important;
+	min-height: 3rem !important;
+	margin-top: 0.65rem !important;
 	border: 0 !important;
-	min-height: 48px;
+	border-radius: 999px !important;
+	background: linear-gradient(135deg, var(--ccd-blue) 0%, var(--ccd-blue-deep) 100%) !important;
+	background-color: var(--ccd-blue) !important;
+	color: #fff !important;
+	font-size: 1rem !important;
+	font-weight: 600 !important;
+	letter-spacing: 0.02em;
+	text-transform: none !important;
+	box-shadow: 0 10px 22px rgba(3, 169, 244, 0.28) !important;
 }
-.noptin-form-id-2859 .noptin-form-field__email {
-	border-radius: 8px !important;
-	min-height: 48px;
+.noptin-form-id-2859 .noptin-form-submit:hover,
+.noptin-form-id-2859 input.noptin-form-submit:hover {
+	filter: brightness(1.03);
+}
+/*
+ * Fechar (X):
+ * - so no modal (.noptin-popup no body; clone do template-holder)
+ * - oculto no shortcode embutido no final da home/conteudo
+ */
+.hentry .noptin-popup-close,
+.entry-content .noptin-popup-close,
+.page-content .noptin-popup-close,
+.post-content .noptin-popup-close,
+article .noptin-popup-close {
+	display: none !important;
+}
+.noptin-popup .noptin-popup-close,
+.noptin-popup-template-holder .noptin-popup-close {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	opacity: 1 !important;
+	background: #01579b !important;
+	color: #ffffff !important;
+	border: 2px solid #013a63 !important;
+	border-radius: 999px !important;
+	width: 2.5rem !important;
+	height: 2.5rem !important;
+	box-shadow: 0 3px 10px rgba(1, 58, 99, 0.35) !important;
+	cursor: pointer !important;
+	z-index: 100000000 !important;
+}
+.noptin-popup .noptin-popup-close svg,
+.noptin-popup-template-holder .noptin-popup-close svg {
+	display: none !important;
+}
+.noptin-popup .noptin-popup-close::before,
+.noptin-popup-template-holder .noptin-popup-close::before {
+	content: "\00d7";
+	color: #ffffff !important;
+	font-family: Arial, Helvetica, sans-serif !important;
+	font-size: 2rem !important;
+	font-weight: 900 !important;
+	line-height: 1 !important;
+	margin-top: -0.05em;
+	speak: never;
+}
+.noptin-popup .noptin-popup-close:hover,
+.noptin-popup-template-holder .noptin-popup-close:hover {
+	background: #013a63 !important;
+	border-color: #01243d !important;
 }
 @media (max-width: 600px) {
+	.noptin-form-id-2859 .noptin-optin-form-wrapper {
+		padding: 1.35rem 1.1rem 1.25rem !important;
+		border-radius: 18px !important;
+	}
 	.noptin-form-id-2859 .noptin-form-heading {
-		font-size: 18px !important;
+		font-size: 1.1rem !important;
 	}
 	.noptin-form-id-2859 .noptin-form-header-image img {
 		width: 56px !important;
@@ -100,17 +334,18 @@ add_action('wp_enqueue_scripts', static function () {
 }
 CSS;
 
-	wp_register_style('ccd-noptin-form', false, array('noptin-form'), null);
+	// Sem depender do handle do Noptin (pode nao existir em todas as paginas).
+	wp_register_style('ccd-noptin-form', false, array(), '1.3.1');
 	wp_enqueue_style('ccd-noptin-form');
 	wp_add_inline_style('ccd-noptin-form', $css);
 }, 20);
 
 /**
  * Alinha o form 2859 ao Railway: popup no load + imagem/altura locais.
- * Versao 3: optinType=popup (no local estava inpost e o modal nao abria).
+ * Versao 4: descriptionColor escuro (SVG do X deixava de ser branco no fundo claro).
  */
 add_action('init', static function () {
-	if (get_option('ccd_noptin_form_2859_fixed') === '3') {
+	if (get_option('ccd_noptin_form_2859_fixed') === '4') {
 		return;
 	}
 
@@ -127,6 +362,7 @@ add_action('init', static function () {
 		: '620px';
 	$state['optinType']  = 'popup';
 	$state['optinStatus'] = 'true';
+	$state['descriptionColor'] = '#01579b';
 
 	// Triggers iguais ao HTML de producao Railway.
 	$state['triggerPopup'] = 'immeadiate';
@@ -142,7 +378,7 @@ add_action('init', static function () {
 
 	update_post_meta(2859, '_noptin_state', $state);
 	update_post_meta(2859, '_noptin_optin_type', 'popup');
-	update_option('ccd_noptin_form_2859_fixed', '3', false);
+	update_option('ccd_noptin_form_2859_fixed', '4', false);
 
 	wp_cache_delete('noptin_popup_forms', 'noptin');
 

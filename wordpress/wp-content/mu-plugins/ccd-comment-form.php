@@ -9,17 +9,49 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Remove o campo Website/URL do formulario.
+ * Remove Website/URL e o checkbox de cookies do formulario.
  *
  * @param array<string, string> $fields Fields.
  * @return array<string, string>
  */
-function ccd_comment_form_remove_url_field( $fields ) {
-	unset( $fields['url'] );
+function ccd_comment_form_prune_fields( $fields ) {
+	unset( $fields['url'], $fields['cookies'] );
 	return $fields;
 }
-add_filter( 'comment_form_default_fields', 'ccd_comment_form_remove_url_field' );
-add_filter( 'comment_form_fields', 'ccd_comment_form_remove_url_field' );
+add_filter( 'comment_form_default_fields', 'ccd_comment_form_prune_fields' );
+add_filter( 'comment_form_fields', 'ccd_comment_form_prune_fields' );
+
+add_filter(
+	'wp_list_comments_args',
+	static function ( $args ) {
+		$args['avatar_size'] = 48;
+		return $args;
+	}
+);
+
+/** Nao exibe o opt-in de cookies (sempre salvamos os dados). */
+add_filter( 'pre_option_show_comments_cookies_opt_in', static function () {
+	return '0';
+} );
+
+/**
+ * Sempre grava nome/e-mail do comentario no navegador para a proxima vez.
+ */
+add_action(
+	'init',
+	static function () {
+		remove_action( 'set_comment_cookies', 'wp_set_comment_cookies', 10 );
+		add_action(
+			'set_comment_cookies',
+			static function ( $comment, $user, $cookies_consent = true ) {
+				wp_set_comment_cookies( $comment, $user, true );
+			},
+			10,
+			3
+		);
+	},
+	20
+);
 
 /** Ignora qualquer URL enviada no POST. */
 add_filter( 'pre_comment_author_url', static function () {
@@ -46,7 +78,6 @@ add_filter(
 		$aria_req  = $req ? ' aria-required="true" required' : '';
 		$html_req  = $req ? ' required' : '';
 		$commenter = wp_get_current_commenter();
-		$cookies   = isset( $defaults['fields']['cookies'] ) ? $defaults['fields']['cookies'] : '';
 
 		$defaults['fields'] = array();
 
@@ -64,13 +95,9 @@ add_filter(
 			$aria_req . $html_req
 		);
 
-		if ( $cookies !== '' ) {
-			$defaults['fields']['cookies'] = $cookies;
-		}
-
 		$defaults['comment_field'] = '<p class="comment-form-comment ccd-comment-field"><label for="comment">Comentário <span class="required">*</span></label> <textarea id="comment" name="comment" cols="45" rows="6" maxlength="65525" required></textarea><span class="ccd-comment-error" data-for="comment" hidden></span></p>';
 
-		$defaults['submit_button'] = '<input name="%1$s" type="submit" id="%2$s" class="%3$s" value="%4$s" disabled aria-disabled="true" />';
+		$defaults['submit_button'] = '<button name="%1$s" type="submit" id="%2$s" class="%3$s" disabled aria-disabled="true">%4$s</button>';
 		$defaults['submit_field']  = '<p class="form-submit ccd-comment-submit">%1$s %2$s<span class="ccd-comment-hint">Preencha os campos e o captcha para publicar.</span></p>';
 
 		return $defaults;
@@ -80,18 +107,221 @@ add_filter(
 add_action(
 	'wp_enqueue_scripts',
 	static function () {
-		if ( ! is_singular() || ! comments_open() ) {
+		if ( ! is_singular() || ( ! comments_open() && ! get_comments_number() ) ) {
 			return;
 		}
 
 		$handle = 'ccd-comment-form';
-		wp_register_style( $handle, false, array(), '1.0.0' );
+		wp_register_style( $handle, false, array(), '1.1.1' );
 		wp_enqueue_style( $handle );
 		wp_add_inline_style(
 			$handle,
 			<<<'CSS'
+:root {
+	--ccd-blue: #03a9f4;
+	--ccd-blue-deep: #0288d1;
+	--ccd-blue-soft: #e8f7fd;
+	--ccd-blue-line: #7ecff7;
+	--ccd-ink: #2b3a42;
+	--ccd-muted: #5f7380;
+	--ccd-surface: #ffffff;
+	--ccd-radius: 14px;
+}
+
+/* Lista de comentarios — ritmo e identidade do site */
+.post-comments {
+	max-width: 36rem;
+	width: 100%;
+	margin: 2.25rem auto 0 !important;
+	padding: 0 !important;
+	box-sizing: border-box;
+}
+.comments-title {
+	margin: 0 0 1.35rem !important;
+	padding: 0 !important;
+	color: var(--ccd-ink) !important;
+	font-size: 1.35rem !important;
+	font-weight: 700 !important;
+	line-height: 1.3 !important;
+	text-align: center;
+}
+.comment-list {
+	list-style: none !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	display: flex;
+	flex-direction: column;
+	gap: 0.9rem;
+}
+.comment-list > li.comment,
+.comment-list .children > li.comment {
+	margin: 0 !important;
+	padding: 0 !important;
+	border: 0 !important;
+	background: transparent !important;
+	list-style: none !important;
+}
+.comment-list li.comment.even,
+.comment-list li.comment.odd,
+.comment-list li.comment.byuser,
+.comment-list li.comment.bypostauthor {
+	background: transparent !important;
+	border: 0 !important;
+}
+.comment-body {
+	margin: 0 !important;
+	padding: 1.15rem 1.25rem 1.05rem !important;
+	background: linear-gradient(180deg, #f7fcfe 0%, var(--ccd-surface) 55%);
+	border: 1px solid rgba(3, 169, 244, 0.14);
+	border-radius: 18px;
+	box-shadow: 0 10px 28px rgba(3, 169, 244, 0.06);
+}
+.comment-list li.bypostauthor > .comment-body {
+	background: linear-gradient(180deg, var(--ccd-blue-soft) 0%, var(--ccd-surface) 58%);
+	border-color: rgba(3, 169, 244, 0.28);
+	box-shadow: 0 12px 30px rgba(3, 169, 244, 0.1);
+}
+.comment-author {
+	display: flex !important;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0 0 0.2rem !important;
+	color: var(--ccd-ink) !important;
+	position: relative;
+	z-index: 1;
+}
+.comment-author .avatar {
+	position: static !important;
+	left: auto !important;
+	top: auto !important;
+	width: 44px !important;
+	height: 44px !important;
+	margin: 0 !important;
+	border-radius: 50% !important;
+	object-fit: cover;
+	flex-shrink: 0;
+	box-shadow: 0 0 0 2px rgba(3, 169, 244, 0.18);
+}
+.comment-author .fn {
+	font-family: Nunito, "Open Sans", sans-serif !important;
+	font-size: 1.05rem !important;
+	font-weight: 700 !important;
+	font-style: normal !important;
+	color: var(--ccd-ink) !important;
+	line-height: 1.25 !important;
+}
+.comment-author .fn a {
+	color: inherit !important;
+	text-decoration: none !important;
+}
+.comment-author .says {
+	display: none !important;
+}
+.comment-meta,
+.comment-meta.commentmetadata {
+	margin: 0 0 0.85rem 3.5rem !important;
+	font-size: 0.875rem !important;
+	line-height: 1.35 !important;
+}
+.comment-meta a,
+.comment-meta.commentmetadata a {
+	color: var(--ccd-muted) !important;
+	text-decoration: none !important;
+	font-weight: 500 !important;
+	letter-spacing: 0 !important;
+	text-transform: none !important;
+}
+.comment-meta a:hover,
+.comment-meta a:focus {
+	color: var(--ccd-blue-deep) !important;
+}
+.comment-body > p {
+	margin: 0 0 0.75rem !important;
+	color: var(--ccd-ink) !important;
+	font-size: 1.0625rem !important;
+	line-height: 1.65 !important;
+}
+.comment-body > p:last-of-type {
+	margin-bottom: 0.85rem !important;
+}
+.comment-body .reply {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+.comment-reply-link {
+	display: inline-flex !important;
+	align-items: center;
+	gap: 0.35rem;
+	margin: 0 !important;
+	padding: 0.35rem 0.85rem !important;
+	border-radius: 999px !important;
+	background: rgba(3, 169, 244, 0.08);
+	color: var(--ccd-blue-deep) !important;
+	font-size: 0.875rem !important;
+	font-weight: 600 !important;
+	line-height: 1.2 !important;
+	text-decoration: none !important;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+.comment-reply-link:hover,
+.comment-reply-link:focus {
+	background: rgba(3, 169, 244, 0.16);
+	color: var(--ccd-blue-deep) !important;
+}
+.comment-reply-link:after {
+	display: none !important;
+}
+.comment-list .children {
+	list-style: none !important;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin: 0.75rem 0 0 !important;
+	padding: 0 0 0 1rem !important;
+	border-left: 2px solid rgba(3, 169, 244, 0.22);
+}
+.comments-form {
+	max-width: 36rem;
+	width: 100%;
+	margin: 1.75rem auto 2.5rem !important;
+	padding: 0 !important;
+	box-sizing: border-box;
+}
+.comments-form .comment-form {
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+/* Card alinhado ao formulario de contato */
+#respond {
+	max-width: 36rem;
+	width: 100%;
+	margin: 0 auto !important;
+	padding: 1.75rem 1.5rem 1.5rem;
+	background: linear-gradient(180deg, var(--ccd-blue-soft) 0%, var(--ccd-surface) 42%);
+	border: 1px solid rgba(3, 169, 244, 0.18);
+	border-radius: 22px;
+	box-shadow: 0 18px 40px rgba(3, 169, 244, 0.08);
+	scroll-margin-top: 130px;
+	box-sizing: border-box;
+}
+#reply-title {
+	margin: 0 0 1.25rem !important;
+	color: var(--ccd-ink) !important;
+	font-size: 1.35rem !important;
+	font-weight: 600 !important;
+	line-height: 1.3 !important;
+	text-align: center;
+}
+#commentform { margin: 0; }
+
 .ccd-comment-field { position: relative; margin-bottom: 1rem; }
-.ccd-comment-field label { display: block; margin-bottom: 0.35rem; font-weight: 600; color: #2b3a42; }
+.ccd-comment-field label {
+	display: block;
+	margin-bottom: 0.35rem;
+	font-weight: 600;
+	color: var(--ccd-ink);
+}
 .ccd-comment-field .required { color: #d32f2f; }
 .ccd-comment-field input[type="text"],
 .ccd-comment-field input[type="email"],
@@ -99,30 +329,45 @@ add_action(
 	width: 100%;
 	max-width: 100%;
 	box-sizing: border-box;
-	border: 1px solid #c5d3da;
-	border-radius: 10px;
-	padding: 0.7rem 0.85rem;
-	font-size: 1rem;
-	line-height: 1.45;
-	color: #2b3a42;
-	background: #fff;
-	transition: border-color .15s ease, box-shadow .15s ease;
+	background: var(--ccd-surface) !important;
+	border: 1.5px solid rgba(3, 169, 244, 0.28) !important;
+	border-radius: var(--ccd-radius) !important;
+	padding: 0.9rem 1.05rem !important;
+	font-size: 1rem !important;
+	line-height: 1.45 !important;
+	color: var(--ccd-ink) !important;
+	box-shadow: none !important;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+	scroll-margin-top: 130px;
 }
-.ccd-comment-field textarea { min-height: 140px; resize: vertical; }
+.ccd-comment-field input[type="text"],
+.ccd-comment-field input[type="email"] {
+	border-radius: 999px !important;
+}
+.ccd-comment-field textarea {
+	min-height: 160px;
+	resize: vertical;
+	border-radius: var(--ccd-radius) !important;
+}
+.ccd-comment-field input:hover,
+.ccd-comment-field textarea:hover {
+	border-color: var(--ccd-blue-line) !important;
+}
 .ccd-comment-field input:focus,
 .ccd-comment-field textarea:focus {
-	outline: none;
-	border-color: #03a9f4;
-	box-shadow: 0 0 0 3px rgba(3, 169, 244, 0.18);
+	outline: none !important;
+	border-color: var(--ccd-blue) !important;
+	background: #fbfeff !important;
+	box-shadow: 0 0 0 4px rgba(3, 169, 244, 0.16) !important;
 }
 .ccd-comment-field.is-invalid input,
 .ccd-comment-field.is-invalid textarea {
-	border-color: #d32f2f;
-	box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.12);
+	border-color: #d32f2f !important;
+	box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.12) !important;
 }
 .ccd-comment-field.is-valid input,
 .ccd-comment-field.is-valid textarea {
-	border-color: #2e7d32;
+	border-color: #2e7d32 !important;
 }
 .ccd-comment-error {
 	display: block;
@@ -133,18 +378,67 @@ add_action(
 .ccd-comment-error[hidden] { display: none !important; }
 .comment-form-url,
 #url { display: none !important; }
+.comment-form-cookies-consent,
+#wp-comment-cookies-consent {
+	display: none !important;
+}
+.ccd-recaptcha-field { margin: 1rem 0; }
+
+.ccd-comment-submit {
+	padding: 0.35rem 0 0;
+	text-align: center;
+}
+.ccd-comment-submit #submit,
+.ccd-comment-submit input[type="submit"],
+.ccd-comment-submit button[type="submit"] {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	box-sizing: border-box !important;
+	min-width: min(100%, 260px);
+	min-height: 3.1rem !important;
+	height: auto !important;
+	width: auto !important;
+	margin: 0.25rem auto 0 !important;
+	padding: 0 1.75rem !important;
+	border: 0 !important;
+	border-radius: 999px !important;
+	background: linear-gradient(135deg, var(--ccd-blue) 0%, var(--ccd-blue-deep) 100%) !important;
+	color: #fff !important;
+	font-family: inherit !important;
+	font-size: 1rem !important;
+	font-weight: 600 !important;
+	letter-spacing: 0.02em;
+	line-height: 1 !important;
+	vertical-align: middle;
+	appearance: none;
+	-webkit-appearance: none;
+	box-shadow: 0 10px 22px rgba(3, 169, 244, 0.28) !important;
+	transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.15s ease;
+	cursor: pointer;
+}
+.ccd-comment-submit #submit:hover:not([disabled]),
+.ccd-comment-submit input[type="submit"]:hover:not([disabled]),
+.ccd-comment-submit button[type="submit"]:hover:not([disabled]) {
+	filter: brightness(1.03);
+	transform: translateY(-1px);
+	box-shadow: 0 14px 28px rgba(3, 169, 244, 0.34) !important;
+}
 .ccd-comment-submit #submit[disabled],
 .ccd-comment-submit input[type="submit"][disabled],
 .ccd-comment-submit button[type="submit"][disabled] {
 	opacity: 0.45;
 	cursor: not-allowed;
-	filter: grayscale(0.2);
+	filter: grayscale(0.15);
+	transform: none;
+	box-shadow: 0 6px 14px rgba(3, 169, 244, 0.16) !important;
 }
 .ccd-comment-hint {
 	display: block;
-	margin-top: 0.5rem;
+	margin-top: 0.65rem;
 	font-size: 0.85rem;
-	color: #5f7380;
+	color: var(--ccd-muted);
+	text-align: center;
 }
 .ccd-comment-submit.is-ready .ccd-comment-hint { display: none; }
 .ccd-recaptcha-field.is-invalid .g-recaptcha {
@@ -152,10 +446,40 @@ add_action(
 	outline-offset: 4px;
 	border-radius: 4px;
 }
+@media (max-width: 600px) {
+	.post-comments {
+		margin-top: 1.75rem !important;
+	}
+	.comment-body {
+		padding: 1rem 1.05rem 0.95rem !important;
+		border-radius: 16px;
+	}
+	.comment-author .avatar {
+		width: 40px !important;
+		height: 40px !important;
+	}
+	.comment-meta,
+	.comment-meta.commentmetadata {
+		margin-left: 3.15rem !important;
+	}
+	.comment-list .children {
+		padding-left: 0.75rem !important;
+	}
+	#respond {
+		padding: 1.35rem 1.1rem 1.25rem;
+		border-radius: 18px;
+	}
+	.ccd-comment-submit #submit,
+	.ccd-comment-submit input[type="submit"],
+	.ccd-comment-submit button[type="submit"] {
+		width: 100% !important;
+		min-width: 0;
+	}
+}
 CSS
 		);
 
-		wp_register_script( $handle, false, array(), '1.0.0', true );
+		wp_register_script( $handle, false, array(), '1.1.1', true );
 		wp_enqueue_script( $handle );
 
 		$require_name_email = (bool) get_option( 'require_name_email' );

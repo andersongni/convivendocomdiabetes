@@ -25,7 +25,8 @@ wordpress/wp-content/updraft
 wordpress/wp-content/w3tc-config
 wordpress/wp-content/wp-cache-config.php
 
-# Plugins inativos / legado (não vão para a imagem de produção)
+# Deny-list: plugins aposentados. Nao reintroduzir no repo sem revisao.
+# (Mesmo ausentes no git, mantemos o bloqueio na imagem de producao.)
 wordpress/wp-content/plugins/elementor
 wordpress/wp-content/plugins/wordfence
 wordpress/wp-content/plugins/amp
@@ -36,8 +37,6 @@ wordpress/wp-content/plugins/td-cloud-library
 wordpress/wp-content/plugins/td-newsletter
 wordpress/wp-content/plugins/td-social-counter
 wordpress/wp-content/plugins/td-mobile-plugin
-
-# Utilitários pesados — não devem rodar em produção
 wordpress/wp-content/plugins/wp-file-manager
 wordpress/wp-content/plugins/all-in-one-wp-migration
 wordpress/wp-content/plugins/wordpress-importer
@@ -46,12 +45,9 @@ wordpress/wp-content/plugins/phoenix-media-rename
 wordpress/wp-content/plugins/health-check
 wordpress/wp-content/plugins/wp-maintenance-mode
 wordpress/wp-content/plugins/glue-for-yoast-seo-amp
-
-# Analytics no banco (~1M linhas) — use GA/Plausible no lugar
 wordpress/wp-content/plugins/wp-statistics
-
-# Front pesado (desativados no boot de produção)
 wordpress/wp-content/plugins/google-publisher
 wordpress/wp-content/plugins/insta-gallery
 wordpress/wp-content/plugins/auto-post-thumbnail-pro
 wordpress/wp-content/plugins/sucuri-scanner
+wordpress/wp-content/plugins/sidebar-manager

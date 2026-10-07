@@ -1208,14 +1208,8 @@ a:has(> img[src*="Sobre-mim-4"])::after {
 }
 CSS;
 
-		// Uma unica request de fontes (Nunito + Pacifico).
-		wp_enqueue_style(
-			'ccd-a11y-fonts',
-			'https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Pacifico&display=swap',
-			array(),
-			null
-		);
-		wp_register_style( 'ccd-a11y', false, array( 'ccd-a11y-fonts' ), '1.9.1' );
+		// Fontes self-host via ccd-perf (ccd-fonts). Sem Google Fonts.
+		wp_register_style( 'ccd-a11y', false, array( 'ccd-fonts' ), '1.9.2' );
 		wp_enqueue_style( 'ccd-a11y' );
 		wp_add_inline_style( 'ccd-a11y', $css );
 

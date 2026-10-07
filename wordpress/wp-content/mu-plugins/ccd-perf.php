@@ -12,7 +12,43 @@ if ( ! defined( 'ABSPATH' ) ) {
 const CCD_PERF_HTML_CACHE = 'public, max-age=0, s-maxage=3600, must-revalidate';
 
 /**
- * Preconnect para Google Fonts (quando ainda usadas).
+ * Base URL dos assets locais (fontes self-host).
+ *
+ * @return string
+ */
+function ccd_perf_assets_url() {
+	return trailingslashit( content_url( 'mu-plugins/ccd-assets' ) );
+}
+
+/**
+ * Self-host Open Sans / Muli(Mulish) / Nunito / Pacifico — sem Google Fonts.
+ */
+add_action(
+	'wp_enqueue_scripts',
+	static function () {
+		if ( is_admin() ) {
+			return;
+		}
+		foreach ( array( 'mesmerize-fonts', 'ccd-a11y-fonts', 'ccd-a11y-nunito', 'ccd-a11y-pacifico' ) as $h ) {
+			wp_dequeue_style( $h );
+			wp_deregister_style( $h );
+		}
+
+		$css_path = WPMU_PLUGIN_DIR . '/ccd-assets/ccd-fonts.css';
+		if ( ! is_readable( $css_path ) ) {
+			return;
+		}
+		$css = (string) file_get_contents( $css_path );
+		$css = str_replace( 'CCD_FONTS_BASE', untrailingslashit( ccd_perf_assets_url() ) . '/fonts', $css );
+		wp_register_style( 'ccd-fonts', false, array(), '1.2.0' );
+		wp_enqueue_style( 'ccd-fonts' );
+		wp_add_inline_style( 'ccd-fonts', $css );
+	},
+	5
+);
+
+/**
+ * Preload LCP (foto da home) + hint de fonte critica.
  */
 add_action(
 	'wp_head',
@@ -20,29 +56,33 @@ add_action(
 		if ( is_admin() ) {
 			return;
 		}
-		echo '<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>' . "\n";
-		echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n";
-	},
-	1
-);
-
-/**
- * Mesmerize: menos pesos de fonte (Open Sans + Muli enxutos).
- */
-add_filter(
-	'style_loader_src',
-	static function ( $src, $handle ) {
-		if ( $handle !== 'mesmerize-fonts' || ! is_string( $src ) || $src === '' ) {
-			return $src;
+		$font = ccd_perf_assets_url() . 'fonts/opensans-w400-normal.woff2';
+		echo '<link rel="preload" as="font" type="font/woff2" href="' . esc_url( $font ) . '" crossorigin>' . "\n";
+		if ( ! is_front_page() ) {
+			return;
 		}
-		return 'https://fonts.googleapis.com/css?family=Open+Sans:400,600,700|Muli:400,600,700&display=swap&subset=latin';
+		$upload = wp_upload_dir( null, false );
+		if ( empty( $upload['baseurl'] ) || empty( $upload['basedir'] ) ) {
+			return;
+		}
+		$rel  = '2022/07/INICIAL.webp';
+		$abs  = trailingslashit( (string) $upload['basedir'] ) . $rel;
+		if ( ! is_readable( $abs ) ) {
+			$rel = '2022/07/INICIAL.jpg';
+			$abs = trailingslashit( (string) $upload['basedir'] ) . $rel;
+		}
+		if ( ! is_readable( $abs ) ) {
+			return;
+		}
+		$url = trailingslashit( (string) $upload['baseurl'] ) . $rel;
+		echo '<link rel="preload" as="image" href="' . esc_url( $url ) . '" fetchpriority="high">' . "\n";
 	},
-	30,
 	2
 );
 
 /**
  * CSS pesado do tema: nao bloqueia first paint (media=print → all).
+ * Sem <noscript> duplicado (evita baixar o CSS 2x).
  *
  * @param string $html   Link tag.
  * @param string $handle Style handle.
@@ -52,29 +92,33 @@ function ccd_perf_async_style_tag( $html, $handle ) {
 	if ( is_admin() || ! is_string( $html ) ) {
 		return $html;
 	}
-	$async = array(
-		'mesmerize-style-bundle',
-		'empowerwp-style-bundle',
+	if ( stripos( $html, 'onload=' ) !== false ) {
+		return $html;
+	}
+	$async_handles = array(
+		'mesmerize-parent',
 		'mesmerize-style',
+		'mesmerize-style-bundle',
 		'empowerwp-style',
+		'empowerwp-style-bundle',
 		'noptin_front',
 		'noptin-form',
 		'noptin_form_styles',
 		'ccd-noptin-form',
 	);
-	if ( ! in_array( $handle, $async, true ) ) {
+	$by_handle = in_array( $handle, $async_handles, true )
+		|| str_ends_with( (string) $handle, '-parent' )
+		|| str_ends_with( (string) $handle, '-style-bundle' );
+	$by_href   = (bool) preg_match( '#/(style\.min\.css|theme\.bundle\.min\.css|frontend\.css)#', $html );
+	if ( ! $by_handle && ! $by_href ) {
 		return $html;
 	}
-	if ( stripos( $html, 'onload=' ) !== false ) {
-		return $html;
-	}
-	$noscript = $html;
-	$html     = str_replace( "media='all'", "media='print' onload=\"this.media='all'\"", $html );
-	$html     = str_replace( 'media="all"', 'media="print" onload="this.media=\'all\'"', $html );
+	$html = str_replace( "media='all'", "media='print' onload=\"this.media='all'\"", $html );
+	$html = str_replace( 'media="all"', 'media="print" onload="this.media=\'all\'"', $html );
 	if ( stripos( $html, 'media=' ) === false ) {
 		$html = str_replace( '<link ', '<link media="print" onload="this.media=\'all\'" ', $html );
 	}
-	return $html . '<noscript>' . $noscript . '</noscript>';
+	return $html;
 }
 add_filter( 'style_loader_tag', 'ccd_perf_async_style_tag', 20, 2 );
 
@@ -122,6 +166,49 @@ function ccd_perf_needs_noptin_now() {
 }
 
 /**
+ * Coleta e remove assets Noptin do queue (qualquer handle/path).
+ *
+ * @param bool $scripts Collect scripts (true) or styles (false).
+ * @return string[] URLs.
+ */
+function ccd_perf_strip_noptin_assets( $scripts = true ) {
+	$out  = array();
+	$q    = $scripts ? wp_scripts() : wp_styles();
+	$mark = array( 'noptin', 'newsletter-optin' );
+	foreach ( (array) $q->registered as $handle => $obj ) {
+		$handle = (string) $handle;
+		// Nao remover o nosso lazy loader.
+		if ( $handle === 'ccd-noptin-lazy' ) {
+			continue;
+		}
+		$src = isset( $obj->src ) ? (string) $obj->src : '';
+		$hit = false;
+		foreach ( $mark as $m ) {
+			if ( stripos( $handle, $m ) !== false || stripos( $src, $m ) !== false ) {
+				$hit = true;
+				break;
+			}
+		}
+		if ( ! $hit ) {
+			continue;
+		}
+		if ( $src !== '' && $src !== false ) {
+			$url = $src;
+			if ( ! empty( $obj->ver ) ) {
+				$url = add_query_arg( 'ver', $obj->ver, $url );
+			}
+			$out[] = $url;
+		}
+		if ( $scripts ) {
+			wp_dequeue_script( $handle );
+		} else {
+			wp_dequeue_style( $handle );
+		}
+	}
+	return $out;
+}
+
+/**
  * Lazy-load Noptin apos idle/interacao (home tem shortcode abaixo da dobra).
  */
 add_action(
@@ -131,42 +218,10 @@ add_action(
 			return;
 		}
 
-		$handles_style  = array( 'noptin_front', 'noptin-form', 'noptin_form_styles', 'ccd-noptin-form' );
-		$handles_script = array( 'noptin_front', 'noptin-form', 'ccd-noptin-recaptcha' );
-		$styles         = array();
-		$scripts        = array();
-		$timeout_ms     = ccd_perf_needs_noptin_now() ? 1800 : 5000;
+		$styles     = ccd_perf_strip_noptin_assets( false );
+		$scripts    = ccd_perf_strip_noptin_assets( true );
+		$timeout_ms = ccd_perf_needs_noptin_now() ? 1800 : 5000;
 
-		foreach ( $handles_style as $h ) {
-			$obj = wp_styles()->query( $h );
-			if ( $obj && ! empty( $obj->src ) ) {
-				$src = $obj->src;
-				if ( $obj->ver ) {
-					$src = add_query_arg( 'ver', $obj->ver, $src );
-				}
-				$styles[] = $src;
-			}
-			wp_dequeue_style( $h );
-		}
-		foreach ( $handles_script as $h ) {
-			$obj = wp_scripts()->query( $h );
-			if ( $obj && ! empty( $obj->src ) ) {
-				$src = $obj->src;
-				if ( $obj->ver ) {
-					$src = add_query_arg( 'ver', $obj->ver, $src );
-				}
-				$scripts[] = $src;
-			}
-			wp_dequeue_script( $h );
-		}
-
-		if ( ! $styles && defined( 'NOPTIN_PLUGIN_FILE' ) ) {
-			$styles[] = plugins_url( 'includes/assets/css/frontend.css', NOPTIN_PLUGIN_FILE );
-		}
-		if ( ! $scripts && defined( 'NOPTIN_PLUGIN_FILE' ) ) {
-			$scripts[] = plugins_url( 'includes/assets/js/dist/frontend.js', NOPTIN_PLUGIN_FILE );
-		}
-		// Fallback paths vistos em producao.
 		if ( ! $styles ) {
 			$styles[] = content_url( 'plugins/newsletter-optin-box/includes/assets/css/frontend.css' );
 		}
@@ -174,7 +229,7 @@ add_action(
 			$scripts[] = content_url( 'plugins/newsletter-optin-box/includes/assets/js/dist/frontend.js' );
 		}
 
-		wp_register_script( 'ccd-noptin-lazy', false, array(), '1.1.0', true );
+		wp_register_script( 'ccd-noptin-lazy', false, array(), '1.2.0', true );
 		wp_enqueue_script( 'ccd-noptin-lazy' );
 		wp_add_inline_script(
 			'ccd-noptin-lazy',
@@ -195,7 +250,29 @@ add_action(
 			'after'
 		);
 	},
-	10000
+	PHP_INT_MAX
+);
+
+// Noptin pode re-enfileirar no print — strip de novo.
+add_action(
+	'wp_print_scripts',
+	static function () {
+		if ( is_admin() || is_user_logged_in() ) {
+			return;
+		}
+		ccd_perf_strip_noptin_assets( true );
+	},
+	0
+);
+add_action(
+	'wp_print_styles',
+	static function () {
+		if ( is_admin() || is_user_logged_in() ) {
+			return;
+		}
+		ccd_perf_strip_noptin_assets( false );
+	},
+	0
 );
 
 /**

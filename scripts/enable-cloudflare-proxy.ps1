@@ -1,11 +1,13 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Liga Proxy (orange cloud) nos CNAMEs apex/www no Cloudflare + SSL Full Strict.
+  Cloudflare: proxy ON, SSL Full Strict, Brotli, Early Hints, Cache Rules CCD.
 
 .DESCRIPTION
-  Requer API Token com Zone.DNS Edit + Zone.Settings Edit.
-  Variaveis: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID (ou detecta pelo dominio).
+  Token com: Zone.DNS Edit, Zone Settings Edit, Zone.Cache Rules Edit
+  (ou "Cache Purge" + Rulesets conforme plano).
+
+  Vars: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID (opcional)
 
 .EXAMPLE
   $env:CLOUDFLARE_API_TOKEN = '...'
@@ -19,7 +21,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($ApiToken)) {
-	Write-Error 'Defina CLOUDFLARE_API_TOKEN (Zone.DNS Edit + Zone Settings Edit).'
+	Write-Error 'Defina CLOUDFLARE_API_TOKEN.'
 }
 
 $headers = @{
@@ -30,18 +32,22 @@ $headers = @{
 function Invoke-Cf([string] $Method, [string] $Path, $Body = $null) {
 	$uri = "https://api.cloudflare.com/client/v4$Path"
 	$params = @{
-		Uri     = $uri
-		Method  = $Method
-		Headers = $headers
+		Uri             = $uri
+		Method          = $Method
+		Headers         = $headers
+		UseBasicParsing = $true
 	}
 	if ($null -ne $Body) {
-		$params.Body = ($Body | ConvertTo-Json -Compress -Depth 8)
+		# Depth alto para rulesets
+		$params.Body = ($Body | ConvertTo-Json -Compress -Depth 20)
 	}
-	$resp = Invoke-RestMethod @params
-	if (-not $resp.success) {
-		throw ("Cloudflare API error: " + ($resp.errors | ConvertTo-Json -Compress))
+	try {
+		return Invoke-RestMethod @params
+	} catch {
+		$msg = $_.ErrorDetails.Message
+		if (-not $msg) { $msg = $_.Exception.Message }
+		throw "CF $Method $Path => $msg"
 	}
-	return $resp
 }
 
 if ([string]::IsNullOrWhiteSpace($ZoneId)) {
@@ -53,24 +59,36 @@ if ([string]::IsNullOrWhiteSpace($ZoneId)) {
 	Write-Host "Zone ID: $ZoneId"
 }
 
-# SSL Full Strict
-Invoke-Cf PATCH "/zones/$ZoneId/settings/ssl" @{ value = 'strict' } | Out-Null
-Write-Host 'SSL/TLS: full (strict)'
-
-# Brotli
-try {
-	Invoke-Cf PATCH "/zones/$ZoneId/settings/brotli" @{ value = 'on' } | Out-Null
-	Write-Host 'Brotli: on'
-} catch {
-	Write-Warning "Brotli: $($_.Exception.Message)"
+function Set-CfSetting([string] $Id, $Value, [string] $Label) {
+	try {
+		Invoke-Cf PATCH "/zones/$ZoneId/settings/$Id" @{ value = $Value } | Out-Null
+		Write-Host "OK  $Label"
+	} catch {
+		Write-Warning "$Label : $($_.Exception.Message)"
+	}
 }
 
+Set-CfSetting 'ssl' 'strict' 'SSL/TLS Full (strict)'
+Set-CfSetting 'brotli' 'on' 'Brotli'
+Set-CfSetting 'early_hints' 'on' 'Early Hints'
+Set-CfSetting 'http3' 'on' 'HTTP/3'
+Set-CfSetting 'minify' @{ css = 'on'; js = 'on'; html = 'on' } 'Auto Minify'
+Set-CfSetting 'websockets' 'on' 'WebSockets'
+
+# Desliga Web Analytics beacon se existir (nao quebra se endpoint falhar)
+try {
+	$wa = Invoke-Cf GET "/zones/$ZoneId/settings/web_analytics"
+	Write-Host "Web Analytics setting: $($wa.result.value)"
+} catch {
+	# ignore
+}
+
+# DNS proxy
 $dns = Invoke-Cf GET "/zones/$ZoneId/dns_records?type=CNAME&per_page=100"
-$targets = @($Domain, "www.$Domain")
-foreach ($name in $targets) {
+foreach ($name in @($Domain, "www.$Domain")) {
 	$rec = @($dns.result | Where-Object { $_.name -eq $name }) | Select-Object -First 1
 	if (-not $rec) {
-		Write-Warning "CNAME nao encontrado: $name"
+		Write-Warning "CNAME ausente: $name"
 		continue
 	}
 	if ($rec.proxied) {
@@ -84,9 +102,66 @@ foreach ($name in $targets) {
 		ttl     = 1
 		proxied = $true
 	} | Out-Null
-	Write-Host "Proxy ON: $name → $($rec.content)"
+	Write-Host "Proxy ON: $name"
 }
 
+# Cache Rules via entrypoint http_request_cache_settings
 Write-Host ''
-Write-Host 'Proximo: criar Cache Rules no dashboard (docs/PERFORMANCE.md).'
-Write-Host 'Teste: curl.exe -sI https://convivendocomdiabetes.com/ | findstr /i "cf-cache server"'
+Write-Host 'Configurando Cache Rules...'
+try {
+	$phases = Invoke-Cf GET "/zones/$ZoneId/rulesets/phases/http_request_cache_settings/entrypoint"
+	$rulesetId = $phases.result.id
+} catch {
+	# Cria ruleset se nao existir
+	$created = Invoke-Cf POST "/zones/$ZoneId/rulesets" @{
+		name  = 'CCD cache settings'
+		kind  = 'zone'
+		phase = 'http_request_cache_settings'
+		rules = @()
+	}
+	$rulesetId = $created.result.id
+}
+
+$rules = @(
+	@{
+		description = 'CCD bypass admin/login/cookies'
+		expression  = '(http.request.uri.path contains "/wp-admin") or (http.request.uri.path eq "/login") or (http.request.uri.path contains "/wp-login.php") or (http.request.uri.path eq "/ccdhealth") or (http.cookie contains "wordpress_logged_in")'
+		action      = 'set_cache_settings'
+		action_parameters = @{
+			cache = $false
+		}
+		enabled = $true
+	},
+	@{
+		description = 'CCD cache static wp-content/includes'
+		expression  = '(http.request.uri.path contains "/wp-content/") or (http.request.uri.path contains "/wp-includes/")'
+		action      = 'set_cache_settings'
+		action_parameters = @{
+			cache     = $true
+			edge_ttl  = @{ mode = 'override_origin'; default = 2592000 }
+			browser_ttl = @{ mode = 'override_origin'; default = 2592000 }
+		}
+		enabled = $true
+	},
+	@{
+		description = 'CCD cache HTML anonymous GET'
+		expression  = '(http.request.method eq "GET") and (http.host eq "convivendocomdiabetes.com" or http.host eq "www.convivendocomdiabetes.com")'
+		action      = 'set_cache_settings'
+		action_parameters = @{
+			cache       = $true
+			edge_ttl    = @{ mode = 'override_origin'; default = 3600 }
+			browser_ttl = @{ mode = 'respect_origin' }
+		}
+		enabled = $true
+	}
+)
+
+Invoke-Cf PUT "/zones/$ZoneId/rulesets/$rulesetId" @{
+	rules = $rules
+} | Out-Null
+Write-Host 'OK  Cache Rules (bypass admin, static 30d, HTML 1h)'
+
+Write-Host ''
+Write-Host 'Teste:'
+Write-Host '  curl.exe -sI https://convivendocomdiabetes.com/ | findstr /i "cf-cache server"'
+Write-Host '  (2a request deve tender a CF-Cache-Status: HIT)'

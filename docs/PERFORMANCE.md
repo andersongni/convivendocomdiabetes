@@ -2,61 +2,40 @@
 
 Produção: `https://convivendocomdiabetes.com`
 
-## O que o código já faz
+## Já no código
 
 | Item | Onde |
 |------|------|
-| Page cache HTML (visitantes) | `advanced-cache.php` + `ccd-page-cache.php` (TTL 1h) |
-| Redis object cache | Plugin `redis-cache` + `WP_REDIS_*` (Railway) |
-| OPcache / gzip / cache de estáticos | `docker/opcache.ini`, `docker/apache-performance.conf` |
-| HTML `s-maxage=3600` (CDN) + browser revalidate | Apache + `ccd-frontend-fixes` + advanced-cache |
-| Trim / async CSS tema + defer jQuery/masonry | `ccd-perf.php` |
-| Noptin lazy (idle) quando sem shortcode | `ccd-perf.php` |
-| WebP LCP + avatar Bia 288px | `ccd-perf.php`, `ccd-noptin-form.php` |
+| Page cache HTML + Redis | `advanced-cache.php`, `ccd-page-cache`, Railway Redis |
+| HTML `s-maxage=3600` (CDN) | Apache + send_headers + advanced-cache |
+| CSS tema async (sem double-fetch) | `ccd-perf.php` |
+| Fontes self-host (Open Sans, Muli/Mulish, Nunito, Pacifico) | `mu-plugins/ccd-assets/` |
+| Preload LCP + font woff2 | `ccd-perf.php` |
+| Noptin lazy (idle) | `ccd-perf.php` |
+| Avatar Bia 288px WebP | `ccd-perf` + `ccd-noptin-form` |
 | reCAPTCHA lazy | `ccd-comment-recaptcha.php` |
-| Fontes enxutas + preconnect | `ccd-perf.php`, `ccd-a11y.php` |
 
-## Redis (Railway)
-
-1. Serviço **Redis** no environment (produção já provisionado).
-2. Vars: `WP_REDIS_HOST`, `WP_REDIS_PORT`, `WP_REDIS_PASSWORD`, `WP_REDIS_USERNAME`, `WP_REDIS_PREFIX`.
-3. Boot (`wp-boot.sh`): probe de auth → drop-in só se OK.
-4. IaC: `.railway/railway.ts`.
-
-## Cloudflare (proxy + cache)
-
-### A) DNS only → B) Proxy ON
-
-1. SSL Railway OK no apex (fase A: `docs/cloudflare-dns-railway-import.txt`).
-2. Ligar proxy:
+## Cloudflare (proxy + cache + speed)
 
 ```powershell
-$env:CLOUDFLARE_API_TOKEN = '...'   # Zone.DNS Edit + Zone Settings Edit
-# opcional: $env:CLOUDFLARE_ZONE_ID = '...'
+$env:CLOUDFLARE_API_TOKEN = '...'  # Zone DNS + Zone Settings + Cache Rules / Rulesets
 .\scripts\enable-cloudflare-proxy.ps1
 ```
 
-Ou manual: DNS → orange cloud em apex + www; SSL/TLS → **Full (strict)**.  
-Import DNS fase B: `docs/cloudflare-dns-railway-import-proxied.txt`.
+O script:
 
-### Cache Rules (dashboard)
+1. Proxy ON (apex + www)
+2. SSL Full Strict, Brotli, Early Hints, HTTP/3, Auto Minify
+3. Cache Rules: bypass admin/login/cookies; estáticos 30d; HTML GET 1h
 
-| Rule | When | Then |
-|------|------|------|
-| Bypass admin/login | URI Path starts with `/wp-admin` OR `/login` OR `/wp-login.php` OR Cookie name contains `wordpress_logged_in` | Bypass cache |
-| Cache HTML anônimo | Hostname in apex/www AND GET AND not bypass | Eligible for cache; Edge TTL = Override 1 hour; Browser TTL = Respect origin |
-| Cache estáticos | URI Path contains `/wp-content/` OR `/wp-includes/` | Edge TTL 1 month |
+Permissões do token: **Zone.DNS Edit**, **Zone Settings Edit**, **Zone → Cache Rules / Rulesets Edit**.
 
-O origin já envia `Cache-Control: public, max-age=0, s-maxage=3600, must-revalidate` no HTML.
-
-Opcional: Speed → Brotli ON; Early Hints ON.
+Manual: `docs/cloudflare-dns-railway-import-proxied.txt` + Cache Rules no dashboard.
 
 ```powershell
 curl.exe -sI https://convivendocomdiabetes.com/
-# Esperado: server: cloudflare  e  CF-Cache-Status: HIT|MISS|DYNAMIC
+# Esperado: server cloudflare; 2a request CF-Cache-Status: HIT (HTML)
 ```
-
-Healthcheck Railway (`/ccdhealth`) usa o domínio interno — não depende do proxy do apex.
 
 ## Medição
 

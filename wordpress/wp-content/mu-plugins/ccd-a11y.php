@@ -516,6 +516,20 @@ body:not(.home):not(.mesmerize-front-page) .header:not(.header-homepage),
 	isolation: isolate;
 	overflow: hidden;
 }
+/* Nunca listas editoriais no banner (qualquer categoria/arquivo). */
+.header-wrapper .ccd-hub-pillars,
+.header-wrapper .ccd-category-intro,
+.header:not(.header-homepage) .ccd-hub-pillars,
+.header:not(.header-homepage) .ccd-category-intro {
+	display: none !important;
+	height: 0 !important;
+	max-height: 0 !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow: hidden !important;
+	visibility: hidden !important;
+	pointer-events: none !important;
+}
 body:not(.mesmerize-front-page) .header:not(.header-homepage) .header-separator,
 body:not(.mesmerize-front-page) .header:not(.header-homepage) .header-separator-bottom {
 	position: absolute !important;
@@ -1209,7 +1223,7 @@ a:has(> img[src*="Sobre-mim-4"])::after {
 CSS;
 
 		// Fontes self-host via ccd-perf (ccd-fonts). Sem Google Fonts.
-		wp_register_style( 'ccd-a11y', false, array( 'ccd-fonts' ), '1.9.2' );
+		wp_register_style( 'ccd-a11y', false, array( 'ccd-fonts' ), '1.9.3' );
 		wp_enqueue_style( 'ccd-a11y' );
 		wp_add_inline_style( 'ccd-a11y', $css );
 

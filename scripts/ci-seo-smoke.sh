@@ -91,10 +91,9 @@ if printf '%s\n' "${cat_title}" | grep -qiE 'diabetes' \
 else
   bad "categoria title" "title=${cat_title}"
 fi
-# Hero da categoria: so titulo (sem pilares/listas que inflam a faixa azul).
-# Bloco Mesmerize: .header-wrapper … até .header-separator.
-hero_chunk="$(awk '/header-wrapper/,/header-separator/' "${TMP}/diabetes.html" || true)"
-if printf '%s\n' "${hero_chunk}" | grep -qiE 'ccd-hub-pillars|ccd-category-intro|Pilares para come[cç]ar'; then
+# Hero HTML real (evita falso positivo do seletor CSS .ccd-hub-pillars no <style>).
+hero_chunk="$(perl -0777 -ne 'print $1 if /(<div[^>]*header-wrapper[\s\S]*?)<div[^>]*header-separator/i' "${TMP}/diabetes.html" || true)"
+if printf '%s\n' "${hero_chunk}" | grep -qiE '<nav[^>]*ccd-hub-pillars|class=["'\''][^"'\'']*ccd-category-intro|Pilares para come[cç]ar'; then
   bad "categoria hero limpo" "pilares/intro dentro do hero"
 elif printf '%s\n' "${hero_chunk}" | grep -qF 'Conteúdos sobre diabetes tipo'; then
   bad "categoria hero limpo" "meta longa no banner"
@@ -161,15 +160,26 @@ for pillar in alimentacao-e-diabetes-tipo-2 sensor-de-glicose-como-funciona o-qu
   fi
 done
 
-if grep -qE 'ccd-hub-pillars|Pilares para come[cç]ar' "${TMP}/diabetes.html"; then
-  # Deve existir na pagina, mas fora do hero (conteudo / loop).
-  if printf '%s\n' "${hero_chunk}" | grep -qiE 'ccd-hub-pillars|Pilares para come[cç]ar'; then
-    bad "hub /diabetes/ pilares fora do hero" "ainda no banner"
+# Blindagem CSS: header-wrapper esconde pilares mesmo se markup antigo vazar.
+if grep -qE 'header-wrapper \.ccd-hub-pillars|\.header-wrapper \.ccd-hub-pillars' "${TMP}/diabetes.html"; then
+  ok "css hero esconde pilares"
+else
+  bad "css hero esconde pilares" "regra ausente"
+fi
+# <nav class="ccd-hub-pillars"> so em #page-content.
+if grep -qE '<nav[^>]*ccd-hub-pillars' "${TMP}/diabetes.html"; then
+  if awk '/id=["'\''"]page-content["'\''"]/,/<\/main>/' "${TMP}/diabetes.html" | grep -qE '<nav[^>]*ccd-hub-pillars'; then
+    ok "hub pilares em page-content"
   else
-    ok "hub /diabetes/ pilares fora do hero"
+    bad "hub pilares em page-content" "nav fora de #page-content"
+  fi
+  if printf '%s\n' "${hero_chunk}" | grep -qiE '<nav[^>]*ccd-hub-pillars|Pilares para come[cç]ar'; then
+    bad "hub pilares fora do markup do hero" "ainda no HTML do banner"
+  else
+    ok "hub pilares fora do markup do hero"
   fi
 else
-  bad "hub /diabetes/ pilares fora do hero" "pilares ausentes na pagina"
+  bad "hub pilares" "ausentes (esperado em /diabetes/)"
 fi
 
 if [ "${fail}" -gt 0 ]; then

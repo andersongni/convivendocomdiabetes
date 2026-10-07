@@ -15,8 +15,18 @@ final class EditorialHubTest extends TestCase {
 		$html = ccd_seo_editorial_hub_pillars_html('diabetes');
 		$this->assertStringContainsString('ccd-hub-pillars', $html);
 		$this->assertStringContainsString('Pilares para começar', $html);
-		$this->assertStringContainsString('hipoglicemia', $html);
 		$this->assertStringContainsString('<nav', $html);
+		$this->assertStringContainsString('hipoglicemia', $html);
+	}
+
+	public function testCategoryPillarItemsWorksForAnyTerm(): void {
+		$term = new \WP_Term();
+		$term->term_id = 1;
+		$term->slug = 'categoria-nova-qualquer';
+		$items = ccd_seo_editorial_category_pillar_items($term);
+		$this->assertNotEmpty($items);
+		$this->assertArrayHasKey('url', $items[0]);
+		$this->assertArrayHasKey('title', $items[0]);
 	}
 
 	public function testHeroForbiddenMarkers(): void {

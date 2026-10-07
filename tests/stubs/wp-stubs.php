@@ -134,6 +134,54 @@ if (!class_exists('WP_Post', false)) {
 		public $post_title = '';
 	}
 }
+if (!function_exists('get_term_by')) {
+	function get_term_by($field, $value, $taxonomy = '') {
+		if ($field === 'slug' && $taxonomy === 'category' && $value === 'diabetes') {
+			$t = new WP_Term();
+			$t->term_id = 1;
+			$t->slug = 'diabetes';
+			$t->name = 'Diabetes';
+			return $t;
+		}
+		return false;
+	}
+}
+if (!function_exists('get_posts')) {
+	function get_posts($args = array()) {
+		$name = isset($args['name']) ? (string) $args['name'] : '';
+		if ($name === 'hipoglicemia') {
+			$p = new WP_Post();
+			$p->ID = 10;
+			$p->post_name = 'hipoglicemia';
+			$p->post_title = 'Hipoglicemia: sinais e o que fazer';
+			return array($p);
+		}
+		if (isset($args['cat']) && (int) $args['cat'] === 1) {
+			$p = new WP_Post();
+			$p->ID = 11;
+			$p->post_name = 'exemplo-categoria';
+			$p->post_title = 'Post recente da categoria';
+			return array($p);
+		}
+		return array();
+	}
+}
+if (!function_exists('get_permalink')) {
+	function get_permalink($post = 0) {
+		if ($post instanceof WP_Post) {
+			return 'https://example.test/' . $post->post_name . '/';
+		}
+		return 'https://example.test/';
+	}
+}
+if (!function_exists('get_the_title')) {
+	function get_the_title($post = 0) {
+		if ($post instanceof WP_Post) {
+			return (string) $post->post_title;
+		}
+		return '';
+	}
+}
 
 /**
  * Stub minimo de $wpdb para ccd_category_urls_slugs().

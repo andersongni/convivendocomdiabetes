@@ -72,14 +72,15 @@ Check "categoria /diabetes/ nao vira post" (-not $catIsPostRedirect) "sem 301 pa
 Check "categoria title com nome" (
   $catTitle -match '(?i)diabetes' -and $catTitle -notmatch '^\s*-\s*' -and $catTitle -notmatch '(?i)diagnostico'
 ) "title=$catTitle"
+# Hero HTML real (nao CSS): <div …header-wrapper> … <div …header-separator>
 $catHeroChunk = ""
-if ($catHtml -match '(?s)header-wrapper.*?header-separator') {
+if ($catHtml -match '(?s)<div[^>]*header-wrapper[\s\S]*?<div[^>]*header-separator') {
   $catHeroChunk = $Matches[0]
 }
 Check "categoria hero limpo (titulo)" (
   $catHeroChunk -match 'hero-title' -and
-  $catHeroChunk -notmatch 'ccd-hub-pillars' -and
-  $catHeroChunk -notmatch 'ccd-category-intro' -and
+  $catHeroChunk -notmatch '<nav[^>]*ccd-hub-pillars' -and
+  $catHeroChunk -notmatch 'class=["''][^"'']*ccd-category-intro' -and
   $catHeroChunk -notmatch 'Pilares para come' -and
   $catHeroChunk -notmatch 'Conte[uú]dos sobre diabetes tipo'
 ) "banner so com titulo"
@@ -161,18 +162,23 @@ $hubHtmlPath = "$env:TEMP\ccd-seo-smoke-hub.html"
 curl.exe -sS -o $hubHtmlPath --max-time 30 "$BaseUrl/diabetes/" | Out-Null
 $hubHtml = if (Test-Path $hubHtmlPath) { Get-Content $hubHtmlPath -Raw } else { "" }
 $heroChunk = ""
-if ($hubHtml -match '(?s)header-wrapper.*?header-separator') {
+if ($hubHtml -match '(?s)<div[^>]*header-wrapper[\s\S]*?<div[^>]*header-separator') {
   $heroChunk = $Matches[0]
 }
 Check "categoria hero limpo" (
-  $heroChunk -notmatch 'ccd-hub-pillars' -and
-  $heroChunk -notmatch 'ccd-category-intro' -and
+  $heroChunk -notmatch '<nav[^>]*ccd-hub-pillars' -and
+  $heroChunk -notmatch 'class=["''][^"'']*ccd-category-intro' -and
   $heroChunk -notmatch 'Pilares para come'
 ) "sem pilares no banner"
-Check "hub /diabetes/ pilares fora do hero" (
-  ($hubHtml -match 'ccd-hub-pillars' -or $hubHtml -match 'Pilares para come') -and
-  $heroChunk -notmatch 'ccd-hub-pillars'
-) "nav pilares no conteudo"
+Check "css hero esconde pilares" (
+  $hubHtml -match 'header-wrapper \.ccd-hub-pillars' -or
+  $hubHtml -match '\.header-wrapper \.ccd-hub-pillars'
+) "regra no HTML"
+$pillarsInContent = $hubHtml -match '(?s)id=["'']page-content["''][\s\S]*?<nav[^>]*ccd-hub-pillars'
+Check "hub /diabetes/ pilares em page-content" (
+  ($hubHtml -match '<nav[^>]*ccd-hub-pillars') -and $pillarsInContent -and
+  $heroChunk -notmatch '<nav[^>]*ccd-hub-pillars'
+) "nav so no conteudo"
 
 Write-Host ""
 if ($fail -gt 0) {

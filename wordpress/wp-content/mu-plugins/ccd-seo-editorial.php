@@ -1,14 +1,14 @@
 <?php
 /**
  * Plugin Name: CCD SEO Editorial
- * Description: Atualiza pilares YMYL, cria posts novos de intenção alta e reforça interlinking nos hubs.
+ * Description: Atualiza pilares YMYL, cria posts novos e interlinking em arquivos de categoria (fora do hero).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_EDITORIAL_VERSION = '2';
+const CCD_SEO_EDITORIAL_VERSION = '3';
 
 require_once __DIR__ . '/seo-editorial/content.php';
 
@@ -82,7 +82,7 @@ function ccd_seo_editorial_sync_yoast( $post_id, $desc, $focus ) {
  * @return int Post ID ou 0.
  */
 function ccd_seo_editorial_upsert_post( $slug, array $data, $create_if_missing = false ) {
-	$slug = sanitize_title( (string) $slug );
+	$slug     = sanitize_title( (string) $slug );
 	$existing = get_posts(
 		array(
 			'name'           => $slug,
@@ -137,7 +137,7 @@ function ccd_seo_editorial_upsert_post( $slug, array $data, $create_if_missing =
 }
 
 /**
- * Mantém description dos hubs em texto curto (sem HTML no termo — evita vazamento no hero).
+ * Description curta das categorias-hub (texto puro).
  *
  * @return void
  */
@@ -151,20 +151,17 @@ function ccd_seo_editorial_sync_hub_descriptions() {
 		if ( ! ( $term instanceof WP_Term ) || ! isset( $map[ $cat_slug ] ) ) {
 			continue;
 		}
-		$plain = wp_strip_all_tags( (string) $map[ $cat_slug ] );
 		wp_update_term(
 			(int) $term->term_id,
 			'category',
 			array(
-				'description' => $plain,
+				'description' => wp_strip_all_tags( (string) $map[ $cat_slug ] ),
 			)
 		);
 	}
 }
 
 /**
- * Marcadores que não podem aparecer dentro do hero de arquivo.
- *
  * @return string[]
  */
 function ccd_seo_editorial_hero_forbidden_markers() {
@@ -176,25 +173,101 @@ function ccd_seo_editorial_hero_forbidden_markers() {
 }
 
 /**
- * Markup dos pilares do hub (somente fora do hero).
+ * Posts-pilar para uma categoria: lista curada (se houver) + recentes da própria categoria.
+ * Serve qualquer categoria nova sem configuração.
+ *
+ * @param WP_Term $term Categoria.
+ * @return array<int, array{url:string,title:string}>
+ */
+function ccd_seo_editorial_category_pillar_items( WP_Term $term ) {
+	$items   = array();
+	$seen    = array();
+	$labels  = ccd_seo_editorial_link_labels();
+	$curated = ccd_seo_editorial_hub_slugs();
+
+	if ( isset( $curated[ $term->slug ] ) ) {
+		foreach ( $curated[ $term->slug ] as $slug ) {
+			$found = get_posts(
+				array(
+					'name'           => $slug,
+					'post_type'      => 'post',
+					'post_status'    => 'publish',
+					'posts_per_page' => 1,
+				)
+			);
+			if ( empty( $found[0] ) ) {
+				continue;
+			}
+			$post = $found[0];
+			$id   = (int) $post->ID;
+			if ( isset( $seen[ $id ] ) ) {
+				continue;
+			}
+			$seen[ $id ] = true;
+			$title         = isset( $labels[ $slug ] ) ? $labels[ $slug ] : get_the_title( $post );
+			$items[]       = array(
+				'url'   => get_permalink( $post ),
+				'title' => $title,
+			);
+			if ( count( $items ) >= 6 ) {
+				return $items;
+			}
+		}
+	}
+
+	$more = get_posts(
+		array(
+			'post_type'           => 'post',
+			'post_status'         => 'publish',
+			'posts_per_page'      => 6,
+			'cat'                 => (int) $term->term_id,
+			'post__not_in'        => array_keys( $seen ),
+			'orderby'             => 'modified',
+			'order'               => 'DESC',
+			'ignore_sticky_posts' => true,
+			'no_found_rows'       => true,
+		)
+	);
+	foreach ( $more as $post ) {
+		$id = (int) $post->ID;
+		if ( isset( $seen[ $id ] ) ) {
+			continue;
+		}
+		$seen[ $id ] = true;
+		$items[]     = array(
+			'url'   => get_permalink( $post ),
+			'title' => get_the_title( $post ),
+		);
+		if ( count( $items ) >= 6 ) {
+			break;
+		}
+	}
+
+	return $items;
+}
+
+/**
+ * Markup dos pilares (somente para #page-content).
  *
  * @param string $cat_slug Slug da categoria.
  * @return string
  */
 function ccd_seo_editorial_hub_pillars_html( $cat_slug ) {
-	$hubs = ccd_seo_editorial_hub_slugs();
-	if ( ! isset( $hubs[ $cat_slug ] ) ) {
+	$term = get_term_by( 'slug', sanitize_title( (string) $cat_slug ), 'category' );
+	if ( ! ( $term instanceof WP_Term ) ) {
 		return '';
 	}
-	$labels = ccd_seo_editorial_link_labels();
-	$html   = '<nav class="ccd-hub-pillars" aria-label="Pilares recomendados">';
-	$html  .= '<p><strong>Pilares para começar:</strong></p><ul>';
-	foreach ( $hubs[ $cat_slug ] as $slug ) {
-		$lab   = isset( $labels[ $slug ] ) ? $labels[ $slug ] : $slug;
+	$items = ccd_seo_editorial_category_pillar_items( $term );
+	if ( ! $items ) {
+		return '';
+	}
+	$html  = '<nav class="ccd-hub-pillars" aria-label="Pilares recomendados">';
+	$html .= '<p><strong>Pilares para começar:</strong></p><ul>';
+	foreach ( $items as $item ) {
 		$html .= sprintf(
 			'<li><a href="%s">%s</a></li>',
-			esc_url( home_url( '/' . $slug . '/' ) ),
-			esc_html( $lab )
+			esc_url( (string) $item['url'] ),
+			esc_html( (string) $item['title'] )
 		);
 	}
 	$html .= '</ul></nav>';
@@ -229,7 +302,15 @@ function ccd_seo_editorial_apply() {
 add_action( 'init', 'ccd_seo_editorial_apply', 30 );
 
 /**
- * Pilares no início do loop de conteúdo — nunca dentro do hero.
+ * Garante que nada editorial seja impresso no hero (hook Mesmerize).
+ */
+function ccd_seo_editorial_block_header_output() {
+	// Intencionalmente vazio: reserva o slot e documenta que o hero não recebe pilares.
+}
+add_action( 'mesmerize_after_inner_page_header_content', 'ccd_seo_editorial_block_header_output', 1 );
+
+/**
+ * Pilares no início do loop — dentro de #page-content (nunca no .header).
  *
  * @param WP_Query $query Query.
  * @return void
@@ -254,7 +335,7 @@ function ccd_seo_editorial_print_hub_pillars_in_loop( $query ) {
 		return;
 	}
 	$done = true;
-	echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- já escapado no builder.
+	echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 }
 add_action( 'loop_start', 'ccd_seo_editorial_print_hub_pillars_in_loop', 5 );
 
@@ -270,33 +351,54 @@ add_action(
 		wp_add_inline_style(
 			$handle,
 			<<<'CSS'
-/* Nunca renderizar pilares/listas editoriais dentro do hero Mesmerize. */
+/* Blindagem: nada de pilares no banner azul (header-wrapper / .header). */
+.header-wrapper .ccd-hub-pillars,
+.header-wrapper .ccd-category-intro,
 .header .ccd-hub-pillars,
-.header .ccd-editorial-links,
-.header .ccd-category-intro {
+.header .ccd-category-intro,
+.header .ccd-editorial-links {
 	display: none !important;
+	height: 0 !important;
+	max-height: 0 !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow: hidden !important;
+	visibility: hidden !important;
 }
-.ccd-hub-pillars,
-.ccd-editorial-links {
+/* Conteúdo: pilares só em #page-content */
+#page-content .ccd-hub-pillars {
+	display: block !important;
+	visibility: visible !important;
+	height: auto !important;
+	max-height: none !important;
 	max-width: 1100px;
 	margin: 1rem auto 1.5rem;
-	padding: 0 1.25rem;
+	padding: 0.85rem 1.25rem;
 	color: #2b3a42;
+	background: #f7fbfd;
+	border: 1px solid #d7e3ea;
+	border-radius: 8px;
+	box-sizing: border-box;
 }
-.ccd-hub-pillars ul,
-.ccd-editorial-links {
+#page-content .ccd-hub-pillars ul,
+#page-content .ccd-editorial-links {
 	margin: 0.4rem 0 0;
 	padding-left: 1.2rem;
 }
-.ccd-hub-pillars a,
-ul.ccd-editorial-links a {
+#page-content .ccd-hub-pillars a,
+#page-content ul.ccd-editorial-links a {
 	color: #0277bd;
 	font-weight: 600;
 	text-decoration: none;
 }
-.ccd-hub-pillars a:hover,
-ul.ccd-editorial-links a:hover {
+#page-content .ccd-hub-pillars a:hover,
+#page-content ul.ccd-editorial-links a:hover {
 	text-decoration: underline;
+}
+.ccd-editorial-links {
+	max-width: 720px;
+	margin: 1rem auto 1.5rem;
+	padding: 0 1.25rem;
 }
 CSS
 		);

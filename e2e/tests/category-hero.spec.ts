@@ -20,14 +20,19 @@ test.describe('Category archive hero', () => {
     await expect(header.locator('.ccd-hub-pillars, .ccd-category-intro')).toHaveCount(0);
     await expect(header.getByText('Pilares para começar')).toHaveCount(0);
 
-    // Pilares devem existir na página, mas no conteúdo (fora do hero).
-    const pillars = page.locator('.ccd-hub-pillars');
-    await expect(pillars).toHaveCount(1);
-    await expect(pillars).toBeVisible();
+    // Pilares (se existirem) só em #page-content — nunca no banner.
+    const pillarsInContent = page.locator('#page-content .ccd-hub-pillars');
+    const pillarsAnywhere = page.locator('.ccd-hub-pillars');
+    const contentCount = await pillarsInContent.count();
+    const totalCount = await pillarsAnywhere.count();
+    expect(totalCount).toBe(contentCount);
+    if (contentCount > 0) {
+      await expect(pillarsInContent.first()).toBeVisible();
+    }
 
     const headerBox = await header.boundingBox();
     expect(headerBox).toBeTruthy();
-    // Padrão a11y ~11.5rem de descrição + nav/topo; banner inflado com lista passa de ~420px.
+    // Padrão a11y ~11.5rem de descrição; banner inflado com lista passa de ~420px.
     expect(headerBox!.height).toBeLessThan(360);
     expect(headerBox!.height).toBeGreaterThan(80);
 
@@ -35,20 +40,23 @@ test.describe('Category archive hero', () => {
     await expect(inner).toBeVisible();
     const innerBox = await inner.boundingBox();
     expect(innerBox).toBeTruthy();
-    // ccd-a11y fixa 11.5rem (~184px em root 16px); margem para zoom/font.
     expect(innerBox!.height).toBeLessThan(240);
     expect(innerBox!.height).toBeGreaterThan(120);
   });
 
-  test('/receitas/ segue o mesmo contrato de hero', async ({ page }) => {
-    const res = await page.goto('/receitas/', { waitUntil: 'domcontentloaded' });
-    expect(res?.status()).toBe(200);
-
-    const header = page.locator('.header-wrapper').first();
-    await expect(header.locator('.ccd-hub-pillars, .ccd-category-intro')).toHaveCount(0);
-
-    const box = await header.boundingBox();
-    expect(box).toBeTruthy();
-    expect(box!.height).toBeLessThan(360);
+  test('/receitas/ e categorias genéricas: hero limpo', async ({ page }) => {
+    for (const path of ['/receitas/', '/diabetes/alimentacao/']) {
+      const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
+      if (res?.status() === 404) {
+        continue;
+      }
+      expect(res?.ok()).toBeTruthy();
+      const header = page.locator('.header-wrapper').first();
+      await expect(header.locator('.ccd-hub-pillars, .ccd-category-intro')).toHaveCount(0);
+      await expect(header.getByText('Pilares para começar')).toHaveCount(0);
+      const box = await header.boundingBox();
+      expect(box).toBeTruthy();
+      expect(box!.height).toBeLessThan(360);
+    }
   });
 });

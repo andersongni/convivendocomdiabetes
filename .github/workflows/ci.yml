@@ -10,10 +10,35 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Build WordPress image
+  lint:
+    name: PHP lint (CCD)
     runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: php -l on mu-plugins and ccd-backup
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/src" -w /src php:8.3-cli bash -lc '
+            fail=0
+            while IFS= read -r -d "" f; do
+              echo "==> $f"
+              php -l "$f" || fail=1
+            done < <(find wordpress/wp-content/mu-plugins wordpress/wp-content/plugins/ccd-backup \
+              -type f -name "*.php" -print0 2>/dev/null)
+            exit "$fail"
+          '
+
+  build:
+    name: Build + smoke /ccdhealth
+    runs-on: ubuntu-24.04
+    needs: lint
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -27,6 +52,42 @@ jobs:
           context: .
           file: Dockerfile
           push: false
+          load: true
           tags: convivendocomdiabetes:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke /ccdhealth (Apache Alias, sem DB)
+        run: |
+          set -euo pipefail
+          docker rm -f ccd-ci-smoke >/dev/null 2>&1 || true
+          # Entrypoint de prod exige DB; Apache sozinho basta para /ccdhealth.
+          docker run -d --name ccd-ci-smoke -p 18080:80 \
+            --entrypoint apache2-foreground \
+            convivendocomdiabetes:ci
+          cleanup() { docker rm -f ccd-ci-smoke >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          ok=0
+          for i in $(seq 1 30); do
+            code=$(curl -sS -o /tmp/ccdhealth.body -w '%{http_code}' \
+              --max-time 3 http://127.0.0.1:18080/ccdhealth || echo 000)
+            if [ "$code" = "200" ]; then
+              body=$(tr -d '\r' </tmp/ccdhealth.body | head -c 64)
+              echo "GET /ccdhealth => $code body=${body}"
+              echo "$body" | grep -qi 'ok'
+              ok=1
+              break
+            fi
+            echo "attempt $i: HTTP $code"
+            sleep 1
+          done
+          [ "$ok" = "1" ]
+
+          # Nao deve ser redirect (Railway nao segue 301).
+          loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 3 \
+            http://127.0.0.1:18080/ccdhealth || true)
+          if [ -n "$loc" ]; then
+            echo "FAIL: /ccdhealth redirecionou para $loc"
+            exit 1
+          fi

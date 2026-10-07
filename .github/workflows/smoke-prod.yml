@@ -1,0 +1,39 @@
+name: Smoke production
+
+# Nao usar on.push nem workflow_run no mesmo commit do CI: Wait for CI no Railway
+# espera todos os workflows do commit e um smoke pos-deploy criaria deadlock.
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-prod
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: curl www /ccdhealth + home
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Healthcheck /ccdhealth
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' --max-time 25 \
+            https://www.convivendocomdiabetes.com/ccdhealth)
+          body=$(tr -d '\r' </tmp/body | head -c 64)
+          echo "GET /ccdhealth => $code body=${body}"
+          test "$code" = "200"
+          echo "$body" | grep -qi 'ok'
+
+      - name: Home HTTP 200
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/home.html -w '%{http_code}' -L --max-time 30 \
+            https://www.convivendocomdiabetes.com/)
+          echo "GET / => $code"
+          test "$code" = "200"
+          grep -qi 'html' /tmp/home.html

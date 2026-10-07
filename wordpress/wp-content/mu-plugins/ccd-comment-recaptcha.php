@@ -57,30 +57,57 @@ function ccd_recaptcha_user_bypasses()
 	return is_user_logged_in() && current_user_can('moderate_comments');
 }
 
-add_action('wp_enqueue_scripts', static function () {
-	if (!ccd_recaptcha_is_configured() || ccd_recaptcha_user_bypasses()) {
-		return;
+/**
+ * Carrega o JS do reCAPTCHA no front (comentarios e/ou newsletter).
+ *
+ * @return bool
+ */
+function ccd_recaptcha_should_enqueue() {
+	if ( is_admin() || ! ccd_recaptcha_is_configured() ) {
+		return false;
 	}
-	if (!is_singular() || !comments_open()) {
-		return;
+	// Newsletter: sempre (mesmo admin logado — captcha e obrigatorio no cadastro).
+	if ( defined( 'CCD_NOPTIN_FORM_ID' ) || shortcode_exists( 'noptin-form' ) || class_exists( '\Hizzle\Noptin\Forms\Main' ) ) {
+		return true;
 	}
+	// Comentarios: so se nao houver bypass de moderador.
+	if ( ccd_recaptcha_user_bypasses() ) {
+		return false;
+	}
+	return is_singular() && comments_open();
+}
 
-	wp_enqueue_script(
-		'google-recaptcha',
-		'https://www.google.com/recaptcha/api.js',
-		array(),
-		null,
-		true
-	);
-	// Stubs ate o ccd-comment-form registrar os handlers reais.
-	wp_add_inline_script(
-		'google-recaptcha',
-		'window.ccdOnRecaptchaSuccess=window.ccdOnRecaptchaSuccess||function(){};'
-		. 'window.ccdOnRecaptchaExpired=window.ccdOnRecaptchaExpired||function(){};'
-		. 'window.ccdOnRecaptchaError=window.ccdOnRecaptchaError||function(){};',
-		'before'
-	);
-});
+add_action(
+	'wp_enqueue_scripts',
+	static function () {
+		if ( ! ccd_recaptcha_should_enqueue() ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'google-recaptcha',
+			'https://www.google.com/recaptcha/api.js?onload=ccdRecaptchaRenderAll&render=explicit&hl=pt-BR',
+			array(),
+			null,
+			true
+		);
+		// Stubs + render explicito (varios widgets: comentario, popup, shortcode).
+		wp_add_inline_script(
+			'google-recaptcha',
+			'window.ccdOnRecaptchaSuccess=window.ccdOnRecaptchaSuccess||function(){};'
+			. 'window.ccdOnRecaptchaExpired=window.ccdOnRecaptchaExpired||function(){};'
+			. 'window.ccdOnRecaptchaError=window.ccdOnRecaptchaError||function(){};'
+			. 'window.ccdRecaptchaRenderAll=window.ccdRecaptchaRenderAll||function(){'
+			. 'if(!window.grecaptcha||!grecaptcha.render)return;'
+			. 'document.querySelectorAll(".g-recaptcha:not([data-ccd-rendered])").forEach(function(el){'
+			. 'var k=el.getAttribute("data-sitekey");if(!k)return;'
+			. 'try{grecaptcha.render(el,{sitekey:k,callback:window.ccdOnRecaptchaSuccess,'
+			. '"expired-callback":window.ccdOnRecaptchaExpired,"error-callback":window.ccdOnRecaptchaError});'
+			. 'el.setAttribute("data-ccd-rendered","1");}catch(e){}});};',
+			'before'
+		);
+	}
+);
 
 add_action('comment_form_after_fields', 'ccd_recaptcha_render_field');
 add_action('comment_form_logged_in_after', 'ccd_recaptcha_render_field');

@@ -55,6 +55,16 @@ add_action(
 		if ( is_admin() ) {
 			return;
 		}
+
+		$logo_url = content_url( 'mu-plugins/assets/brand/logo-convivendo-com-diabetes.png' );
+		$logo_id  = (int) get_theme_mod( 'custom_logo' );
+		if ( $logo_id ) {
+			$custom = wp_get_attachment_image_url( $logo_id, 'full' );
+			if ( is_string( $custom ) && $custom !== '' ) {
+				$logo_url = $custom;
+			}
+		}
+
 		$org = array(
 			'@context' => 'https://schema.org',
 			'@graph'   => array(
@@ -65,7 +75,7 @@ add_action(
 					'url'   => home_url( '/' ),
 					'logo'  => array(
 						'@type' => 'ImageObject',
-						'url'   => content_url( 'uploads/2022/07/Bia-2-2.png' ),
+						'url'   => $logo_url,
 					),
 					'sameAs' => array(
 						'https://www.instagram.com/convivendocomdiabetes/',

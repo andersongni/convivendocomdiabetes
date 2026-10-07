@@ -42,8 +42,8 @@ services:
       WP_SITEURL: ${WP_SITEURL:-http://localhost:8080}
       CCD_RECAPTCHA_SITE_KEY: ${CCD_RECAPTCHA_SITE_KEY:-}
       CCD_RECAPTCHA_SECRET_KEY: ${CCD_RECAPTCHA_SECRET_KEY:-}
-      CCD_GDRIVE_CLIENT_ID: ${CCD_GDRIVE_CLIENT_ID:-}
-      CCD_GDRIVE_CLIENT_SECRET: ${CCD_GDRIVE_CLIENT_SECRET:-}
+      CCD_BACKUP_CLIENT_ID: ${CCD_BACKUP_CLIENT_ID:-}
+      CCD_BACKUP_CLIENT_SECRET: ${CCD_BACKUP_CLIENT_SECRET:-}
       # 1 = re-copia plugins/themes do host no boot (ou use scripts/sync-local-wp-content.ps1)
       SYNC_WP_CONTENT: ${SYNC_WP_CONTENT:-0}
       HOST_WP_CONTENT: /host-wp-content
@@ -63,6 +63,16 @@ services:
       - ./wordpress/wp-content/uploads:/var/www/html/wp-content/uploads
       # Credencial Google Drive (opcional; so leitura)
       - ./secrets:/run/secrets:ro
+
+  # Dispara WP-Cron (DISABLE_WP_CRON=true no wp-config). Necessário p/ agendamento CCD Backup.
+  wp-cron:
+    image: curlimages/curl:8.5.0
+    restart: unless-stopped
+    depends_on:
+      - wordpress
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while true; do curl -fsS 'http://wordpress/wp-cron.php?doing_wp_cron' >/dev/null || true; sleep 300; done"
 
 volumes:
   db_data:

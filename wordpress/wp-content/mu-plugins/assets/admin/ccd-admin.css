@@ -1,0 +1,1202 @@
+/*
+ * CCD Admin - chrome, menu, forms, tables
+ * Escopo: body.ccd-admin (classe injetada pelo mu-plugin)
+ * Dependencia: ccd-admin-tokens (enfileirada no PHP).
+ *
+ * Secoes: Base | Admin bar | Sidebar | Content | Buttons |
+ * Screen meta | Forms | Tables | Notices/footer/editor
+ */
+
+/* —— Base tipografia / espaçamento —— */
+html.wp-toolbar {
+	font-size: 100%;
+}
+body.ccd-admin.wp-admin {
+	background: var(--ccd-admin-surface);
+	color: var(--ccd-admin-ink);
+	font-family: var(--ccd-admin-body);
+	font-size: var(--ccd-admin-fs);
+	line-height: var(--ccd-admin-lh);
+}
+body.ccd-admin #wpbody,
+body.ccd-admin #wpbody-content,
+body.ccd-admin .wrap,
+body.ccd-admin #dashboard-widgets,
+body.ccd-admin .postbox,
+body.ccd-admin .form-table,
+body.ccd-admin .wp-list-table {
+	font-size: var(--ccd-admin-fs);
+	line-height: var(--ccd-admin-lh);
+}
+body.ccd-admin #wpcontent {
+	padding-left: 24px;
+}
+body.ccd-admin #wpbody-content {
+	padding-bottom: 80px;
+}
+body.ccd-admin .wrap {
+	margin: 16px 20px 0 0;
+}
+body.ccd-admin .wrap > h1,
+body.ccd-admin .wrap .wp-heading-inline {
+	font-family: var(--ccd-admin-title);
+	font-size: 1.75rem;
+	font-weight: 800;
+	line-height: 1.25;
+	color: var(--ccd-admin-ink);
+	margin: 0 0 0.75rem;
+	padding: 0;
+}
+body.ccd-admin .wrap h2,
+body.ccd-admin #dashboard-widgets h2,
+body.ccd-admin .postbox .hndle,
+body.ccd-admin .meta-box-sortables .postbox .hndle {
+	font-family: var(--ccd-admin-title);
+	font-size: 1.15rem;
+	font-weight: 700;
+	line-height: 1.35;
+	color: var(--ccd-admin-ink);
+}
+body.ccd-admin .wrap p,
+body.ccd-admin .form-table td,
+body.ccd-admin .form-table th,
+body.ccd-admin .description,
+body.ccd-admin .form-wrap p {
+	font-size: var(--ccd-admin-fs-sm);
+	line-height: var(--ccd-admin-lh);
+	color: var(--ccd-admin-ink-soft);
+}
+body.ccd-admin .form-table th {
+	font-weight: 700;
+	color: var(--ccd-admin-ink);
+	padding: 18px 20px 18px 36px;
+}
+body.ccd-admin .form-table td {
+	padding: 16px 36px 16px 14px;
+}
+body.ccd-admin a {
+	color: #014a73;
+	text-decoration-thickness: 0.08em;
+	text-underline-offset: 0.12em;
+}
+body.ccd-admin a:active {
+	color: #012a44;
+}
+body.ccd-admin a:focus {
+	color: #012a44;
+	outline: 3px solid #0b57d0;
+	outline-offset: 2px;
+}
+/* —— Admin bar (alinhamento vertical via flex) —— */
+body.ccd-admin #wpadminbar {
+	background: var(--ccd-admin-chrome) !important;
+	color: var(--ccd-admin-on-dark);
+	height: var(--ccd-admin-bar-height) !important;
+	min-height: var(--ccd-admin-bar-height) !important;
+	font-size: 15px !important;
+	line-height: 1.2 !important;
+	overflow: visible !important;
+}
+body.ccd-admin #wpadminbar .quicklinks,
+body.ccd-admin #wpadminbar #wp-toolbar {
+	display: flex !important;
+	align-items: center !important;
+	height: var(--ccd-admin-bar-height) !important;
+}
+body.ccd-admin #wpadminbar .quicklinks > ul,
+body.ccd-admin #wpadminbar .ab-top-menu {
+	display: flex !important;
+	align-items: center !important;
+	flex-wrap: nowrap;
+	height: var(--ccd-admin-bar-height) !important;
+	margin: 0 !important;
+	padding: 0 !important;
+}
+body.ccd-admin #wpadminbar .ab-top-menu > li {
+	display: flex !important;
+	align-items: center !important;
+	height: var(--ccd-admin-bar-height) !important;
+	float: none !important;
+	margin: 0 !important;
+	overflow: visible !important;
+}
+body.ccd-admin #wpadminbar .ab-top-menu > li.menupop {
+	position: relative !important;
+}
+body.ccd-admin #wpadminbar #wp-admin-bar-top-secondary {
+	float: none !important;
+	margin-left: auto !important;
+}
+/* Dropdowns abaixo do item (flex quebra o top estático do hoverIntent) */
+body.ccd-admin #wpadminbar .ab-top-menu > .menupop > .ab-sub-wrapper {
+	position: absolute !important;
+	top: 100%;
+	left: 0;
+	margin-top: 0;
+	z-index: 99999;
+}
+body.ccd-admin #wpadminbar .ab-top-secondary > .menupop > .ab-sub-wrapper {
+	left: auto;
+	right: 0;
+}
+body.ccd-admin #wpadminbar .ab-top-menu > li > .ab-item,
+body.ccd-admin #wpadminbar .ab-top-menu > li > a.ab-item,
+body.ccd-admin #wpadminbar .ab-top-menu > li > .ab-empty-item {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: 0.35rem;
+	box-sizing: border-box !important;
+	height: var(--ccd-admin-bar-height) !important;
+	min-height: var(--ccd-admin-bar-height) !important;
+	max-height: var(--ccd-admin-bar-height) !important;
+	line-height: 1.2 !important;
+	padding: 0 12px !important;
+	margin: 0 !important;
+	color: var(--ccd-admin-on-dark) !important;
+	font-size: 15px !important;
+}
+body.ccd-admin #wpadminbar .ab-label,
+body.ccd-admin #wpadminbar > #wp-toolbar span.ab-label,
+body.ccd-admin #wpadminbar > #wp-toolbar span.noticon,
+body.ccd-admin #wpadminbar .display-name {
+	display: inline-flex !important;
+	align-items: center !important;
+	height: auto !important;
+	min-height: 0 !important;
+	max-height: none !important;
+	line-height: 1.2 !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	color: var(--ccd-admin-on-dark) !important;
+	font-size: 15px !important;
+}
+/* WP Commands / core ainda forçam kbd e labels a 32px (barra antiga) */
+body.ccd-admin #wpadminbar kbd,
+body.ccd-admin #wpadminbar .ab-label kbd {
+	display: inline-flex !important;
+	align-items: center !important;
+	height: auto !important;
+	min-height: 0 !important;
+	line-height: 1.2 !important;
+	padding: 0.1em 0.4em !important;
+	margin: 0 !important;
+	font-size: 12px !important;
+	vertical-align: middle !important;
+}
+body.ccd-admin #wpadminbar .ab-icon {
+	float: none !important;
+	position: static !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	width: 22px !important;
+	height: 20px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	top: 0 !important;
+	line-height: 1 !important;
+}
+body.ccd-admin #wpadminbar .ab-icon::before,
+body.ccd-admin #wpadminbar .ab-item::before,
+body.ccd-admin #wpadminbar .ab-item::after {
+	display: block !important;
+	float: none !important;
+	position: static !important;
+	top: auto !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	font-size: 20px !important;
+	line-height: 1 !important;
+	color: var(--ccd-admin-on-dark-soft) !important;
+	speak: never;
+}
+body.ccd-admin #wpadminbar .ab-top-menu > li > .ab-item img.avatar,
+body.ccd-admin #wpadminbar .ab-top-menu > li > .ab-item img.site-icon,
+body.ccd-admin #wpadminbar #wp-admin-bar-my-account.with-avatar > .ab-item img {
+	float: none !important;
+	display: block !important;
+	width: 20px !important;
+	height: 20px !important;
+	max-width: 20px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	border-radius: 50%;
+	object-fit: cover;
+}
+/* Paleta de comandos / botoes custom na barra */
+body.ccd-admin #wpadminbar .ab-top-menu > li > button,
+body.ccd-admin #wpadminbar .ab-top-menu > li .components-button,
+body.ccd-admin #wpadminbar .ab-top-menu > li .ab-item .components-button {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	height: calc(var(--ccd-admin-bar-height) - 10px) !important;
+	min-height: 0 !important;
+	margin: 0 !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	line-height: 1.2 !important;
+}
+body.ccd-admin #wpadminbar .ab-top-menu > li:hover > .ab-item,
+body.ccd-admin #wpadminbar .ab-top-menu > li.hover > .ab-item,
+body.ccd-admin #wpadminbar .ab-top-menu > li > .ab-item:focus,
+body.ccd-admin #wpadminbar.nojq .quicklinks .ab-top-menu > li > .ab-item:focus,
+body.ccd-admin #wpadminbar:not(.mobile) .ab-top-menu > li:hover > .ab-item,
+body.ccd-admin #wpadminbar:not(.mobile) .ab-top-menu > li > .ab-item:focus {
+	background: var(--ccd-admin-chrome-hover) !important;
+	color: #fff !important;
+}
+body.ccd-admin #wpadminbar .menupop .ab-sub-wrapper,
+body.ccd-admin #wpadminbar .shortlink-input {
+	background: var(--ccd-admin-chrome-mid) !important;
+}
+body.ccd-admin #wpadminbar .ab-submenu .ab-item,
+body.ccd-admin #wpadminbar .quicklinks .menupop ul li a {
+	display: flex !important;
+	align-items: center !important;
+	color: #fff !important;
+	font-size: 15px !important;
+	line-height: 1.35 !important;
+	min-height: 40px !important;
+	height: auto !important;
+	padding: 10px 16px !important;
+}
+body.ccd-admin #wpadminbar .quicklinks .menupop ul li a:hover,
+body.ccd-admin #wpadminbar .quicklinks .menupop ul li a:focus,
+body.ccd-admin #wpadminbar .quicklinks .menupop ul li a:hover strong,
+body.ccd-admin #wpadminbar .quicklinks .menupop ul li a:focus strong {
+	background: var(--ccd-admin-chrome-hover) !important;
+	color: #fff !important;
+}
+body.ccd-admin #wpadminbar .ab-top-menu > li.ccd-admin-brand-site > .ab-item {
+	font-weight: 700;
+	letter-spacing: 0.01em;
+}
+@media screen and (min-width: 783px) {
+	html.wp-toolbar {
+		padding-top: var(--ccd-admin-bar-height) !important;
+	}
+}
+#adminmenuback,
+body.ccd-admin #adminmenuwrap,
+body.ccd-admin #adminmenu {
+	width: var(--ccd-admin-menu-width) !important;
+	background: var(--ccd-admin-chrome) !important;
+}
+#adminmenuwrap,
+body.ccd-admin.sticky-menu #adminmenuwrap {
+	position: fixed !important;
+	top: var(--ccd-admin-bar-height) !important;
+	bottom: 0 !important;
+	left: 0 !important;
+	height: auto !important;
+	max-height: none !important;
+	z-index: 100 !important;
+	overflow-x: hidden !important;
+	overflow-y: auto !important;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+body.ccd-admin #adminmenuwrap::-webkit-scrollbar {
+	width: 8px;
+}
+body.ccd-admin #adminmenuwrap::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.35);
+	border-radius: 999px;
+}
+body.ccd-admin #adminmenuback,
+body.ccd-admin.sticky-menu #adminmenuback {
+	position: fixed !important;
+	top: 0 !important;
+	bottom: 0 !important;
+	left: 0 !important;
+	z-index: 1 !important;
+	width: var(--ccd-admin-menu-width) !important;
+}
+body.ccd-admin #wpcontent,
+body.ccd-admin #wpfooter {
+	margin-left: var(--ccd-admin-menu-width) !important;
+}
+/*
+ * Noptin/Hizzle (e outras UIs Gutenberg) usam .interface-interface-skeleton
+ * em position:fixed com left:160px (menu WP padrao). Nosso menu e 240px e
+ * nao colapsa — sem este offset o conteudo fica sob o sidebar.
+ */
+@media screen and (min-width: 783px) {
+	body.ccd-admin:not(.is-fullscreen-mode) .interface-interface-skeleton {
+		left: var(--ccd-admin-menu-width) !important;
+		top: var(--ccd-admin-bar-height) !important;
+	}
+}
+body.ccd-admin #adminmenu {
+	margin: 6px 0 !important;
+	padding: 0 !important;
+}
+body.ccd-admin #adminmenu a {
+	color: var(--ccd-admin-on-dark) !important;
+	font-size: 14px !important;
+	font-weight: 600;
+	line-height: 1.2 !important;
+}
+body.ccd-admin #adminmenu li.menu-top > a.menu-top {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: flex-start !important;
+	gap: 0;
+	box-sizing: border-box !important;
+	min-height: 34px !important;
+	height: 34px !important;
+	padding: 0 10px 0 6px !important;
+}
+body.ccd-admin #adminmenu div.wp-menu-image {
+	float: none !important;
+	position: static !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	width: 30px !important;
+	height: 34px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	flex: 0 0 30px;
+}
+body.ccd-admin #adminmenu div.wp-menu-image::before {
+	color: var(--ccd-admin-on-dark-soft) !important;
+	padding: 0 !important;
+	display: block !important;
+	line-height: 1 !important;
+}
+body.ccd-admin #adminmenu .wp-menu-name {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: flex-start !important;
+	flex: 1 1 auto !important;
+	float: none !important;
+	padding: 0 22px 0 4px !important;
+	line-height: 1.2 !important;
+	text-align: left !important;
+}
+body.ccd-admin #adminmenu .wp-menu-arrow {
+	display: none !important;
+}
+body.ccd-admin #adminmenu .wp-submenu a {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: flex-start !important;
+	color: var(--ccd-admin-on-dark-soft) !important;
+	font-size: 13px !important;
+	font-weight: 500;
+	line-height: 1.2 !important;
+	padding: 0 12px 0 40px !important;
+	min-height: 30px !important;
+	height: 30px !important;
+	box-sizing: border-box !important;
+	text-align: left !important;
+}
+#adminmenu li.menu-top {
+	position: relative !important;
+}
+body.ccd-admin #adminmenu .wp-submenu {
+	float: none !important;
+	padding: 4px 0 6px !important;
+	width: 100% !important;
+	min-width: 0 !important;
+	max-width: none !important;
+	background: #012a44 !important;
+	box-shadow: none !important;
+	border: 0 none !important;
+	border-left: 3px solid var(--ccd-admin-chrome-current) !important;
+}
+#adminmenu .wp-not-current-submenu > .wp-submenu {
+	display: block !important;
+	position: absolute !important;
+	left: 0 !important;
+	right: auto !important;
+	top: -1000em !important;
+	bottom: auto !important;
+	margin: 0 !important;
+	z-index: 1 !important;
+}
+#adminmenu .wp-not-current-submenu.opensub > .wp-submenu,
+body.ccd-admin #adminmenu .wp-not-current-submenu > a.menu-top:focus + .wp-submenu,
+body.ccd-admin .no-js #adminmenu li.wp-has-submenu.wp-not-current-submenu:hover > .wp-submenu {
+	display: block !important;
+	position: static !important;
+	top: auto !important;
+	left: auto !important;
+	margin-top: 0 !important;
+	z-index: auto !important;
+}
+#adminmenu .wp-has-current-submenu > .wp-submenu,
+body.ccd-admin #adminmenu .wp-menu-open > .wp-submenu,
+body.ccd-admin #adminmenu a.wp-has-current-submenu:focus + .wp-submenu {
+	display: block !important;
+	position: static !important;
+	top: auto !important;
+	left: auto !important;
+	margin-top: 0 !important;
+	z-index: auto !important;
+}
+body.ccd-admin #adminmenu li.wp-has-submenu.wp-not-current-submenu::after,
+body.ccd-admin #adminmenu li.wp-has-submenu.wp-not-current-submenu:hover::after,
+body.ccd-admin #adminmenu li.wp-has-submenu.wp-not-current-submenu.opensub::after {
+	display: none !important;
+	content: none !important;
+}
+body.ccd-admin #adminmenu .wp-submenu .wp-submenu-head {
+	display: none !important;
+}
+body.ccd-admin #adminmenu li.menu-top:hover,
+body.ccd-admin #adminmenu li.opensub > a.menu-top,
+body.ccd-admin #adminmenu li > a.menu-top:focus {
+	background: var(--ccd-admin-chrome-hover) !important;
+	color: #fff !important;
+}
+body.ccd-admin #adminmenu li.menu-top:hover div.wp-menu-image::before,
+body.ccd-admin #adminmenu li.opensub > a.menu-top div.wp-menu-image::before {
+	color: #fff !important;
+}
+body.ccd-admin #adminmenu li.current a.menu-top,
+body.ccd-admin #adminmenu li.wp-has-current-submenu a.wp-has-current-submenu,
+body.ccd-admin #adminmenu li.wp-has-current-submenu .wp-submenu .wp-submenu-head,
+body.ccd-admin #adminmenu .wp-menu-arrow,
+body.ccd-admin #adminmenu .wp-has-current-submenu .wp-submenu .wp-submenu-head,
+body.ccd-admin #adminmenu .wp-menu-arrow div {
+	background: var(--ccd-admin-chrome-current) !important;
+	color: #fff !important;
+}
+body.ccd-admin #adminmenu .wp-submenu a:hover,
+body.ccd-admin #adminmenu .wp-submenu a:focus,
+body.ccd-admin #adminmenu .wp-submenu li.current a,
+body.ccd-admin #adminmenu .wp-submenu li.current a:hover,
+body.ccd-admin #adminmenu .wp-submenu li.current a:focus {
+	background: rgba(255, 255, 255, 0.1) !important;
+	color: #fff !important;
+	font-weight: 700;
+}
+body.ccd-admin #adminmenu .wp-has-current-submenu .wp-submenu .wp-submenu-head,
+body.ccd-admin #adminmenu li.current a.menu-top div.wp-menu-image::before,
+body.ccd-admin #adminmenu li.wp-has-current-submenu a.wp-has-current-submenu div.wp-menu-image::before,
+body.ccd-admin #adminmenu li a:focus div.wp-menu-image::before,
+body.ccd-admin #adminmenu li.opensub div.wp-menu-image::before,
+body.ccd-admin #adminmenu li:hover div.wp-menu-image::before {
+	color: #fff !important;
+}
+body.ccd-admin #adminmenu .awaiting-mod,
+body.ccd-admin #adminmenu .update-plugins,
+body.ccd-admin #sidemenu li a span.update-plugins {
+	background: var(--ccd-admin-accent) !important;
+	color: #fff !important;
+	font-size: 12px !important;
+	font-weight: 700;
+	min-width: 1.5em;
+	line-height: 1.7;
+	padding: 0 0.45em;
+}
+#collapse-menu,
+body.ccd-admin #collapse-button {
+	display: none !important;
+}
+body.ccd-admin.folded #adminmenuback,
+body.ccd-admin.folded #adminmenuwrap,
+body.ccd-admin.folded #adminmenu,
+body.ccd-admin.folded #adminmenu li.menu-top,
+body.ccd-admin.auto-fold #adminmenuback,
+body.ccd-admin.auto-fold #adminmenuwrap,
+body.ccd-admin.auto-fold #adminmenu,
+body.ccd-admin.auto-fold #adminmenu li.menu-top {
+	width: var(--ccd-admin-menu-width) !important;
+}
+body.ccd-admin.folded #wpcontent,
+body.ccd-admin.folded #wpfooter,
+body.ccd-admin.auto-fold #wpcontent,
+body.ccd-admin.auto-fold #wpfooter {
+	margin-left: var(--ccd-admin-menu-width) !important;
+}
+body.ccd-admin.folded #adminmenu .wp-not-current-submenu > .wp-submenu,
+body.ccd-admin.auto-fold #adminmenu .wp-not-current-submenu > .wp-submenu {
+	top: -1000em !important;
+	position: absolute !important;
+}
+body.ccd-admin.folded #adminmenu .wp-not-current-submenu.opensub > .wp-submenu,
+body.ccd-admin.auto-fold #adminmenu .wp-not-current-submenu.opensub > .wp-submenu,
+body.ccd-admin.folded #adminmenu .wp-has-current-submenu > .wp-submenu,
+body.ccd-admin.auto-fold #adminmenu .wp-has-current-submenu > .wp-submenu {
+	display: block !important;
+	position: static !important;
+	top: auto !important;
+	width: 100% !important;
+	margin-top: 0 !important;
+}
+body.ccd-admin.folded #adminmenu .wp-menu-name,
+body.ccd-admin.auto-fold #adminmenu .wp-menu-name,
+body.ccd-admin.folded #adminmenu a.wp-has-current-submenu .wp-menu-name,
+body.ccd-admin.auto-fold #adminmenu a.wp-has-current-submenu .wp-menu-name {
+	display: block !important;
+	position: static !important;
+}
+body.ccd-admin.folded #adminmenu div.wp-menu-image,
+body.ccd-admin.auto-fold #adminmenu div.wp-menu-image {
+	width: 30px !important;
+	height: 34px !important;
+	position: static !important;
+}
+body.ccd-admin.folded #adminmenu .wp-menu-toggle,
+body.ccd-admin.auto-fold #adminmenu .wp-menu-toggle {
+	display: none !important;
+}
+@media only screen and (max-width: 960px) {
+body.ccd-admin.auto-fold #wpcontent,
+body.ccd-admin.auto-fold #wpfooter {
+		margin-left: var(--ccd-admin-menu-width) !important;
+	}
+body.ccd-admin.auto-fold #adminmenu,
+body.ccd-admin.auto-fold #adminmenuback,
+body.ccd-admin.auto-fold #adminmenuwrap {
+		width: var(--ccd-admin-menu-width) !important;
+	}
+
+}
+@media screen and (max-width: 782px) {
+body.ccd-admin #wpcontent,
+body.ccd-admin #wpfooter {
+		margin-left: 0 !important;
+	}
+body.ccd-admin #adminmenuback {
+		position: absolute;
+	}
+body.ccd-admin #adminmenuwrap {
+		position: absolute;
+		top: 46px;
+		max-height: none;
+		overflow: visible;
+	}
+
+}
+#wpcontent,
+body.ccd-admin #wpfooter {
+	background: var(--ccd-admin-surface);
+}
+body.ccd-admin .postbox,
+body.ccd-admin .stuffbox,
+body.ccd-admin .welcome-panel,
+body.ccd-admin .card {
+	background: var(--ccd-admin-card);
+	border: 1px solid var(--ccd-admin-border);
+	border-radius: 12px;
+	box-shadow: none;
+}
+body.ccd-admin .postbox {
+	margin-bottom: 1.25rem;
+}
+body.ccd-admin .postbox .inside {
+	padding: 16px 18px 20px;
+	font-size: var(--ccd-admin-fs-sm);
+	line-height: var(--ccd-admin-lh);
+	color: var(--ccd-admin-ink-soft);
+}
+body.ccd-admin .postbox .hndle,
+body.ccd-admin .stuffbox .hndle {
+	padding: 14px 18px !important;
+	border-bottom: 1px solid var(--ccd-admin-border);
+}
+body.ccd-admin #dashboard-widgets .postbox {
+	border-radius: 12px;
+}
+body.ccd-admin .welcome-panel {
+	padding: 1.5rem 1.75rem;
+}
+.wp-core-ui .button,
+body.ccd-admin .wp-core-ui .button-secondary,
+body.ccd-admin .wp-core-ui .button-primary,
+body.ccd-admin .wp-core-ui .button-hero,
+body.ccd-admin .wp-core-ui .page-title-action,
+body.ccd-admin .wrap .page-title-action,
+body.ccd-admin .wp-admin .page-title-action {
+	font-family: var(--ccd-admin-title) !important;
+	font-size: 15px !important;
+	line-height: 1.35 !important;
+	min-height: 40px !important;
+	padding: 0.5rem 1.25rem !important;
+	border-radius: 999px !important;
+	box-shadow: none !important;
+	text-shadow: none !important;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+body.ccd-admin .wp-core-ui .button-primary,
+body.ccd-admin .wp-core-ui .button-primary:visited,
+body.ccd-admin .wp-core-ui .button-hero.button-primary {
+	background: var(--ccd-admin-primary) !important;
+	border-color: var(--ccd-admin-primary) !important;
+	color: #fff !important;
+	font-weight: 700 !important;
+}
+body.ccd-admin .wp-core-ui .button-primary:hover,
+body.ccd-admin .wp-core-ui .button-primary:focus,
+body.ccd-admin .wp-core-ui .button-primary:active,
+body.ccd-admin .wp-core-ui .button-hero.button-primary:hover,
+body.ccd-admin .wp-core-ui .button-hero.button-primary:focus {
+	background: var(--ccd-admin-primary-hover) !important;
+	border-color: var(--ccd-admin-primary-hover) !important;
+	color: #fff !important;
+}
+body.ccd-admin .wp-core-ui .button-primary:focus {
+	box-shadow: 0 0 0 2px #fff, 0 0 0 5px rgba(2, 119, 189, 0.45) !important;
+}
+body.ccd-admin .wp-core-ui .button,
+body.ccd-admin .wp-core-ui .button-secondary,
+body.ccd-admin .wp-admin .page-title-action {
+	border: 1px solid var(--ccd-admin-border-strong) !important;
+	color: var(--ccd-admin-ink-soft) !important;
+	background: #fff !important;
+	font-weight: 700 !important;
+}
+body.ccd-admin .wp-core-ui .button:hover,
+body.ccd-admin .wp-core-ui .button-secondary:hover,
+body.ccd-admin .wp-admin .page-title-action:hover {
+	border-color: var(--ccd-admin-primary) !important;
+	color: var(--ccd-admin-primary-hover) !important;
+	background: #f3f8fc !important;
+}
+body.ccd-admin .wp-core-ui .button-link {
+	color: var(--ccd-admin-primary-hover);
+	font-size: 15px;
+	font-weight: 600;
+}
+body.ccd-admin .wp-core-ui .button-link:hover {
+	color: #014a73;
+}
+body.ccd-admin .wp-core-ui .button-group .button {
+	border-radius: 0 !important;
+}
+body.ccd-admin .wp-core-ui .button-group .button:first-child {
+	border-radius: 999px 0 0 999px !important;
+}
+body.ccd-admin .wp-core-ui .button-group .button:last-child {
+	border-radius: 0 999px 999px 0 !important;
+}
+#screen-meta-links {
+	float: right;
+	margin: 12px 20px 8px 0 !important;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+body.ccd-admin #screen-options-link-wrap,
+body.ccd-admin #contextual-help-link-wrap {
+	float: none !important;
+	margin: 0 !important;
+}
+body.ccd-admin #screen-meta-links .screen-meta-toggle {
+	top: 0 !important;
+}
+body.ccd-admin #screen-meta-links .show-settings,
+body.ccd-admin #screen-meta-links .wp-core-ui .button.show-settings,
+body.ccd-admin .wp-core-ui #screen-meta-links .button.show-settings {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: 0.15rem;
+	min-height: 34px !important;
+	height: 34px !important;
+	line-height: 1 !important;
+	padding: 0 0.85rem 0 1rem !important;
+	margin: 0 !important;
+	border: 1px solid var(--ccd-admin-border-strong) !important;
+	border-radius: 999px !important;
+	background: #fff !important;
+	color: var(--ccd-admin-ink-soft) !important;
+	font-family: var(--ccd-admin-title) !important;
+	font-size: 13px !important;
+	font-weight: 700 !important;
+	box-shadow: 0 2px 8px rgba(15, 52, 78, 0.06) !important;
+	vertical-align: middle;
+}
+body.ccd-admin #screen-meta-links .show-settings:hover,
+body.ccd-admin #screen-meta-links .show-settings:focus {
+	border-color: var(--ccd-admin-primary) !important;
+	color: var(--ccd-admin-primary-hover) !important;
+	background: #f3f8fc !important;
+}
+body.ccd-admin #screen-meta-links .show-settings::after {
+	position: static !important;
+	right: auto !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	margin: 0 0 0 0.15rem !important;
+	padding: 0 !important;
+	font-size: 18px !important;
+	line-height: 1 !important;
+	height: 18px !important;
+	width: 18px !important;
+	vertical-align: middle !important;
+}
+body.ccd-admin #screen-meta {
+	margin: 0 20px 12px 0 !important;
+	border-radius: 0 0 12px 12px;
+	border-color: var(--ccd-admin-border) !important;
+}
+body.wp-admin {
+	accent-color: var(--ccd-admin-primary);
+}
+body.ccd-admin .form-table,
+body.ccd-admin .form-wrap,
+body.ccd-admin #post-body .postbox .inside,
+body.ccd-admin .stuffbox .inside,
+body.ccd-admin #dashboard-widgets .postbox .inside,
+body.ccd-admin .wp-admin .card {
+	font-family: var(--ccd-admin-body);
+}
+body.ccd-admin .form-table th,
+body.ccd-admin .form-wrap label,
+body.ccd-admin .form-field label,
+body.ccd-admin .postbox .inside > label,
+body.ccd-admin #poststuff .postbox .inside label,
+body.ccd-admin .misc-pub-section label,
+body.ccd-admin .categorydiv label,
+body.ccd-admin .wp-admin label {
+	color: var(--ccd-admin-ink-soft) !important;
+	font-weight: 600 !important;
+	font-size: 13px !important;
+	line-height: 1.4 !important;
+}
+body.ccd-admin .form-table th {
+	font-size: 14px !important;
+	/* border-collapse:collapse ignora padding da table — espaço vem das células */
+	padding: 18px 20px 18px 36px !important;
+	width: 220px;
+}
+body.ccd-admin .form-table td {
+	padding: 16px 36px 16px 14px !important;
+}
+body.ccd-admin .form-table tr {
+	border-bottom: 1px solid rgba(215, 226, 234, 0.7);
+}
+body.ccd-admin .form-table tr:last-child {
+	border-bottom: 0;
+}
+body.ccd-admin .wrap > form:not(.search-form):not(#posts-filter):not(#comments-form):not(.wp-list-table),
+body.ccd-admin .wrap form.optionsframework,
+body.ccd-admin .wrap .form-table {
+	background: transparent;
+}
+body.ccd-admin .wrap > form > .form-table,
+body.ccd-admin .wrap form .form-table,
+body.ccd-admin #wpbody-content .form-table {
+	background: var(--ccd-admin-card);
+	border: 1px solid var(--ccd-admin-border);
+	border-radius: var(--ccd-admin-card-radius);
+	box-shadow: 0 10px 30px rgba(15, 52, 78, 0.06);
+	/* padding na <table> não afeta células com border-collapse */
+	padding: 0 !important;
+	margin-top: 12px;
+	border-spacing: 0;
+	border-collapse: collapse;
+	box-sizing: border-box;
+}
+body.ccd-admin .wrap > form > .form-table > tbody > tr:first-child > th,
+body.ccd-admin .wrap > form > .form-table > tbody > tr:first-child > td,
+body.ccd-admin .wrap form .form-table > tbody > tr:first-child > th,
+body.ccd-admin .wrap form .form-table > tbody > tr:first-child > td,
+body.ccd-admin #wpbody-content .form-table > tbody > tr:first-child > th,
+body.ccd-admin #wpbody-content .form-table > tbody > tr:first-child > td {
+	padding-top: 22px !important;
+}
+body.ccd-admin .wrap > form > .form-table > tbody > tr:last-child > th,
+body.ccd-admin .wrap > form > .form-table > tbody > tr:last-child > td,
+body.ccd-admin .wrap form .form-table > tbody > tr:last-child > th,
+body.ccd-admin .wrap form .form-table > tbody > tr:last-child > td,
+body.ccd-admin #wpbody-content .form-table > tbody > tr:last-child > th,
+body.ccd-admin #wpbody-content .form-table > tbody > tr:last-child > td {
+	padding-bottom: 22px !important;
+}
+.wrap form h2,
+body.ccd-admin .wrap form h3 {
+	margin: 1.5rem 8px 0.65rem !important;
+	padding-left: 8px;
+}
+body.ccd-admin .form-table th label {
+	display: inline-block;
+	padding: 0;
+}
+body.ccd-admin .form-table .description,
+body.ccd-admin .form-wrap p,
+body.ccd-admin span.description {
+	color: var(--ccd-admin-muted) !important;
+	font-size: 13px !important;
+	line-height: 1.5 !important;
+	margin-top: 0.45rem;
+}
+body.ccd-admin.wp-admin input[type="text"],
+body.ccd-admin.wp-admin input[type="password"],
+body.ccd-admin.wp-admin input[type="color"],
+body.ccd-admin.wp-admin input[type="date"],
+body.ccd-admin.wp-admin input[type="datetime"],
+body.ccd-admin.wp-admin input[type="datetime-local"],
+body.ccd-admin.wp-admin input[type="email"],
+body.ccd-admin.wp-admin input[type="month"],
+body.ccd-admin.wp-admin input[type="number"],
+body.ccd-admin.wp-admin input[type="search"],
+body.ccd-admin.wp-admin input[type="tel"],
+body.ccd-admin.wp-admin input[type="time"],
+body.ccd-admin.wp-admin input[type="url"],
+body.ccd-admin.wp-admin input[type="week"],
+body.ccd-admin.wp-admin select,
+body.ccd-admin.wp-admin textarea,
+body.ccd-admin.wp-admin .wp-core-ui select,
+body.ccd-admin.wp-admin input.regular-text,
+body.ccd-admin.wp-admin input.large-text,
+body.ccd-admin.wp-admin input.small-text,
+body.ccd-admin.wp-admin input[type="text"].code,
+body.ccd-admin.wp-admin #title,
+body.ccd-admin.wp-admin #newpost input[type="text"],
+body.ccd-admin.wp-admin #newpost textarea,
+body.ccd-admin.wp-admin .postbox input[type="text"],
+body.ccd-admin.wp-admin .postbox input[type="email"],
+body.ccd-admin.wp-admin .postbox input[type="url"],
+body.ccd-admin.wp-admin .postbox input[type="search"],
+body.ccd-admin.wp-admin .postbox input[type="password"],
+body.ccd-admin.wp-admin .postbox input[type="number"],
+body.ccd-admin.wp-admin .postbox select,
+body.ccd-admin.wp-admin .postbox textarea,
+body.ccd-admin.wp-admin .form-field input,
+body.ccd-admin.wp-admin .form-field select,
+body.ccd-admin.wp-admin .form-field textarea,
+body.ccd-admin.wp-admin .search-box input[type="search"],
+body.ccd-admin.wp-admin .search-box input[name="s"],
+body.ccd-admin.wp-admin .tablenav select,
+body.ccd-admin.wp-admin .actions select,
+body.ccd-admin.wp-admin #bulk-action-selector-top,
+body.ccd-admin.wp-admin #bulk-action-selector-bottom,
+body.ccd-admin.wp-admin .meta-box-sortables input[type="text"],
+body.ccd-admin.wp-admin .meta-box-sortables textarea,
+body.ccd-admin.wp-admin .meta-box-sortables select {
+	font-family: var(--ccd-admin-body) !important;
+	font-size: 15px !important;
+	line-height: 1.45 !important;
+	min-height: 42px !important;
+	padding: 0.55rem 0.85rem !important;
+	color: var(--ccd-admin-ink) !important;
+	background: var(--ccd-admin-field-bg) !important;
+	border: 1px solid var(--ccd-admin-border-strong) !important;
+	border-radius: var(--ccd-admin-field-radius) !important;
+	box-shadow: none !important;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+body.ccd-admin.wp-admin input.small-text {
+	min-height: 36px !important;
+	width: auto;
+	padding: 0.35rem 0.55rem !important;
+}
+body.ccd-admin.wp-admin textarea,
+body.ccd-admin.wp-admin .postbox textarea,
+body.ccd-admin.wp-admin #newpost textarea,
+body.ccd-admin.wp-admin .large-text {
+	min-height: 7rem !important;
+	border-radius: 12px !important;
+	resize: vertical;
+}
+body.ccd-admin.wp-admin #title {
+	font-family: var(--ccd-admin-title) !important;
+	font-size: 1.5rem !important;
+	font-weight: 700 !important;
+	min-height: 52px !important;
+	padding: 0.65rem 1rem !important;
+	border-radius: 12px !important;
+}
+body.ccd-admin.wp-admin select,
+body.ccd-admin.wp-admin .wp-core-ui select,
+body.ccd-admin.wp-admin .tablenav select,
+body.ccd-admin.wp-admin .actions select {
+	appearance: none !important;
+	-webkit-appearance: none !important;
+	padding-right: 2.4rem !important;
+	background-color: var(--ccd-admin-field-bg) !important;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235a6f82' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+	background-repeat: no-repeat !important;
+	background-position: right 0.85rem center !important;
+	background-size: 16px 16px !important;
+	cursor: pointer;
+}
+body.ccd-admin.wp-admin input::placeholder,
+body.ccd-admin.wp-admin textarea::placeholder {
+	color: #7a90a0 !important;
+	opacity: 1;
+}
+body.ccd-admin.wp-admin input[type="text"]:focus,
+body.ccd-admin.wp-admin input[type="password"]:focus,
+body.ccd-admin.wp-admin input[type="color"]:focus,
+body.ccd-admin.wp-admin input[type="date"]:focus,
+body.ccd-admin.wp-admin input[type="datetime"]:focus,
+body.ccd-admin.wp-admin input[type="datetime-local"]:focus,
+body.ccd-admin.wp-admin input[type="email"]:focus,
+body.ccd-admin.wp-admin input[type="month"]:focus,
+body.ccd-admin.wp-admin input[type="number"]:focus,
+body.ccd-admin.wp-admin input[type="search"]:focus,
+body.ccd-admin.wp-admin input[type="tel"]:focus,
+body.ccd-admin.wp-admin input[type="time"]:focus,
+body.ccd-admin.wp-admin input[type="url"]:focus,
+body.ccd-admin.wp-admin input[type="week"]:focus,
+body.ccd-admin.wp-admin select:focus,
+body.ccd-admin.wp-admin textarea:focus,
+body.ccd-admin.wp-admin .wp-core-ui select:focus,
+body.ccd-admin.wp-admin #title:focus,
+body.ccd-admin.wp-admin .postbox input:focus,
+body.ccd-admin.wp-admin .postbox select:focus,
+body.ccd-admin.wp-admin .postbox textarea:focus {
+	border-color: var(--ccd-admin-primary) !important;
+	box-shadow: 0 0 0 2px rgba(2, 119, 189, 0.22) !important;
+	outline: none !important;
+	background: #fff !important;
+}
+body.wp-admin input[type="checkbox"],
+body.ccd-admin.wp-admin input[type="radio"] {
+	width: 1.15rem !important;
+	height: 1.15rem !important;
+	min-height: 0 !important;
+	margin: 0 0.4rem 0 0 !important;
+	padding: 0 !important;
+	border: 1.5px solid #8aa0ad !important;
+	background: #fff !important;
+	box-shadow: none !important;
+	accent-color: var(--ccd-admin-primary);
+}
+body.ccd-admin.wp-admin input[type="checkbox"] {
+	border-radius: 4px !important;
+}
+body.ccd-admin.wp-admin input[type="radio"] {
+	border-radius: 50% !important;
+}
+body.ccd-admin.wp-admin input[type="checkbox"]:checked,
+body.ccd-admin.wp-admin input[type="radio"]:checked {
+	border-color: var(--ccd-admin-primary) !important;
+	background: var(--ccd-admin-primary) !important;
+}
+body.ccd-admin.wp-admin input[type="checkbox"]:focus,
+body.ccd-admin.wp-admin input[type="radio"]:focus {
+	border-color: var(--ccd-admin-primary) !important;
+	box-shadow: 0 0 0 2px rgba(2, 119, 189, 0.28) !important;
+	outline: none !important;
+}
+#dashboard_quick_press .input-text-wrap input,
+body.ccd-admin #dashboard_quick_press .textarea-wrap textarea,
+body.ccd-admin #dashboard_quick_press #title,
+body.ccd-admin #dashboard_quick_press #content {
+	width: 100% !important;
+	border-radius: var(--ccd-admin-field-radius) !important;
+}
+body.ccd-admin #dashboard_quick_press .drafts,
+body.ccd-admin #dashboard_quick_press p.submit {
+	margin-top: 0.85rem;
+}
+body.ccd-admin #dashboard-widgets .postbox .inside .button,
+body.ccd-admin #dashboard_quick_press .button {
+	margin-top: 0.25rem;
+}
+#category-all,
+body.ccd-admin #categorydiv div.tabs-panel,
+body.ccd-admin .categorydiv div.tabs-panel,
+body.ccd-admin #postexcerpt .inside,
+body.ccd-admin #tagsdiv-post_tag .inside,
+body.ccd-admin .tagsdiv .ajaxtag {
+	background: var(--ccd-admin-field-bg);
+	border: 1px solid var(--ccd-admin-border) !important;
+	border-radius: 12px;
+}
+body.ccd-admin .categorydiv div.tabs-panel,
+body.ccd-admin #category-all {
+	padding: 10px 12px;
+	max-height: 240px;
+}
+body.ccd-admin .tagsdiv .newtag,
+body.ccd-admin #new-tag-post_tag {
+	border-radius: var(--ccd-admin-field-radius) !important;
+}
+body.ccd-admin .tagchecklist span a::before {
+	color: var(--ccd-admin-primary) !important;
+}
+#post-body #post-body-content,
+body.ccd-admin #titlediv,
+body.ccd-admin #postdivrich {
+	margin-bottom: 1rem;
+}
+body.ccd-admin #wp-content-editor-tools,
+body.ccd-admin .wp-editor-tools {
+	padding-top: 0.35rem;
+}
+body.ccd-admin .wp-editor-container {
+	border: 1px solid var(--ccd-admin-border-strong) !important;
+	border-radius: 12px !important;
+	overflow: hidden;
+	box-shadow: 0 8px 22px rgba(15, 52, 78, 0.05);
+}
+body.ccd-admin .mce-toolbar .mce-btn-group .mce-btn,
+body.ccd-admin .html-active .switch-html,
+body.ccd-admin .tmce-active .switch-tmce {
+	border-radius: 8px !important;
+}
+body.ccd-admin .wp-switch-editor {
+	border-radius: 8px 8px 0 0 !important;
+	font-weight: 600;
+}
+.search-box {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+body.ccd-admin .search-box input[type="search"],
+body.ccd-admin .search-box input[name="s"] {
+	min-width: 220px;
+}
+body.ccd-admin .tablenav .actions {
+	padding: 4px 0 8px;
+}
+#submitpost #major-publishing-actions,
+body.ccd-admin #submitdiv #major-publishing-actions {
+	background: #f4f8fb;
+	border-top: 1px solid var(--ccd-admin-border);
+	padding: 14px 16px;
+}
+body.ccd-admin #major-publishing-actions .button-primary {
+	width: 100%;
+	justify-content: center;
+	text-align: center;
+}
+body.ccd-admin .misc-pub-section {
+	padding: 10px 0 !important;
+	font-size: 14px !important;
+	color: var(--ccd-admin-ink-soft);
+}
+.components-text-control__input,
+body.ccd-admin .components-select-control__input,
+body.ccd-admin .components-textarea-control__input,
+body.ccd-admin .components-base-control input[type="text"],
+body.ccd-admin .components-base-control input[type="number"],
+body.ccd-admin .components-base-control input[type="email"],
+body.ccd-admin .components-base-control input[type="url"],
+body.ccd-admin .components-base-control input[type="search"],
+body.ccd-admin .components-base-control select,
+body.ccd-admin .components-base-control textarea {
+	border-radius: var(--ccd-admin-field-radius) !important;
+	border-color: var(--ccd-admin-border-strong) !important;
+	background: var(--ccd-admin-field-bg) !important;
+	min-height: 40px !important;
+	box-shadow: none !important;
+}
+body.ccd-admin .components-text-control__input:focus,
+body.ccd-admin .components-select-control__input:focus,
+body.ccd-admin .components-textarea-control__input:focus,
+body.ccd-admin .components-base-control input:focus,
+body.ccd-admin .components-base-control select:focus,
+body.ccd-admin .components-base-control textarea:focus {
+	border-color: var(--ccd-admin-primary) !important;
+	box-shadow: 0 0 0 2px rgba(2, 119, 189, 0.22) !important;
+}
+body.ccd-admin .components-button.is-primary {
+	background: var(--ccd-admin-primary) !important;
+	border-color: var(--ccd-admin-primary) !important;
+	border-radius: 999px !important;
+	font-weight: 700 !important;
+}
+body.ccd-admin .components-button.is-primary:hover,
+body.ccd-admin .components-button.is-primary:focus {
+	background: var(--ccd-admin-primary-hover) !important;
+	border-color: var(--ccd-admin-primary-hover) !important;
+}
+body.ccd-admin .components-button.is-secondary,
+body.ccd-admin .components-button.is-tertiary {
+	border-radius: 999px !important;
+}
+body.ccd-admin .components-form-toggle.is-checked .components-form-toggle__track {
+	background: var(--ccd-admin-primary) !important;
+}
+body.ccd-admin .wp-person a:focus .gravatar,
+body.ccd-admin #adminmenu a:focus,
+body.ccd-admin #wpadminbar a:focus {
+	box-shadow: none;
+	outline: 3px solid #0b57d0;
+	outline-offset: 2px;
+}
+.wp-list-table {
+	border-color: var(--ccd-admin-border);
+}
+body.ccd-admin .wp-list-table thead th,
+body.ccd-admin .wp-list-table thead td,
+body.ccd-admin .wp-list-table tfoot th,
+body.ccd-admin .wp-list-table tfoot td {
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--ccd-admin-ink);
+	padding: 12px 10px;
+}
+body.ccd-admin .wp-list-table td,
+body.ccd-admin .wp-list-table th {
+	padding: 12px 10px;
+	line-height: 1.45;
+}
+body.ccd-admin .wp-list-table a {
+	color: #014a73;
+	font-weight: 600;
+}
+body.ccd-admin .tablenav {
+	margin: 12px 0 16px;
+	height: auto;
+	min-height: 44px;
+}
+body.ccd-admin .tablenav .tablenav-pages a,
+body.ccd-admin .tablenav .tablenav-pages .current {
+	font-size: 14px;
+	min-width: 36px;
+	min-height: 36px;
+	line-height: 36px;
+	padding: 0 10px;
+}
+body.ccd-admin .tablenav .tablenav-pages a:hover,
+body.ccd-admin .tablenav .tablenav-pages a:focus,
+body.ccd-admin .tablenav .tablenav-pages a.current,
+body.ccd-admin .tablenav-pages .current {
+	background: #014a73;
+	border-color: #014a73;
+	color: #fff;
+}
+body.ccd-admin .view-switch a.current::before {
+	color: #014a73;
+}
+body.ccd-admin .subsubsub {
+	font-size: 15px;
+	margin: 12px 0 16px;
+	line-height: 1.7;
+}
+body.ccd-admin .subsubsub a {
+	padding: 4px 2px;
+}
+body.ccd-admin .subsubsub a.current {
+	font-weight: 800;
+	color: var(--ccd-admin-ink);
+}
+.notice,
+body.ccd-admin div.updated {
+	font-size: 15px;
+	line-height: 1.5;
+	padding: 12px 16px;
+	border-left-width: 5px;
+}
+#wpfooter {
+	color: var(--ccd-admin-muted);
+	border-top: 1px solid var(--ccd-admin-border);
+	font-size: 14px;
+	padding: 16px 20px;
+}
+.edit-post-header .components-button.is-primary,
+body.ccd-admin .editor-styles-wrapper .components-button.is-primary,
+body.ccd-admin .interface-interface-skeleton .components-button.is-primary {
+	background: #014a73;
+	border-color: #014a73;
+	color: #fff;
+}
+

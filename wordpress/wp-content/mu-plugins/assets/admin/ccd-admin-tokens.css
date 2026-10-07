@@ -1,0 +1,40 @@
+/*
+ * CCD Admin - design tokens
+ * Fonte unica de cores, tipografia e espaco do wp-admin.
+ */
+:root {
+	--wp-admin-theme-color: #015f92;
+	--wp-admin-theme-color--rgb: 1, 95, 146;
+	--wp-admin-theme-color-darker-10: #014a73;
+	--wp-admin-theme-color-darker-10--rgb: 1, 74, 115;
+	--wp-admin-theme-color-darker-20: #013555;
+	--wp-admin-theme-color-darker-20--rgb: 1, 53, 85;
+	--ccd-admin-ink: #15202b;
+	--ccd-admin-ink-soft: #1f2a33;
+	--ccd-admin-muted: #2b3a42;
+	--ccd-admin-surface: #eef3f7;
+	--ccd-admin-card: #ffffff;
+	--ccd-admin-border: #d7e2ea;
+	--ccd-admin-border-strong: #c5d3dc;
+	--ccd-admin-accent: #9b1048;
+	--ccd-admin-on-dark: #ffffff;
+	--ccd-admin-on-dark-soft: #f3f8fc;
+	--ccd-admin-chrome: #013555;
+	--ccd-admin-chrome-mid: #014a73;
+	--ccd-admin-chrome-hover: #015f92;
+	--ccd-admin-chrome-current: #0277bd;
+	--ccd-admin-field-bg: #fbfdff;
+	--ccd-admin-field-radius: 10px;
+	--ccd-admin-card-radius: 14px;
+	--ccd-admin-primary: #0277bd;
+	--ccd-admin-primary-hover: #015f92;
+	--ccd-admin-title: Nunito, "Open Sans", "Segoe UI", sans-serif;
+	--ccd-admin-body: "Open Sans", "Segoe UI", Nunito, sans-serif;
+	--ccd-admin-fs: 16px;
+	--ccd-admin-fs-sm: 15px;
+	--ccd-admin-fs-lg: 1.35rem;
+	--ccd-admin-lh: 1.55;
+	--ccd-admin-space: 1.1rem;
+	--ccd-admin-menu-width: 240px;
+	--ccd-admin-bar-height: 40px;
+}

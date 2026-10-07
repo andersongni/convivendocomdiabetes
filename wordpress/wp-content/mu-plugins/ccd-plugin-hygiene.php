@@ -33,7 +33,6 @@ function ccd_plugin_hygiene_retired_slugs() {
 		'td-social-counter',
 		'td-mobile-plugin',
 		'wp-file-manager',
-		'all-in-one-wp-migration',
 		'wordpress-importer',
 		'regenerate-thumbnails',
 		'phoenix-media-rename',

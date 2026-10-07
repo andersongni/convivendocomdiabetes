@@ -39,12 +39,12 @@ uploads-essential.tgz
 
 # Midia, cache e backups
 wordpress/wp-content/uploads/
+wordpress/wp-content/ccd-uploads-optimize-backup/
 wordpress/wp-content/cache/
 wordpress/wp-content/upgrade/
 wordpress/wp-content/upgrade-temp-backup/
 wordpress/wp-content/backup*/
 wordpress/wp-content/backups/
-wordpress/wp-content/ai1wm-backups/
 wordpress/wp-content/updraft/
 wordpress/wp-content/wflogs/
 wordpress/wp-content/cache-config/
@@ -61,9 +61,9 @@ wordpress/wp-content/debug.log
 *.tar.gz
 *.tgz
 *.zip
+!packages/releases/ccd-backup-*.zip
 *.rar
 *.7z
-*.wpress
 *.partial
 
 # Logs e temporarios

@@ -163,7 +163,7 @@ function ccd_login_logo_url()
 		}
 	}
 
-	return content_url('uploads/2022/07/LOGO-CONVIVENDO-COM-DIABETES-5-300x90.png');
+	return content_url('mu-plugins/assets/brand/logo-convivendo-com-diabetes-300.png');
 }
 
 add_filter('login_headerurl', static function () {

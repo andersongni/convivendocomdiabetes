@@ -141,6 +141,114 @@ add_filter('widget_text', 'do_shortcode', 11);
 add_filter('widget_custom_html_content', 'do_shortcode', 11);
 
 /**
+ * Form 2859 e popup (auto no load), mas a home embute [noptin-form id=2859].
+ * O Noptin bloqueia shortcode em popup/slide-in — forca inpost so no shortcode.
+ */
+const CCD_NOPTIN_FORM_ID = 2859;
+
+add_filter(
+	'noptin_form_optinType',
+	static function ( $type, $form ) {
+		if ( empty( $GLOBALS['ccd_noptin_shortcode_inpost'] ) ) {
+			return $type;
+		}
+		if ( ! is_object( $form ) || (int) $form->id !== CCD_NOPTIN_FORM_ID ) {
+			return $type;
+		}
+		return 'inpost';
+	},
+	10,
+	2
+);
+
+add_action(
+	'init',
+	static function () {
+		if ( ! shortcode_exists( 'noptin-form' ) ) {
+			return;
+		}
+		remove_shortcode( 'noptin-form' );
+		add_shortcode(
+			'noptin-form',
+			static function ( $atts ) {
+				$atts = is_array( $atts ) ? $atts : array();
+				$id   = isset( $atts['id'] ) ? (int) $atts['id'] : 0;
+				if ( $id === CCD_NOPTIN_FORM_ID ) {
+					$GLOBALS['ccd_noptin_shortcode_inpost'] = true;
+				}
+				$html = '';
+				if ( class_exists( '\Hizzle\Noptin\Forms\Renderer' ) ) {
+					$html = (string) \Hizzle\Noptin\Forms\Renderer::legacy_shortcode( $atts );
+				}
+				unset( $GLOBALS['ccd_noptin_shortcode_inpost'] );
+				return $html;
+			}
+		);
+	},
+	20
+);
+
+/**
+ * reCAPTCHA v2 no formulario de newsletter (popup + shortcode).
+ */
+add_action(
+	'before_output_noptin_form_submit_button',
+	static function ( $form ) {
+		if ( ! is_object( $form ) || (int) $form->id !== CCD_NOPTIN_FORM_ID ) {
+			return;
+		}
+		if ( ! function_exists( 'ccd_recaptcha_is_configured' ) || ! ccd_recaptcha_is_configured() ) {
+			return;
+		}
+
+		static $n = 0;
+		++$n;
+		$keys = ccd_recaptcha_keys();
+		echo '<div class="ccd-recaptcha-field ccd-noptin-recaptcha-wrap">';
+		echo '<div class="g-recaptcha" id="ccd-noptin-recaptcha-' . esc_attr( (string) $n ) . '"'
+			. ' data-sitekey="' . esc_attr( $keys['site'] ) . '"></div>';
+		echo '</div>';
+	},
+	10
+);
+
+add_action(
+	'noptin_form_errors',
+	static function ( $listener ) {
+		if ( ! is_object( $listener ) || empty( $listener->error ) || ! is_wp_error( $listener->error ) ) {
+			return;
+		}
+		if ( ! function_exists( 'ccd_recaptcha_is_configured' ) || ! ccd_recaptcha_is_configured() ) {
+			return;
+		}
+
+		$submitted = isset( $listener->submitted ) && is_array( $listener->submitted )
+			? $listener->submitted
+			: array();
+		$source    = isset( $submitted['source'] ) ? (int) $submitted['source'] : 0;
+		$form_id   = isset( $submitted['noptin_form_id'] ) ? (int) $submitted['noptin_form_id'] : 0;
+		if ( $source !== CCD_NOPTIN_FORM_ID && $form_id !== CCD_NOPTIN_FORM_ID ) {
+			return;
+		}
+
+		$token = isset( $submitted['g-recaptcha-response'] )
+			? sanitize_text_field( (string) $submitted['g-recaptcha-response'] )
+			: '';
+
+		if ( $token === '' || ! ccd_recaptcha_verify( $token ) ) {
+			$listener->error->add(
+				'recaptcha',
+				'Confirme o captcha "Nao sou um robo" e tente novamente.',
+				array(
+					'selector' => '.ccd-noptin-recaptcha-wrap',
+				)
+			);
+		}
+	},
+	5
+);
+
+/**
  * Avatar do form: usa arquivo local em vez do dominio de producao.
  */
 add_filter('noptin_form_image', static function ($image) {
@@ -148,8 +256,8 @@ add_filter('noptin_form_image', static function ($image) {
 		return $image;
 	}
 
-	if (strpos($image, 'uploads/2022/07/Bia-2-2.png') !== false) {
-		return content_url('uploads/2022/07/Bia-2-2.png');
+	if ( strpos( $image, 'uploads/2022/07/Bia-2-2.' ) !== false ) {
+		return content_url( 'uploads/2022/07/Bia-2-2.jpg' );
 	}
 
 	return $image;
@@ -246,6 +354,17 @@ add_action('wp_enqueue_scripts', static function () {
 	outline: none !important;
 	border-color: var(--ccd-blue) !important;
 	box-shadow: 0 0 0 4px rgba(3, 169, 244, 0.16) !important;
+}
+.noptin-form-id-2859 .ccd-noptin-recaptcha-wrap,
+.noptin-popup .ccd-noptin-recaptcha-wrap {
+	display: flex;
+	justify-content: center;
+	margin: 0.85rem 0 0.35rem;
+	width: 100%;
+}
+.noptin-form-id-2859 .ccd-noptin-recaptcha-wrap .g-recaptcha,
+.noptin-popup .ccd-noptin-recaptcha-wrap .g-recaptcha {
+	transform-origin: center center;
 }
 .noptin-form-id-2859 .noptin-form-submit,
 .noptin-form-id-2859 input.noptin-form-submit,
@@ -345,44 +464,49 @@ CSS;
 }, 20);
 
 /**
- * Alinha o form 2859 ao Railway: popup no load + imagem/altura locais.
- * Versao 4: descriptionColor escuro (SVG do X deixava de ser branco no fundo claro).
+ * Alinha o form 2859: popup no 1o acesso + imagem/altura locais.
+ * Versao 6: nao forcar popup a cada pagina para admin logado.
  */
-add_action('init', static function () {
-	if (get_option('ccd_noptin_form_2859_fixed') === '4') {
+add_action( 'init', static function () {
+	if ( get_option( 'ccd_noptin_form_2859_fixed' ) === '6' ) {
 		return;
 	}
 
-	$state = get_post_meta(2859, '_noptin_state', true);
-	if (!is_array($state)) {
+	$state = get_post_meta( 2859, '_noptin_state', true );
+	if ( ! is_array( $state ) ) {
 		return;
 	}
 
-	$state['image']      = content_url('uploads/2022/07/Bia-2-2.png');
+	$state['image']      = content_url( 'uploads/2022/07/Bia-2-2.jpg' );
 	$state['formHeight'] = '0px';
 	$state['formRadius'] = '23px';
-	$state['formWidth']  = isset($state['formWidth']) && $state['formWidth'] !== ''
+	$state['formWidth']  = isset( $state['formWidth'] ) && $state['formWidth'] !== ''
 		? $state['formWidth']
 		: '620px';
-	$state['optinType']  = 'popup';
-	$state['optinStatus'] = 'true';
-	$state['descriptionColor'] = '#01579b';
-
-	// Triggers iguais ao HTML de producao Railway.
-	$state['triggerPopup'] = 'immeadiate';
-	if (empty($state['timeDelayDuration'])) {
-		$state['timeDelayDuration'] = '4';
-	}
-	if (!isset($state['DisplayOncePerSession'])) {
-		$state['DisplayOncePerSession'] = false; // false => once per session (label do Noptin e invertida)
-	}
-	if (empty($state['slideDirection'])) {
+	$state['optinType']         = 'popup';
+	$state['optinStatus']       = 'true';
+	$state['descriptionColor']  = '#01579b';
+	$state['triggerPopup']      = 'immeadiate';
+	$state['timeDelayDuration'] = ! empty( $state['timeDelayDuration'] ) ? $state['timeDelayDuration'] : '4';
+	// No editor Noptin: checked = 1x/semana; unchecked = 1x/sessao.
+	$state['DisplayOncePerSession'] = true;
+	$state['hideSeconds']           = defined( 'WEEK_IN_SECONDS' ) ? WEEK_IN_SECONDS : ( 7 * DAY_IN_SECONDS );
+	if ( empty( $state['slideDirection'] ) ) {
 		$state['slideDirection'] = 'bottom_right';
 	}
 
-	update_post_meta(2859, '_noptin_state', $state);
-	update_post_meta(2859, '_noptin_optin_type', 'popup');
-	update_option('ccd_noptin_form_2859_fixed', '4', false);
+	update_post_meta( 2859, '_noptin_state', $state );
+	update_post_meta( 2859, '_noptin_optin_type', 'popup' );
+
+	// Padrao do Noptin e true — admin logado via o cookie e o popup volta a cada clique/pagina.
+	$noptin_opts = get_option( 'noptin_options', array() );
+	if ( ! is_array( $noptin_opts ) ) {
+		$noptin_opts = array();
+	}
+	$noptin_opts['always_show_to_admin'] = false;
+	update_option( 'noptin_options', $noptin_opts, false );
+
+	update_option( 'ccd_noptin_form_2859_fixed', '6', false );
 
 	wp_cache_delete('noptin_popup_forms', 'noptin');
 

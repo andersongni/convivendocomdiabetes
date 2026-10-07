@@ -1,0 +1,149 @@
+/*
+ * CCD Admin - barra no front (usuario logado)
+ * Dependencia: ccd-admin-tokens (enfileirada no PHP).
+ */
+
+#wpadminbar {
+	background: var(--ccd-admin-chrome) !important;
+	height: var(--ccd-admin-bar-height) !important;
+	min-height: var(--ccd-admin-bar-height) !important;
+	font-size: 15px !important;
+	line-height: 1.2 !important;
+	overflow: visible !important;
+}
+#wpadminbar .quicklinks,
+#wpadminbar #wp-toolbar {
+	display: flex !important;
+	align-items: center !important;
+	height: var(--ccd-admin-bar-height) !important;
+}
+#wpadminbar .quicklinks > ul,
+#wpadminbar .ab-top-menu {
+	display: flex !important;
+	align-items: center !important;
+	flex-wrap: nowrap;
+	height: var(--ccd-admin-bar-height) !important;
+	margin: 0 !important;
+	padding: 0 !important;
+}
+#wpadminbar .ab-top-menu > li {
+	display: flex !important;
+	align-items: center !important;
+	height: var(--ccd-admin-bar-height) !important;
+	float: none !important;
+	margin: 0 !important;
+	overflow: visible !important;
+}
+#wpadminbar .ab-top-menu > li.menupop {
+	position: relative !important;
+}
+#wpadminbar #wp-admin-bar-top-secondary {
+	float: none !important;
+	margin-left: auto !important;
+}
+#wpadminbar .ab-top-menu > .menupop > .ab-sub-wrapper {
+	position: absolute !important;
+	top: 100%;
+	left: 0;
+	margin-top: 0;
+	z-index: 99999;
+}
+#wpadminbar .ab-top-secondary > .menupop > .ab-sub-wrapper {
+	left: auto;
+	right: 0;
+}
+#wpadminbar .ab-top-menu > li > .ab-item,
+#wpadminbar .ab-top-menu > li > a.ab-item,
+#wpadminbar .ab-top-menu > li > .ab-empty-item {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: 0.35rem;
+	box-sizing: border-box !important;
+	height: var(--ccd-admin-bar-height) !important;
+	min-height: var(--ccd-admin-bar-height) !important;
+	max-height: var(--ccd-admin-bar-height) !important;
+	line-height: 1.2 !important;
+	padding: 0 12px !important;
+	margin: 0 !important;
+	color: var(--ccd-admin-on-dark) !important;
+	font-size: 15px !important;
+}
+#wpadminbar .ab-label,
+#wpadminbar > #wp-toolbar span.ab-label,
+#wpadminbar .display-name {
+	display: inline-flex !important;
+	align-items: center !important;
+	height: auto !important;
+	min-height: 0 !important;
+	line-height: 1.2 !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	font-size: 15px !important;
+	color: var(--ccd-admin-on-dark) !important;
+}
+#wpadminbar kbd,
+#wpadminbar .ab-label kbd {
+	display: inline-flex !important;
+	align-items: center !important;
+	height: auto !important;
+	min-height: 0 !important;
+	line-height: 1.2 !important;
+	padding: 0.1em 0.4em !important;
+	margin: 0 !important;
+	font-size: 12px !important;
+}
+#wpadminbar .ab-icon {
+	float: none !important;
+	position: static !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	width: 22px !important;
+	height: 20px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	top: 0 !important;
+	line-height: 1 !important;
+}
+#wpadminbar .ab-icon::before,
+#wpadminbar .ab-item::before,
+#wpadminbar .ab-item::after {
+	display: block !important;
+	float: none !important;
+	position: static !important;
+	top: auto !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	font-size: 20px !important;
+	line-height: 1 !important;
+}
+#wpadminbar .ab-top-menu > li > .ab-item img.avatar,
+#wpadminbar .ab-top-menu > li > .ab-item img.site-icon {
+	float: none !important;
+	display: block !important;
+	width: 20px !important;
+	height: 20px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	border-radius: 50%;
+	object-fit: cover;
+}
+#wpadminbar .ab-top-menu > li:hover > .ab-item,
+#wpadminbar .ab-top-menu > li.hover > .ab-item,
+#wpadminbar .ab-top-menu > li > .ab-item:focus {
+	background: var(--ccd-admin-chrome-hover) !important;
+	color: #fff !important;
+}
+#wpadminbar .menupop .ab-sub-wrapper {
+	background: var(--ccd-admin-chrome-mid) !important;
+}
+#wpadminbar .ab-submenu .ab-item {
+	display: flex !important;
+	align-items: center !important;
+	color: #fff !important;
+	font-size: 15px !important;
+	min-height: 40px !important;
+	height: auto !important;
+	padding: 10px 16px !important;
+}

@@ -1,0 +1,61 @@
+/*
+ * Esquema WP "ccd" (swatches no perfil).
+ * Detalhes de layout ficam em ccd-admin.css.
+ */
+@import url("ccd-admin-tokens.css");
+
+body {
+	background: var(--ccd-admin-surface);
+	color: var(--ccd-admin-ink);
+}
+#wpadminbar { background: var(--ccd-admin-chrome); }
+#adminmenuback,
+#adminmenuwrap,
+#adminmenu { background: var(--ccd-admin-chrome); }
+#adminmenu a { color: var(--ccd-admin-on-dark); }
+#adminmenu div.wp-menu-image:before { color: var(--ccd-admin-on-dark-soft); }
+#adminmenu .wp-submenu,
+#adminmenu .wp-has-current-submenu .wp-submenu,
+#adminmenu .wp-has-current-submenu.wp-menu-open .wp-submenu,
+.folded #adminmenu .wp-has-current-submenu .wp-submenu {
+	background: #012a44;
+}
+#adminmenu li.menu-top:hover,
+#adminmenu li.opensub > a.menu-top,
+#adminmenu li > a.menu-top:focus {
+	background-color: var(--ccd-admin-chrome-hover);
+	color: #fff;
+}
+#adminmenu li.wp-has-current-submenu a.wp-has-current-submenu,
+#adminmenu li.current a.menu-top,
+.folded #adminmenu li.wp-has-current-submenu,
+.folded #adminmenu li.current.menu-top,
+#adminmenu .wp-menu-arrow,
+#adminmenu .wp-menu-arrow div {
+	background: var(--ccd-admin-chrome-current);
+	color: #fff;
+}
+#adminmenu .wp-submenu a { color: var(--ccd-admin-on-dark-soft); }
+#adminmenu .wp-submenu a:hover,
+#adminmenu .wp-submenu a:focus { color: #fff; }
+#wpadminbar .ab-item,
+#wpadminbar a.ab-item { color: #fff; }
+#wpadminbar .ab-top-menu > li.hover > .ab-item,
+#wpadminbar.nojq .quicklinks .ab-top-menu > li > .ab-item:focus,
+#wpadminbar:not(.mobile) .ab-top-menu > li:hover > .ab-item,
+#wpadminbar:not(.mobile) .ab-top-menu > li > .ab-item:focus {
+	background: var(--ccd-admin-chrome-hover);
+	color: #fff;
+}
+#wpadminbar .menupop .ab-sub-wrapper { background: var(--ccd-admin-chrome-mid); }
+.wp-core-ui .button-primary {
+	background: var(--ccd-admin-primary);
+	border-color: var(--ccd-admin-primary);
+	color: #fff;
+}
+.wp-core-ui .button-primary:hover,
+.wp-core-ui .button-primary:focus {
+	background: var(--ccd-admin-primary-hover);
+	border-color: var(--ccd-admin-primary-hover);
+	color: #fff;
+}

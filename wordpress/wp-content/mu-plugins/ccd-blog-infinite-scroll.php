@@ -32,6 +32,8 @@ function ccd_blog_infinite_end_message() {
 
 /**
  * Estado serializado para boot (soft-nav le do documento fetchado).
+ *
+ * @return array<string, mixed>
  */
 function ccd_blog_infinite_state() {
 	if ( ! ccd_blog_infinite_is_target() ) {
@@ -58,6 +60,8 @@ function ccd_blog_infinite_state() {
 		'active'  => true,
 		'nextUrl' => $next_link ? esc_url_raw( $next_link ) : '',
 		'hasMore' => (bool) $next_link,
+		'page'    => $current,
+		'pages'   => $max_pages,
 		'loading' => 'Carregando mais posts…',
 		'end'     => ccd_blog_infinite_end_message(),
 		'error'   => 'Não foi possível carregar mais posts. Tente novamente.',
@@ -86,7 +90,9 @@ add_action(
 		}
 
 		$handle = 'ccd-blog-infinite-scroll';
-		wp_register_style( $handle, false, array(), '1.2.1' );
+		// Sem dependencia de jQuery: ccd-perf defere jquery-core e o inline
+		// rodava antes do jQuery existir (ReferenceError → scroll morto).
+		wp_register_style( $handle, false, array(), '1.3.0' );
 		wp_enqueue_style( $handle );
 		wp_add_inline_style(
 			$handle,
@@ -139,8 +145,9 @@ body.category .navigation.pagination,
 CSS
 		);
 
-		wp_register_script( $handle, false, array( 'jquery', 'ccd-soft-nav' ), '1.2.1', true );
+		wp_register_script( $handle, false, array(), '1.3.0', true );
 		wp_enqueue_script( $handle );
+
 		wp_add_inline_script(
 			$handle,
 			'window.ccdBlogInfinite = ' . wp_json_encode( ccd_blog_infinite_state() ) . ';',
@@ -149,8 +156,9 @@ CSS
 		wp_add_inline_script(
 			$handle,
 			<<<'JS'
-(function ($) {
+(function () {
 	var teardown = null;
+	var onScrollFallback = function () {};
 
 	function readCfg(doc) {
 		var root = doc || document;
@@ -163,86 +171,144 @@ CSS
 		return window.ccdBlogInfinite || {};
 	}
 
+	function listRoot() {
+		return document.querySelector('.post-list.row');
+	}
+
+	function topLevelItems(scope) {
+		var root = scope || document;
+		var list = root.querySelector('.post-list.row');
+		if (!list) return [];
+		return Array.prototype.filter.call(list.children, function (el) {
+			return el.nodeType === 1 && el.classList && el.classList.contains('post-list-item');
+		});
+	}
+
 	function stop() {
 		if (typeof teardown === 'function') {
 			teardown();
 			teardown = null;
 		}
-		$('.ccd-blog-infinite-status, .ccd-blog-infinite-sentinel').remove();
-		$(window).off('scroll.ccdBlogInfinite');
+		document.querySelectorAll('.ccd-blog-infinite-status, .ccd-blog-infinite-sentinel').forEach(function (el) {
+			el.remove();
+		});
+		window.removeEventListener('scroll', onScrollFallback);
+	}
+
+	function resolveNext(doc) {
+		var cfg = readCfg(doc);
+		if (cfg && cfg.nextUrl) {
+			return String(cfg.nextUrl);
+		}
+		var next = doc.querySelector('a.next.page-numbers, .nav-links a.next, a[rel="next"]');
+		if (next && next.href) {
+			return next.href;
+		}
+		var nums = doc.querySelectorAll('.navigation.pagination a.page-numbers:not(.prev):not(.next)');
+		var current = doc.querySelector('.navigation.pagination .page-numbers.current');
+		var curNum = current ? parseInt((current.textContent || '').replace(/\D/g, ''), 10) : NaN;
+		if (!isNaN(curNum)) {
+			for (var i = 0; i < nums.length; i++) {
+				var n = parseInt((nums[i].textContent || '').replace(/\D/g, ''), 10);
+				if (n === curNum + 1 && nums[i].href) {
+					return nums[i].href;
+				}
+			}
+		}
+		return '';
 	}
 
 	function boot(cfg) {
 		stop();
 		cfg = cfg || {};
 		if (!cfg.active) {
-			$('body').removeClass('ccd-blog-infinite');
+			document.body.classList.remove('ccd-blog-infinite');
 			return;
 		}
 
-		var $list = $('.post-list.row').first();
-		if (!$list.length) {
-			$('body').removeClass('ccd-blog-infinite');
+		var list = listRoot();
+		if (!list) {
+			document.body.classList.remove('ccd-blog-infinite');
 			return;
 		}
 
-		$('body').addClass('ccd-blog-infinite');
-		if (!cfg.hasMore || !cfg.nextUrl) return;
+		document.body.classList.add('ccd-blog-infinite');
+		if (!cfg.hasMore || !cfg.nextUrl) {
+			return;
+		}
 
-		var $status = $(
-			'<div class="ccd-blog-infinite-status" hidden role="status" aria-live="polite">' +
-				'<span class="ccd-blog-infinite-spinner" aria-hidden="true"></span>' +
-				'<span class="ccd-blog-infinite-label"></span>' +
-			'</div>'
-		);
-		$list.after($status);
+		var status = document.createElement('div');
+		status.className = 'ccd-blog-infinite-status';
+		status.hidden = true;
+		status.setAttribute('role', 'status');
+		status.setAttribute('aria-live', 'polite');
+		status.innerHTML =
+			'<span class="ccd-blog-infinite-spinner" aria-hidden="true"></span>' +
+			'<span class="ccd-blog-infinite-label"></span>';
+		list.insertAdjacentElement('afterend', status);
 
-		var $sentinel = $('<div class="ccd-blog-infinite-sentinel" aria-hidden="true"></div>');
-		$status.after($sentinel);
+		var sentinel = document.createElement('div');
+		sentinel.className = 'ccd-blog-infinite-sentinel';
+		sentinel.setAttribute('aria-hidden', 'true');
+		status.insertAdjacentElement('afterend', sentinel);
 
 		var nextUrl = cfg.nextUrl;
 		var loading = false;
 		var done = false;
 		var observer = null;
+		var label = status.querySelector('.ccd-blog-infinite-label');
+		var spinner = status.querySelector('.ccd-blog-infinite-spinner');
 
 		function setStatus(text, spinning) {
-			$status.prop('hidden', !text);
-			$status.find('.ccd-blog-infinite-label').text(text || '');
-			$status.find('.ccd-blog-infinite-spinner').toggle(!!spinning);
+			status.hidden = !text;
+			if (label) label.textContent = text || '';
+			if (spinner) spinner.style.display = spinning ? '' : 'none';
 		}
 
-		function appendItems($items) {
-			if (!$items.length) return;
-
-			$items.find('img').each(function () {
-				var $img = $(this);
-				// Sem loading=lazy: evita Intervention do Edge sobre placeholders.
-				if ($img.attr('loading') === 'lazy') {
-					$img.removeAttr('loading');
-				}
-				if ($img.attr('decoding') === undefined) {
-					$img.attr('decoding', 'async');
-				}
+		function appendItems(nodes) {
+			if (!nodes.length) return;
+			var imported = nodes.map(function (node) {
+				var el = document.importNode(node, true);
+				el.querySelectorAll('img').forEach(function (img) {
+					if (img.getAttribute('loading') === 'lazy') {
+						img.removeAttribute('loading');
+					}
+					if (!img.hasAttribute('decoding')) {
+						img.setAttribute('decoding', 'async');
+					}
+				});
+				return el;
 			});
 
-			var masonry = $list.data('masonry');
+			var $ = window.jQuery;
+			var masonry = $ && $(list).data('masonry');
 			if (masonry && window.innerWidth >= 768) {
+				var $items = $(imported);
 				$items.css('width', function () {
 					return $(this).css('max-width');
 				});
-				$list.append($items);
-				$list.masonry('appended', $items);
+				$(list).append($items);
+				$(list).masonry('appended', $items);
 				$items.find('img').on('load', function () {
-					$list.masonry('layout');
+					$(list).masonry('layout');
 				});
 				setTimeout(function () {
-					if ($list.data('masonry')) {
-						$list.masonry('layout');
+					if ($(list).data('masonry')) {
+						$(list).masonry('layout');
 					}
 				}, 400);
 			} else {
-				$list.append($items);
+				imported.forEach(function (el) {
+					list.appendChild(el);
+				});
 			}
+		}
+
+		function finish() {
+			done = true;
+			nextUrl = '';
+			setStatus(cfg.end || '', false);
+			if (observer) observer.disconnect();
 		}
 
 		function loadNext() {
@@ -250,7 +316,8 @@ CSS
 			loading = true;
 			setStatus(cfg.loading || 'Carregando…', true);
 
-			fetch(nextUrl, {
+			var requested = nextUrl;
+			fetch(requested, {
 				credentials: 'same-origin',
 				headers: { 'X-Requested-With': 'CCD-Infinite-Scroll' }
 			})
@@ -260,35 +327,22 @@ CSS
 				})
 				.then(function (html) {
 					var doc = new DOMParser().parseFromString(html, 'text/html');
-					var items = doc.querySelectorAll('.post-list.row .post-list-item');
-					var $items = $(Array.prototype.slice.call(items));
-					appendItems($items);
+					var items = topLevelItems(doc);
+					appendItems(items);
 
-					var next = doc.querySelector('a.next.page-numbers, .nav-links a.next, a[rel="next"]');
-					if (!next) {
-						var nums = doc.querySelectorAll('.navigation.pagination a.page-numbers:not(.prev):not(.next)');
-						var current = doc.querySelector('.navigation.pagination .page-numbers.current');
-						var curNum = current ? parseInt((current.textContent || '').replace(/\D/g, ''), 10) : NaN;
-						next = null;
-						if (!isNaN(curNum)) {
-							nums.forEach(function (a) {
-								var n = parseInt((a.textContent || '').replace(/\D/g, ''), 10);
-								if (n === curNum + 1) next = a;
-							});
-						}
+					var resolved = resolveNext(doc);
+					// Evita loop se o cache devolver a mesma pagina.
+					if (resolved && resolved === requested) {
+						resolved = '';
 					}
 
-					if (next && next.href && $items.length) {
-						nextUrl = next.href;
-					} else {
-						done = true;
-						nextUrl = '';
-						setStatus(cfg.end || '', false);
-						if (observer) observer.disconnect();
+					if (resolved) {
+						nextUrl = resolved;
+						setStatus('', false);
 						return;
 					}
 
-					setStatus('', false);
+					finish();
 				})
 				.catch(function () {
 					setStatus(cfg.error || 'Erro ao carregar.', false);
@@ -310,20 +364,24 @@ CSS
 				},
 				{ rootMargin: '320px 0px', threshold: 0 }
 			);
-			observer.observe($sentinel.get(0));
+			observer.observe(sentinel);
 		} else {
-			$(window).on('scroll.ccdBlogInfinite', function () {
-				var rect = $sentinel.get(0).getBoundingClientRect();
+			onScrollFallback = function () {
+				var rect = sentinel.getBoundingClientRect();
 				if (rect.top < window.innerHeight + 320) loadNext();
-			});
+			};
+			window.addEventListener('scroll', onScrollFallback, { passive: true });
 		}
 
 		teardown = function () {
 			if (observer) observer.disconnect();
-			$(window).off('scroll.ccdBlogInfinite');
-			$status.remove();
-			$sentinel.remove();
+			window.removeEventListener('scroll', onScrollFallback);
+			status.remove();
+			sentinel.remove();
 		};
+
+		// Exposto para testes / re-boot.
+		window.ccdBlogInfiniteLoadNext = loadNext;
 	}
 
 	window.ccdBlogInfiniteBoot = boot;
@@ -345,7 +403,7 @@ CSS
 		window.ccdBlogInfinite = cfg;
 		boot(cfg);
 	});
-})(jQuery);
+})();
 JS
 		);
 	},

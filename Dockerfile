@@ -24,6 +24,7 @@ COPY docker/apache-performance.conf /etc/apache2/conf-available/performance.conf
 
 # Core oficial (temas twenty* + WP atual) + conteudo do site
 COPY wordpress/wp-content/ /tmp/site-wp-content/
+COPY wordpress/.htaccess /tmp/site-htaccess
 COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
 COPY scripts/wp-boot.sh /usr/local/bin/wp-boot.sh
@@ -33,6 +34,8 @@ RUN set -eux; \
   cp -a /usr/src/wordpress/. /var/www/html/; \
   rm -rf /var/www/html/wp-content; \
   mv /tmp/site-wp-content /var/www/html/wp-content; \
+  cp -a /tmp/site-htaccess /var/www/html/.htaccess; \
+  rm -f /tmp/site-htaccess; \
   mkdir -p /var/www/html/wp-content/uploads; \
   # Remove artefatos locais / cache que nao devem ir para producao
   rm -rf \

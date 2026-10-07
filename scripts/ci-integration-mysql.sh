@@ -112,12 +112,18 @@ if [ "${ok}" != "1" ]; then
   exit 1
 fi
 
-echo "[ci] www Host → 301 apex (Apache)..."
+echo "[ci] www Host → 301 apex (Apache/.htaccess)..."
 headers=$(curl -sS -D - -o /dev/null --max-time 10 \
   -H "Host: www.convivendocomdiabetes.com" "${BASE}/")
 echo "${headers}" | head -n 15
-echo "${headers}" | grep -qiE '^HTTP/1\.[01] 301'
-echo "${headers}" | grep -qiE '^Location:[[:space:]]*https://convivendocomdiabetes.com/?'
+if ! echo "${headers}" | grep -qiE '^HTTP/1\.[01] 301'; then
+  echo "[ci] FAIL: esperado 301 para Host www"
+  exit 1
+fi
+if ! echo "${headers}" | grep -qiE '^Location:[[:space:]]*https://convivendocomdiabetes.com/?'; then
+  echo "[ci] FAIL: Location deveria ser https://convivendocomdiabetes.com/"
+  exit 1
+fi
 
 echo "[ci] /ccdhealth com Host www nao redireciona..."
 code=$(curl -sS -o /tmp/ci-health-www.body -w '%{http_code}' --max-time 10 \

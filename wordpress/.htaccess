@@ -8,6 +8,14 @@ ErrorDocument 500 /wp-content/ccd-http-error.php?code=500
 RewriteEngine On
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteBase /
+
+# Canonico apex: www → 301 (precisa estar no .htaccess; RewriteEngine aqui
+# sobrescreve regras do conf global apache-performance.conf).
+RewriteCond %{REQUEST_URI} !^/ccdhealth$ [NC]
+RewriteCond %{QUERY_STRING} !(^|&)action=ccd_clear_cache(&|$) [NC]
+RewriteCond %{HTTP_HOST} ^www\.convivendocomdiabetes\.com(?::\d+)?$ [NC]
+RewriteRule ^ https://convivendocomdiabetes.com%{REQUEST_URI} [R=301,L,QSA]
+
 RewriteRule ^index\.php$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

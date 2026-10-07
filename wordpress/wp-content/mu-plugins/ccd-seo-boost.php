@@ -1,20 +1,85 @@
 <?php
 /**
  * Plugin Name: CCD SEO Boost
- * Description: Meta da home, alts, breadcrumbs Yoast e posts relacionados.
+ * Description: Meta da home/páginas, titles de categorias, alts, breadcrumbs Yoast e posts relacionados.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_BOOST_VERSION = '1';
+const CCD_SEO_BOOST_VERSION = '2';
 
 /**
  * @return string
  */
 function ccd_seo_home_metadesc() {
 	return 'Blog da Bia Libonati sobre diabetes tipo 2: rotina, saúde e convivência no dia a dia. Conteúdos práticos e histórias reais.';
+}
+
+/**
+ * Metas manuais de páginas-chave (slug => description).
+ *
+ * @return array<string, string>
+ */
+function ccd_seo_page_metadescs() {
+	return array(
+		'blog'    => 'Artigos, receitas e histórias reais sobre diabetes tipo 2, rotina e saúde no blog Convivendo com Diabetes.',
+		'contato' => 'Fale com a Bia Libonati: dúvidas, parcerias e imprensa sobre diabetes tipo 2 e convivência com a condição.',
+	);
+}
+
+/**
+ * @param string $text Texto.
+ * @param int    $max  Limite.
+ * @return string
+ */
+function ccd_seo_boost_truncate( $text, $max = 155 ) {
+	$text = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( (string) $text ) ) );
+	if ( $text === '' ) {
+		return '';
+	}
+	$len = function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text );
+	if ( $len <= $max ) {
+		return $text;
+	}
+	$cut = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, $max ) : substr( $text, 0, $max );
+	$cut = preg_replace( '/\s+\S*$/u', '', $cut );
+	return rtrim( (string) $cut, " \t\n\r\0\x0B.,;:" ) . '…';
+}
+
+/**
+ * Title estável para arquivo de termo (evita "- Sitename" ou title de post errado).
+ *
+ * @param WP_Term $term Termo.
+ * @return string
+ */
+function ccd_seo_term_document_title( WP_Term $term ) {
+	$name = trim( $term->name );
+	if ( $name === '' ) {
+		return '';
+	}
+	return $name . ' - ' . get_bloginfo( 'name' );
+}
+
+/**
+ * Meta description para arquivo de termo.
+ *
+ * @param WP_Term $term Termo.
+ * @return string
+ */
+function ccd_seo_term_metadesc( WP_Term $term ) {
+	$from_term = trim( wp_strip_all_tags( term_description( $term->term_id, $term->taxonomy ) ) );
+	if ( $from_term !== '' ) {
+		return ccd_seo_boost_truncate( $from_term, 155 );
+	}
+	return ccd_seo_boost_truncate(
+		sprintf(
+			'Artigos e conteúdos sobre %s no Convivendo com Diabetes — educação e convivência com diabetes tipo 2.',
+			$term->name
+		),
+		155
+	);
 }
 
 /**
@@ -99,6 +164,110 @@ function ccd_seo_sync_yoast_description( $post_id, $desc ) {
 	}
 }
 
+/**
+ * Garante template Yoast de categoria com %%term_title%%.
+ *
+ * @return void
+ */
+function ccd_seo_fix_category_title_template() {
+	if ( ! class_exists( 'WPSEO_Options', false ) && ! get_option( 'wpseo_titles' ) ) {
+		return;
+	}
+
+	$titles = get_option( 'wpseo_titles', array() );
+	if ( ! is_array( $titles ) ) {
+		$titles = array();
+	}
+
+	$desired = '%%term_title%% %%sep%% %%sitename%%';
+	$changed = false;
+	foreach ( array( 'title-tax-category', 'title-tax-post_tag' ) as $key ) {
+		$current = isset( $titles[ $key ] ) ? (string) $titles[ $key ] : '';
+		// Template sem term_title (ou vazio) gera titles "- Sitename".
+		if ( $current === '' || stripos( $current, '%%term_title%%' ) === false ) {
+			$titles[ $key ] = $desired;
+			$changed        = true;
+		}
+	}
+
+	if ( $changed ) {
+		update_option( 'wpseo_titles', $titles );
+	}
+}
+
+/**
+ * Grava title/metadesc Yoast em cada termo de categoria.
+ *
+ * @return void
+ */
+function ccd_seo_sync_category_term_seo() {
+	$terms = get_terms(
+		array(
+			'taxonomy'   => 'category',
+			'hide_empty' => false,
+		)
+	);
+	if ( is_wp_error( $terms ) || ! is_array( $terms ) ) {
+		return;
+	}
+
+	global $wpdb;
+	$table  = $wpdb->prefix . 'yoast_indexable';
+	$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+
+	foreach ( $terms as $term ) {
+		if ( ! $term instanceof WP_Term ) {
+			continue;
+		}
+		$title = ccd_seo_term_document_title( $term );
+		$desc  = ccd_seo_term_metadesc( $term );
+		if ( $title === '' ) {
+			continue;
+		}
+
+		update_term_meta( $term->term_id, '_yoast_wpseo_title', $title );
+		update_term_meta( $term->term_id, '_yoast_wpseo_metadesc', $desc );
+
+		if ( $exists ) {
+			$wpdb->update(
+				$table,
+				array(
+					'title'       => $title,
+					'description' => $desc,
+					'updated_at'  => current_time( 'mysql' ),
+				),
+				array(
+					'object_type' => 'term',
+					'object_id'   => (int) $term->term_id,
+				),
+				array( '%s', '%s', '%s' ),
+				array( '%s', '%d' )
+			);
+		}
+	}
+}
+
+/**
+ * Aplica metas das páginas blog/contato.
+ *
+ * @return void
+ */
+function ccd_seo_sync_key_page_metadescs() {
+	$map = ccd_seo_page_metadescs();
+
+	$blog_id = (int) get_option( 'page_for_posts' );
+	if ( $blog_id > 0 && isset( $map['blog'] ) ) {
+		ccd_seo_sync_yoast_description( $blog_id, $map['blog'] );
+	}
+
+	foreach ( $map as $slug => $desc ) {
+		$page = get_page_by_path( $slug );
+		if ( $page instanceof WP_Post ) {
+			ccd_seo_sync_yoast_description( (int) $page->ID, $desc );
+		}
+	}
+}
+
 function ccd_seo_boost_apply() {
 	if ( get_option( 'ccd_seo_boost' ) === CCD_SEO_BOOST_VERSION ) {
 		return;
@@ -134,6 +303,10 @@ function ccd_seo_boost_apply() {
 	update_post_meta( 2726, '_wp_attachment_image_alt', 'Beatriz Libonati, autora do blog Convivendo com Diabetes' );
 	update_post_meta( 2937, '_wp_attachment_image_alt', 'Bia Libonati no LinkedIn' );
 
+	ccd_seo_fix_category_title_template();
+	ccd_seo_sync_category_term_seo();
+	ccd_seo_sync_key_page_metadescs();
+
 	update_option( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION, false );
 
 	if ( function_exists( 'ccd_page_cache_purge_all' ) ) {
@@ -142,6 +315,76 @@ function ccd_seo_boost_apply() {
 }
 
 add_action( 'init', 'ccd_seo_boost_apply', 6 );
+
+/**
+ * Runtime: titles de categoria/tag nunca ficam vazios ou com title de post.
+ *
+ * @param string $title Title Yoast.
+ * @return string
+ */
+function ccd_seo_filter_term_title( $title ) {
+	if ( ! is_category() && ! is_tag() && ! is_tax() ) {
+		return $title;
+	}
+	$term = get_queried_object();
+	if ( ! $term instanceof WP_Term ) {
+		return $title;
+	}
+	$fixed = ccd_seo_term_document_title( $term );
+	return $fixed !== '' ? $fixed : $title;
+}
+
+add_filter( 'wpseo_title', 'ccd_seo_filter_term_title', 20 );
+add_filter( 'wpseo_opengraph_title', 'ccd_seo_filter_term_title', 20 );
+
+/**
+ * Runtime: metadesc de arquivo de termo (evita snippet de post errado).
+ *
+ * @param string $desc Meta description.
+ * @return string
+ */
+function ccd_seo_filter_term_metadesc( $desc ) {
+	if ( ! is_category() && ! is_tag() && ! is_tax() ) {
+		return $desc;
+	}
+	$term = get_queried_object();
+	if ( ! $term instanceof WP_Term ) {
+		return $desc;
+	}
+	return ccd_seo_term_metadesc( $term );
+}
+
+add_filter( 'wpseo_metadesc', 'ccd_seo_filter_term_metadesc', 20 );
+add_filter( 'wpseo_opengraph_desc', 'ccd_seo_filter_term_metadesc', 20 );
+
+/**
+ * Runtime: metas de /blog/ e /contato/ (cobre shortcode vazando no snippet).
+ *
+ * @param string $desc Meta description.
+ * @return string
+ */
+function ccd_seo_filter_key_page_metadesc( $desc ) {
+	$map = ccd_seo_page_metadescs();
+
+	if ( is_home() && ! is_front_page() && isset( $map['blog'] ) ) {
+		return $map['blog'];
+	}
+
+	if ( is_page() ) {
+		$page = get_queried_object();
+		if ( $page instanceof WP_Post ) {
+			$slug = $page->post_name;
+			if ( isset( $map[ $slug ] ) ) {
+				return $map[ $slug ];
+			}
+		}
+	}
+
+	return $desc;
+}
+
+add_filter( 'wpseo_metadesc', 'ccd_seo_filter_key_page_metadesc', 25 );
+add_filter( 'wpseo_opengraph_desc', 'ccd_seo_filter_key_page_metadesc', 25 );
 
 /**
  * Breadcrumbs Yoast abaixo do hero (exceto home).

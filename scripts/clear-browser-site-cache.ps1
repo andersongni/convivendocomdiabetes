@@ -16,7 +16,6 @@ $Domains = @(
   "localhost",
   "127.0.0.1",
   "convivendocomdiabetes-production.up.railway.app",
-  "convivendocomdiabetes-staging.up.railway.app",
   "convivendocomdiabetes.com.br",
   "www.convivendocomdiabetes.com.br",
   "convivendocomdiabetes.com",

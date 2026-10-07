@@ -3,13 +3,12 @@
 ## Fluxo
 
 ```
-push staging → CI → Railway staging (checkSuites)
-push/PR main → CI → Railway production (checkSuites)
-                ↓
-         Smoke production (agenda / manual / repository_dispatch)
+localhost → push/PR main → CI → Railway production (checkSuites)
+                              ↓
+                       Smoke production (agenda / manual / repository_dispatch)
 ```
 
-Detalhes do environment staging: [STAGING.md](./STAGING.md).
+Validação pré-produção é no **localhost** (`docker compose`, `http://localhost:8080`). Não há environment staging no pipeline.
 
 O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait for CI do Railway esperaria o smoke, e o smoke esperaria o deploy → deadlock.
 

@@ -11,7 +11,7 @@ import {
 
 export default defineRailway(() => {
   const MySQL = mysql("MySQL", { region: "sfo" });
-  // Volume novo (staging): chmod + entrypoint inicializam datadir.
+  // Volume novo: chmod + entrypoint inicializam datadir.
   // Volume ja populado (production): entrypoint detecta e sobe o mysqld.
   MySQL.deploy = {
     startCommand:

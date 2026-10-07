@@ -71,13 +71,12 @@ Parar:
 docker compose down
 ```
 
-## Staging e produção (Railway)
+## Produção (Railway)
 
-1. Push na branch `staging` → CI → Railway **staging** (`https://convivendocomdiabetes-staging.up.railway.app`) — ver [docs/STAGING.md](./docs/STAGING.md).
-2. Merge/`push` na `main` → CI → Railway **production** (Wait for CI).
-3. Smoke de produção (cron 6h / manual / `repository_dispatch`): apex + 301 de `www` — ver [docs/CI.md](./docs/CI.md).
-4. MySQL + volume de uploads **por environment** (staging tem volumes próprios).
-5. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
+1. Validar no localhost (`docker compose`, `http://localhost:8080`).
+2. Merge/`push` na `main` → CI → Railway **production** (Wait for CI) — ver [docs/CI.md](./docs/CI.md).
+3. Smoke de produção (cron 6h / manual / `repository_dispatch`): apex + 301 de `www`.
+4. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
 
 Healthcheck: `GET /ccdhealth` → 200 text/plain. Produção canônica: `https://convivendocomdiabetes.com`.
 

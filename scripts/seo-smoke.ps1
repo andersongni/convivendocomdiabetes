@@ -45,6 +45,50 @@ $emptyAlt = ([regex]::Matches($html, '(?i)\balt=["'']\s*["'']')).Count
 Check "home sem alt vazio" ($emptyAlt -eq 0) "empty=$emptyAlt"
 Check "Organization/Person schema" ($html -match "ccd-eeat-schema" -or $html -match '"@type"\s*:\s*"Organization"')
 
+function Get-HtmlTitle([string]$pageHtml) {
+  if ($pageHtml -match '(?s)<title[^>]*>(.*?)</title>') {
+    return (($Matches[1] -replace '<[^>]+>', '').Trim())
+  }
+  return ""
+}
+
+function Get-HtmlMetaDescription([string]$pageHtml) {
+  if ($pageHtml -match '(?i)<meta[^>]+name=["'']description["''][^>]+content=["'']([^"'']*)["'']') {
+    return $Matches[1].Trim()
+  }
+  if ($pageHtml -match '(?i)<meta[^>]+content=["'']([^"'']*)["''][^>]+name=["'']description["'']') {
+    return $Matches[1].Trim()
+  }
+  return ""
+}
+
+$catPath = "$env:TEMP\ccd-seo-smoke-cat.html"
+$code = curl.exe -sS -o $catPath -w "%{http_code}" --max-time 30 "$BaseUrl/diabetes/"
+$catHtml = if (Test-Path $catPath) { Get-Content $catPath -Raw } else { "" }
+$catTitle = Get-HtmlTitle $catHtml
+Check "categoria /diabetes/ HTTP" ($code -eq "200") "status=$code"
+Check "categoria title com nome" (
+  $catTitle -match '(?i)diabetes' -and $catTitle -notmatch '^\s*-\s*'
+) "title=$catTitle"
+
+$blogPath = "$env:TEMP\ccd-seo-smoke-blog.html"
+$code = curl.exe -sS -o $blogPath -w "%{http_code}" --max-time 30 "$BaseUrl/blog/"
+$blogHtml = if (Test-Path $blogPath) { Get-Content $blogPath -Raw } else { "" }
+$blogDesc = Get-HtmlMetaDescription $blogHtml
+Check "blog HTTP" ($code -eq "200") "status=$code"
+Check "blog meta util" (
+  $blogDesc.Length -ge 70 -and $blogDesc -notmatch '(?i)^Blog\s*[—\-]'
+) "len=$($blogDesc.Length)"
+
+$contatoPath = "$env:TEMP\ccd-seo-smoke-contato.html"
+$code = curl.exe -sS -o $contatoPath -w "%{http_code}" --max-time 30 "$BaseUrl/contato/"
+$contatoHtml = if (Test-Path $contatoPath) { Get-Content $contatoPath -Raw } else { "" }
+$contatoDesc = Get-HtmlMetaDescription $contatoHtml
+Check "contato HTTP" ($code -eq "200") "status=$code"
+Check "contato meta sem shortcode" (
+  $contatoDesc.Length -ge 70 -and $contatoDesc -notmatch '\[wpforms' -and $contatoDesc -notmatch '&nbsp;'
+) "len=$($contatoDesc.Length)"
+
 Write-Host ""
 if ($fail -gt 0) {
   Write-Host "Falhou: $fail check(s)" -ForegroundColor Red

@@ -10,7 +10,7 @@ Produção canônica: `https://convivendocomdiabetes.com`
 | Yoast SEO **28.6** | `wordpress/wp-content/plugins/wordpress-seo/` |
 | Sitemap/robots estáveis | `ccd-sitemap-fix.php` |
 | Meta/focus/alts no acervo + posts novos | `ccd-seo-content.php` |
-| Meta da home + breadcrumbs + related | `ccd-seo-boost.php` |
+| Meta da home + `/blog/` + `/contato/` + titles de categorias + breadcrumbs + related | `ccd-seo-boost.php` |
 | E-E-A-T (disclaimer, autor, datas, Organization/Person) | `ccd-eeat.php` |
 | Lazy-load scoped / prev-next / paginação crawlável | `ccd-frontend-fixes`, `ccd-a11y`, `ccd-blog-infinite-scroll` |
 | Smoke de medição (local/URL) | `scripts/seo-smoke.ps1` |
@@ -85,6 +85,35 @@ O mu-plugin preenche gaps, mas qualidade “nota 10” ainda pede:
 - Revisar focus keyphrase nos posts estratégicos (intenção de busca).
 - Atualizar posts de saúde desatualizados (data visível + conteúdo).
 - Manter `/sobre/` e canais oficiais alinhados (Instagram/LinkedIn).
+
+## Top 20 URLs para reescrever primeiro
+
+Prioridade = intenção de busca + meta fraca + frescor (YMYL). Para cada URL: meta description manual (120–155 chars), focus keyphrase, revisão factual e data “Atualizado em”.
+
+| # | URL | Por quê |
+|---|-----|---------|
+| 1 | `/diabetes/` | Arquivo-pilar; title/snippet já vazaram errados no Google |
+| 2 | `/diabetes/diabetes-tipo-1-e-tipo-2/` | Alta intenção informacional |
+| 3 | `/diabetes/alimentacao/` | Cluster de comida + diabetes |
+| 4 | `/receitas/` | Hub de receitas; snippet genérico de post antigo |
+| 5 | `/blog/` | Listagem principal (meta já coberta no código; revisar intro) |
+| 6 | `/contato/` | Meta com shortcode (já coberta no código; revisar corpo) |
+| 7 | `/diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico/` | Pillar “o que é / diagnóstico” |
+| 8 | `/diabetes-tipo-2-tem-cura-saiba-mais-sobre-os-tratamentos-disponiveis/` | Query YMYL forte; atualizar tratamentos |
+| 9 | `/hipoglicemia/` | Termo de cabeça curto |
+| 10 | `/quantas-vezes-por-dia-devo-medir-minha-glicemia/` | Intenção prática / how-to |
+| 11 | `/jejum-intermitente-e-diabetes-e-permitido-ou-nao/` | Query em alta; conteúdo sensível |
+| 12 | `/a-logica-do-cuidado-no-tratamento-de-diabetes/` | Tratamento / cuidado contínuo |
+| 13 | `/novidades-no-tratamento-do-diabetes-falta-pouco-para-o-pancreas-artificial/` | Desatualizado (ATTD 2017); reescrever ou arquivar |
+| 14 | `/brasileiros-mais-proximos-do-pancreas-artificial/` | Tecnologia; checar datas/produtos |
+| 15 | `/entenda-como-o-diabetes-pode-afetar-a-visao/` | Complicações (YMYL) |
+| 16 | `/metade-dos-diabeticos-morre-devido-a-infarto-ou-avc-mas-apenas-3-temem-essa-complicacao/` | CV + diabetes; atualizar fontes |
+| 17 | `/viagens-e-diabetes-um-guia-para-se-dar-bem-quando-estiver-longe-de-casa/` | Guia evergreen |
+| 18 | `/clipping/` | Meta com `&nbsp;` / pouco útil |
+| 19 | `/resenha-de-livros/` | Meta genérica igual ao title |
+| 20 | `/eventos-e-campanhas/` | Meta genérica; alinhar com arquivo de categoria |
+
+Depois dessas 20: receitas com meta começando em “Ingredientes…” (ex.: cupcake de maçã, bolo red velvet, bolo de fubá).
 
 ## Host canônico
 

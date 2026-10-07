@@ -137,6 +137,20 @@ Check "hipoglicemia meta util" (
   $hipDesc.Length -ge 70 -and $hipDesc -match '(?i)hipoglicemia' -and $hipDesc -notmatch '(?i)^Tenho altos'
 ) "len=$($hipDesc.Length)"
 
+foreach ($pillar in @('alimentacao-e-diabetes-tipo-2','sensor-de-glicose-como-funciona','o-que-e-hba1c-hemoglobina-glicada')) {
+  $pPath = "$env:TEMP\ccd-seo-smoke-$pillar.html"
+  $code = curl.exe -sS -o $pPath -w "%{http_code}" --max-time 30 "$BaseUrl/$pillar/"
+  $pHtml = if (Test-Path $pPath) { Get-Content $pPath -Raw } else { "" }
+  $hasLinks = $pHtml -match 'ccd-editorial-links' -or $pHtml -match 'Leia também'
+  Check "pilar $pillar HTTP" ($code -eq "200") "status=$code"
+  Check "pilar $pillar interlinking" $hasLinks "links internos"
+}
+
+$hubHtmlPath = "$env:TEMP\ccd-seo-smoke-hub.html"
+curl.exe -sS -o $hubHtmlPath --max-time 30 "$BaseUrl/diabetes/" | Out-Null
+$hubHtml = if (Test-Path $hubHtmlPath) { Get-Content $hubHtmlPath -Raw } else { "" }
+Check "hub /diabetes/ pilares" ($hubHtml -match 'ccd-hub-pillars' -or $hubHtml -match 'Pilares para começar') "nav pilares"
+
 Write-Host ""
 if ($fail -gt 0) {
   Write-Host "Falhou: $fail check(s)" -ForegroundColor Red

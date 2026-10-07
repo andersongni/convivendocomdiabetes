@@ -62,6 +62,9 @@ function ccd_seo_post_metadescs() {
 		'cupcake-de-maca-diet-vai-no-microondas' => 'Receita de cupcake de maçã diet no microondas: opção prática e sem açúcar para o dia a dia.',
 		'bolo-red-velvet-diet-com-recheio-de-creme-de-cream-cheese' => 'Bolo red velvet diet com creme de cream cheese: receita sem açúcar para celebrar sem culpa.',
 		'bolo-de-fuba-diet-sem-farinha' => 'Bolo de fubá diet sem farinha de trigo: receita simples e adequada para quem evita açúcar.',
+		'alimentacao-e-diabetes-tipo-2' => 'Alimentação e diabetes tipo 2: prato, carboidratos, horários e hábitos sustentáveis para o cotidiano.',
+		'sensor-de-glicose-como-funciona' => 'Sensor de glicose (CGM/FGM): como funciona, o que mostra e como usar os dados no dia a dia.',
+		'o-que-e-hba1c-hemoglobina-glicada' => 'HbA1c (hemoglobina glicada): o que mede, com que frequência repetir e como usar o resultado no cuidado.',
 	);
 }
 

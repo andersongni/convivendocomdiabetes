@@ -16,7 +16,8 @@ add_action(
 		}
 
 		$handle = 'ccd-soft-nav';
-		wp_register_script( $handle, false, array(), '1.1.1', true );
+		// 1.2.0: sem interceptacao de clique (SPA removida; ver Cache-Control HTML).
+		wp_register_script( $handle, false, array(), '1.2.0', true );
 		wp_enqueue_script( $handle );
 		wp_add_inline_script(
 			$handle,

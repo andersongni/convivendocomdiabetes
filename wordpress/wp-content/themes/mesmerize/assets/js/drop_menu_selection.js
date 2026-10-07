@@ -170,7 +170,7 @@
                         if (!anchor || !$('#' + anchor).length) {
                             return;
                         }
-                    }content: "\f0da"
+                    }
                     deselectItems($menu);
                 } else {
                     selectItem($menu, $item);

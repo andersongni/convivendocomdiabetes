@@ -39,15 +39,6 @@ function ccd_pt_br_map() {
 	);
 }
 
-/** Remove o texto/logo "Powered by WordPress" da tela de login. */
-add_filter( 'login_headertext', '__return_empty_string' );
-add_action(
-	'login_enqueue_scripts',
-	static function () {
-		echo '<style>.login h1.wp-login-logo,.login h1 a{display:none!important;}</style>';
-	}
-);
-
 /**
  * @param string $translation Translated text.
  * @param string $text        Original text.

@@ -4,6 +4,8 @@
 !.env.example
 !.env.railway.example
 exposed.secrets.md
+secrets/*
+!secrets/.gitkeep
 wp-config.php
 wordpress/wp-config.php
 wordpress/wp-config-local.php

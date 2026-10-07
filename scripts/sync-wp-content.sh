@@ -1,5 +1,6 @@
 #!/bin/bash
 # Copia plugins/themes do bind mount (Windows) para o volume Linux do container.
+# mu-plugins: sempre ressincroniza (mudam com frequencia e sao leves).
 set -euo pipefail
 
 HOST_CONTENT="${HOST_WP_CONTENT:-/host-wp-content}"
@@ -11,7 +12,7 @@ if [ ! -d "$HOST_CONTENT" ]; then
   exit 0
 fi
 
-needs_sync() {
+needs_full_sync() {
   case "$FORCE" in
     1|true|TRUE|yes|YES|always|ALWAYS) return 0 ;;
   esac
@@ -39,30 +40,49 @@ sync_tree() {
   tar -C "$HOST_CONTENT/$name" -cf - . | tar -C "$DEST/$name" -xf -
 }
 
-if ! needs_sync; then
-  echo "[local] volume ja sincronizado (defina SYNC_WP_CONTENT=1 para forcar)"
-  exit 0
-fi
+# mu-plugins sempre: evita hero/CSS/PHP antigo apos editar no host sem rebuild.
+sync_mu_plugins() {
+  if [ ! -d "$HOST_CONTENT/mu-plugins" ]; then
+    return 0
+  fi
+  local stamp_host stamp_dest
+  stamp_host="$(find "$HOST_CONTENT/mu-plugins" -type f -printf '%T@ %p\n' 2>/dev/null | sort | md5sum | awk '{print $1}')"
+  stamp_dest=""
+  if [ -f "$DEST/.mu-plugins-stamp" ]; then
+    stamp_dest="$(cat "$DEST/.mu-plugins-stamp" 2>/dev/null || true)"
+  fi
+  if [ -n "$stamp_host" ] && [ "$stamp_host" = "$stamp_dest" ] && [ -d "$DEST/mu-plugins" ]; then
+    echo "[local] mu-plugins ja atualizados"
+    return 0
+  fi
+  sync_tree "mu-plugins"
+  if [ -d "$DEST/mu-plugins" ]; then
+    chown -R www-data:www-data "$DEST/mu-plugins" 2>/dev/null || true
+  fi
+  printf '%s\n' "$stamp_host" > "$DEST/.mu-plugins-stamp"
+}
 
-echo "[local] sincronizando wp-content do host -> volume Docker (pode demorar na 1a vez)..."
 mkdir -p "$DEST"
 
-for tree in plugins themes mu-plugins languages; do
-  sync_tree "$tree"
-done
+if needs_full_sync; then
+  echo "[local] sincronizando wp-content do host -> volume Docker (pode demorar na 1a vez)..."
+  for tree in plugins themes languages; do
+    sync_tree "$tree"
+  done
 
-for f in index.php .htaccess advanced-cache.php object-cache.php ccd-http-error.php ccd-http-error-404-template.php ccd-env-urls-lib.php; do
-  if [ -f "$HOST_CONTENT/$f" ]; then
-    cp -a "$HOST_CONTENT/$f" "$DEST/$f"
-  fi
-done
+  for f in index.php .htaccess advanced-cache.php object-cache.php ccd-http-error.php ccd-http-error-404-template.php ccd-env-urls-lib.php; do
+    if [ -f "$HOST_CONTENT/$f" ]; then
+      cp -a "$HOST_CONTENT/$f" "$DEST/$f"
+    fi
+  done
 
-# uploads fica no bind mount (overlay); nao copiar
-
-date -u +%Y-%m-%dT%H:%M:%SZ > "$DEST/.synced-from-host"
-chown -R www-data:www-data "$DEST/plugins" "$DEST/themes" 2>/dev/null || true
-if [ -d "$DEST/mu-plugins" ]; then
-  chown -R www-data:www-data "$DEST/mu-plugins" 2>/dev/null || true
+  date -u +%Y-%m-%dT%H:%M:%SZ > "$DEST/.synced-from-host"
+  chown -R www-data:www-data "$DEST/plugins" "$DEST/themes" 2>/dev/null || true
+  echo "[local] sync completo (plugins/themes/languages)"
+else
+  echo "[local] volume ja sincronizado (SYNC_WP_CONTENT=1 forca plugins/themes)"
 fi
 
-echo "[local] sync completo"
+sync_mu_plugins
+
+echo "[local] sync OK"

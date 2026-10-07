@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 const CCD_ADMIN_BRAND_ASSETS = 'mu-plugins/assets/admin';
 
 /** Bump ao alterar CSS/comportamento (cache bust fallback). */
-const CCD_ADMIN_BRAND_VER = '2.0.0';
+const CCD_ADMIN_BRAND_VER = '2.1.0';
 
 /**
  * URL de um asset em assets/admin/.
@@ -125,7 +125,7 @@ add_action(
 	}
 );
 
-/** Tipografia + CSS do admin. */
+/** Tipografia + CSS do admin + flyout de submenus a direita. */
 add_action(
 	'admin_enqueue_scripts',
 	static function () {
@@ -138,6 +138,13 @@ add_action(
 		ccd_admin_brand_register_styles();
 		wp_enqueue_style( 'ccd-admin-tokens' );
 		wp_enqueue_style( 'ccd-admin-brand' );
+		wp_enqueue_script(
+			'ccd-admin-menu-flyout',
+			ccd_admin_brand_asset_url( 'ccd-admin-menu-flyout.js' ),
+			array( 'jquery' ),
+			ccd_admin_brand_asset_ver( 'ccd-admin-menu-flyout.js' ),
+			true
+		);
 	},
 	100
 );

@@ -5,8 +5,8 @@
 | **`migration/`** | Migração local → Railway (dump, mídia, diagnósticos). Ver [migration/README.md](./migration/README.md). |
 | `prod-entrypoint.sh` | Entrypoint do container WordPress no Railway |
 | `wp-boot.sh` | Boot WP (config, tema, URLs, permissões de uploads) |
-| `local-entrypoint.sh` / `sync-wp-content.sh` | Local rápido: copia plugins/themes do host → volume Linux |
-| `sync-local-wp-content.ps1` | Força o re-sync local após editar plugins/temas no host |
+| `local-entrypoint.sh` / `sync-wp-content.sh` | Local: plugins/themes no volume; **mu-plugins sempre** no boot |
+| `sync-local-wp-content.ps1` | Força re-sync imediato (sem restart) após editar no host |
 | `pull-wp-content-from-container.ps1` | Volume Docker → host/git (manual; automático via mu-plugin) |
 | `ccd-persist-to-host.sh` | Usado pelo container apos update no WP Admin |
 | [docs/UPDATES.md](../docs/UPDATES.md) | Política: atualizar local e promover via git/IaC |
@@ -22,6 +22,7 @@ O `docker-compose.yml` mantém `plugins`/`themes` num volume Docker (filesystem 
 
 ```powershell
 docker compose up -d
-# Depois de mudar plugin/tema no disco:
+# mu-plugins: atualizam sozinhos no próximo restart do WordPress.
+# Depois de mudar plugin/tema (ou para aplicar mu-plugin agora, sem restart):
 .\scripts\sync-local-wp-content.ps1
 ```

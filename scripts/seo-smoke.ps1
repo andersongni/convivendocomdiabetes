@@ -72,11 +72,17 @@ Check "categoria /diabetes/ nao vira post" (-not $catIsPostRedirect) "sem 301 pa
 Check "categoria title com nome" (
   $catTitle -match '(?i)diabetes' -and $catTitle -notmatch '^\s*-\s*' -and $catTitle -notmatch '(?i)diagnostico'
 ) "title=$catTitle"
-Check "categoria hero sem intro" (
-  $catHtml -notmatch 'ccd-category-intro' -and
-  $catHtml -notmatch '(?is)hero-title[^>]*>\s*Diabetes\s*</h1>\s*<div[^>]*ccd-category' -and
-  $catHtml -notmatch '(?is)header-wrapper[\s\S]{0,2500}Conte[uú]dos sobre diabetes tipo'
-) "sem meta no banner"
+$catHeroChunk = ""
+if ($catHtml -match '(?s)header-wrapper.*?header-separator') {
+  $catHeroChunk = $Matches[0]
+}
+Check "categoria hero limpo (titulo)" (
+  $catHeroChunk -match 'hero-title' -and
+  $catHeroChunk -notmatch 'ccd-hub-pillars' -and
+  $catHeroChunk -notmatch 'ccd-category-intro' -and
+  $catHeroChunk -notmatch 'Pilares para come' -and
+  $catHeroChunk -notmatch 'Conte[uú]dos sobre diabetes tipo'
+) "banner so com titulo"
 
 $catBaseHeaders = (curl.exe -sSI --max-time 20 "$BaseUrl/category/diabetes/" | Out-String)
 $catBaseLoc = ""

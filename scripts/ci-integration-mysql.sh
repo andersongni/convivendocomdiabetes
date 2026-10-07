@@ -86,7 +86,7 @@ done
 echo "[ci] /login (boot + rewrite)..."
 ok=0
 for i in $(seq 1 60); do
-  code=$(curl -sS -o /tmp/ci-login.html -w '%{http_code}' --max-time 10 \
+  code=$(curl -sS -D /tmp/ci-login.hdr -o /tmp/ci-login.html -w '%{http_code}' --max-time 10 \
     "${BASE}/login" || echo 000)
   if [ "${code}" = "200" ] && grep -Eqi 'loginform|name="log"|wp-submit' /tmp/ci-login.html; then
     echo "[ci] /login => ${code}"
@@ -94,11 +94,23 @@ for i in $(seq 1 60); do
     break
   fi
   if [ $((i % 10)) -eq 0 ]; then
-    echo "[ci] login attempt ${i}: HTTP ${code}"
+    loc=$(tr -d '\r' </tmp/ci-login.hdr | awk 'tolower($1)=="location:"{print $2; exit}')
+    echo "[ci] login attempt ${i}: HTTP ${code} Location=${loc:-}"
+    docker logs "${WP_NAME}" 2>&1 | tail -n 30 || true
   fi
   sleep 2
 done
-[ "${ok}" = "1" ]
+if [ "${ok}" != "1" ]; then
+  echo "[ci] FAIL /login"
+  echo "---- headers ----"
+  cat /tmp/ci-login.hdr 2>/dev/null || true
+  echo "---- body (head) ----"
+  head -c 500 /tmp/ci-login.html 2>/dev/null || true
+  echo
+  echo "---- wp logs ----"
+  docker logs "${WP_NAME}" 2>&1 | tail -n 80 || true
+  exit 1
+fi
 
 echo "[ci] www Host → 301 apex (Apache)..."
 headers=$(curl -sS -D - -o /dev/null --max-time 10 \

@@ -67,14 +67,45 @@ function ccd_forbid_wp_login_php()
 	wp_die(esc_html__('Not Found', 'default'), esc_html__('Not Found', 'default'), array('response' => 404));
 }
 
-add_action('init', static function () {
-	add_rewrite_rule('^' . CCD_LOGIN_SLUG . '/?$', 'index.php?ccd_login=1', 'top');
+/**
+ * Path da requisição sem query string / barra final (ex.: /login).
+ *
+ * @return string
+ */
+function ccd_login_request_path()
+{
+	$uri  = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+	$path = (string) wp_parse_url($uri, PHP_URL_PATH);
+	return untrailingslashit($path);
+}
 
-	if (get_option('ccd_login_rewrite_version') !== '3') {
-		flush_rewrite_rules(false);
-		update_option('ccd_login_rewrite_version', '3', false);
-	}
-}, 5);
+/**
+ * Serve wp-login.php em /login sem depender de pretty permalinks
+ * (install fresco no CI tem permalink_structure vazio).
+ */
+function ccd_serve_login_screen()
+{
+	nocache_headers();
+	require ABSPATH . 'wp-login.php';
+	exit;
+}
+
+add_action(
+	'init',
+	static function () {
+		if (ccd_login_request_path() === '/' . CCD_LOGIN_SLUG) {
+			ccd_serve_login_screen();
+		}
+
+		add_rewrite_rule('^' . CCD_LOGIN_SLUG . '/?$', 'index.php?ccd_login=1', 'top');
+
+		if (get_option('ccd_login_rewrite_version') !== '4') {
+			flush_rewrite_rules(false);
+			update_option('ccd_login_rewrite_version', '4', false);
+		}
+	},
+	0
+);
 
 add_filter('query_vars', static function ($vars) {
 	$vars[] = 'ccd_login';
@@ -86,9 +117,7 @@ add_action('parse_request', static function ($wp) {
 		return;
 	}
 
-	nocache_headers();
-	require ABSPATH . 'wp-login.php';
-	exit;
+	ccd_serve_login_screen();
 });
 
 // Bloqueia acesso HTTP direto a wp-login.php (o include via /login não cai aqui).

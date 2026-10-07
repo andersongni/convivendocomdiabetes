@@ -125,8 +125,17 @@ if ! wp core is-installed --allow-root --path=/var/www/html >/dev/null 2>&1; the
   ADMIN_ID="$(wp user get "${WP_ADMIN_USER:-admin}" --field=ID --allow-root --path=/var/www/html)"
   wp user meta update "${ADMIN_ID}" ccd_force_password_change 1 --allow-root --path=/var/www/html
   echo "[wp] Admin criado: user=${WP_ADMIN_USER:-admin} (troca de senha obrigatoria no primeiro acesso)"
+
+  # Pretty permalinks: /login e rotas amigaveis (install fresco / CI).
+  wp rewrite structure '/%postname%/' --hard --allow-root --path=/var/www/html || true
 else
   echo "[wp] WordPress ja instalado"
+  # Garante permalinks se o banco veio sem estrutura (ex.: CI reutilizado).
+  PERMALINK="$(wp option get permalink_structure --allow-root --path=/var/www/html 2>/dev/null || true)"
+  if [ -z "$PERMALINK" ]; then
+    echo "[wp] permalink_structure vazio — aplicando /%postname%/"
+    wp rewrite structure '/%postname%/' --hard --allow-root --path=/var/www/html || true
+  fi
 fi
 
 # Mantem o tema ativo do dump (empowerwp/mesmerize); so ativa fallback se ele nao existir

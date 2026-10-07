@@ -109,14 +109,17 @@ class WPSEO_Import_RankMath extends WPSEO_Plugin_Importer {
 
 	/**
 	 * RankMath stores robots meta quite differently, so we have to parse it out.
+	 *
+	 * @return void
 	 */
 	private function import_meta_robots() {
 		global $wpdb;
 		$post_metas = $wpdb->get_results( "SELECT post_id, meta_value FROM $wpdb->postmeta WHERE meta_key = 'rank_math_robots'" );
 		foreach ( $post_metas as $post_meta ) {
-			$robots_values = unserialize( $post_meta->meta_value );
+			// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions -- Reason: We can't control the form in which Rankmath sends the data.
+			$robots_values = unserialize( $post_meta->meta_value, [ 'allowed_classes' => false ] );
 			foreach ( [ 'noindex', 'nofollow' ] as $directive ) {
-				$directive_key = array_search( $directive, $robots_values );
+				$directive_key = array_search( $directive, $robots_values, true );
 				if ( $directive_key !== false ) {
 					update_post_meta( $post_meta->post_id, '_yoast_wpseo_meta-robots-' . $directive, 1 );
 					unset( $robots_values[ $directive_key ] );
@@ -131,6 +134,8 @@ class WPSEO_Import_RankMath extends WPSEO_Plugin_Importer {
 
 	/**
 	 * Imports some of the RankMath settings.
+	 *
+	 * @return void
 	 */
 	private function import_settings() {
 		$settings = [

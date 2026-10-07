@@ -25,12 +25,12 @@ class WPSEO_Admin_Recommended_Replace_Vars {
 		'custom_post_type'         => [ 'sitename', 'title', 'sep' ],
 
 		// Taxonomies.
-		'category'                 => [ 'sitename', 'term_title', 'sep' ],
+		'category'                 => [ 'sitename', 'term_title', 'sep', 'term_hierarchy' ],
 		'post_tag'                 => [ 'sitename', 'term_title', 'sep' ],
 		'post_format'              => [ 'sitename', 'term_title', 'sep', 'page' ],
 
 		// Custom taxonomy.
-		'term-in-custom-taxomomy'  => [ 'sitename', 'term_title', 'sep' ],
+		'term-in-custom-taxonomy'  => [ 'sitename', 'term_title', 'sep', 'term_hierarchy' ],
 
 		// Settings - archive pages.
 		'author_archive'           => [ 'sitename', 'title', 'sep', 'page' ],
@@ -55,7 +55,7 @@ class WPSEO_Admin_Recommended_Replace_Vars {
 			return $taxonomy;
 		}
 
-		return 'term-in-custom-taxomomy';
+		return 'term-in-custom-taxonomy';
 	}
 
 	/**
@@ -149,7 +149,7 @@ class WPSEO_Admin_Recommended_Replace_Vars {
 		/**
 		 * Filter: Adds the possibility to add extra recommended replacement variables.
 		 *
-		 * @api array $additional_replace_vars Empty array to add the replacevars to.
+		 * @param array $additional_replace_vars Empty array to add the replacevars to.
 		 */
 		$recommended_replace_vars = apply_filters( 'wpseo_recommended_replace_vars', $this->recommended_replace_vars );
 

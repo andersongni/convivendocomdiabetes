@@ -18,14 +18,14 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 	 *
 	 * @var string
 	 */
-	const PAGE_IDENTIFIER = 'wpseo_myyoast_proxy';
+	public const PAGE_IDENTIFIER = 'wpseo_myyoast_proxy';
 
 	/**
 	 * The cache control's max age. Used in the header of a successful proxy response.
 	 *
 	 * @var int
 	 */
-	const CACHE_CONTROL_MAX_AGE = DAY_IN_SECONDS;
+	public const CACHE_CONTROL_MAX_AGE = DAY_IN_SECONDS;
 
 	/**
 	 * Registers the hooks when the user is on the right page.
@@ -66,7 +66,7 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 		$this->render_proxy_page();
 
 		// Prevent the WordPress UI from loading.
-		exit;
+		exit();
 	}
 
 	/**
@@ -88,20 +88,9 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 		$this->set_header( 'Content-Type: ' . $proxy_options['content_type'] );
 		$this->set_header( 'Cache-Control: max-age=' . self::CACHE_CONTROL_MAX_AGE );
 
-		if ( $this->should_load_url_directly() ) {
-			/*
-			 * If an error occurred, fallback to the next proxy method (`wp_remote_get`).
-			 * Otherwise, we are done here.
-			 */
-			if ( $this->load_url( $proxy_options['url'] ) ) {
-				return;
-			}
-		}
-
 		try {
 			echo $this->get_remote_url_body( $proxy_options['url'] );
-		}
-		catch ( Exception $e ) {
+		} catch ( Exception $e ) {
 			/*
 			 * Reset the file headers because the loading failed.
 			 *
@@ -122,10 +111,10 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 	 *
 	 * @param string $url The url to load.
 	 *
+	 * @return string The body of the response.
+	 *
 	 * @throws Exception When `wp_remote_get` returned an error.
 	 * @throws Exception When the response code is not 200.
-	 *
-	 * @return string The body of the response.
 	 */
 	protected function get_remote_url_body( $url ) {
 		$response = wp_remote_get( $url );
@@ -139,21 +128,6 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 		}
 
 		return wp_remote_retrieve_body( $response );
-	}
-
-	/**
-	 * Tries to load the given url.
-	 *
-	 * @link https://php.net/manual/en/function.readfile.php
-	 *
-	 * @codeCoverageIgnore
-	 *
-	 * @param string $url The url to load.
-	 *
-	 * @return bool False if an error occurred.
-	 */
-	protected function load_url( $url ) {
-		return readfile( $url ) !== false;
 	}
 
 	/**
@@ -181,19 +155,6 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 	}
 
 	/**
-	 * Checks the PHP configuration of allow_url_fopen.
-	 *
-	 * @codeCoverageIgnore
-	 *
-	 * @link https://php.net/manual/en/filesystem.configuration.php#ini.allow-url-fopen
-	 *
-	 * @return bool True when the PHP configuration allows for url loading via readfile.
-	 */
-	protected function should_load_url_directly() {
-		return ! ! ini_get( 'allow_url_fopen' );
-	}
-
-	/**
 	 * Checks if the current page is the MyYoast proxy page.
 	 *
 	 * @codeCoverageIgnore
@@ -201,7 +162,9 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 	 * @return bool True when the page request parameter equals the proxy page.
 	 */
 	protected function is_proxy_page() {
-		return filter_input( INPUT_GET, 'page' ) === self::PAGE_IDENTIFIER;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reason: We are not processing form information.
+		$page = isset( $_GET['page'] ) && is_string( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+		return $page === self::PAGE_IDENTIFIER;
 	}
 
 	/**
@@ -209,10 +172,15 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 	 *
 	 * @codeCoverageIgnore
 	 *
-	 * @return string The sanitized file request parameter.
+	 * @return string The sanitized file request parameter or an empty string if it does not exist.
 	 */
 	protected function get_proxy_file() {
-		return filter_input( INPUT_GET, 'file', FILTER_SANITIZE_STRING );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reason: We are not processing form information.
+		if ( isset( $_GET['file'] ) && is_string( $_GET['file'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reason: We are not processing form information.
+			return sanitize_text_field( wp_unslash( $_GET['file'] ) );
+		}
+		return '';
 	}
 
 	/**
@@ -220,14 +188,17 @@ class WPSEO_MyYoast_Proxy implements WPSEO_WordPress_Integration {
 	 *
 	 * @codeCoverageIgnore
 	 *
-	 * @return string The sanitized plugin_version request parameter.
+	 * @return string The sanitized plugin_version request parameter or an empty string if it does not exist.
 	 */
 	protected function get_plugin_version() {
-		$plugin_version = filter_input( INPUT_GET, 'plugin_version', FILTER_SANITIZE_STRING );
-		// Replace slashes to secure against requiring a file from another path.
-		$plugin_version = str_replace( [ '/', '\\' ], '_', $plugin_version );
-
-		return $plugin_version;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reason: We are not processing form information.
+		if ( isset( $_GET['plugin_version'] ) && is_string( $_GET['plugin_version'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reason: We are not processing form information.
+			$plugin_version = sanitize_text_field( wp_unslash( $_GET['plugin_version'] ) );
+			// Replace slashes to secure against requiring a file from another path.
+			return str_replace( [ '/', '\\' ], '_', $plugin_version );
+		}
+		return '';
 	}
 
 	/**

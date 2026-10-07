@@ -79,14 +79,13 @@ class WPSEO_Sitemap_Image_Parser {
 			return $images;
 		}
 
-		$thumbnail_id = get_post_thumbnail_id( $post->ID );
+		// Pass the post object rather than its ID, so the post does not get re-fetched from the database.
+		$thumbnail_id = get_post_thumbnail_id( $post );
 
 		if ( $thumbnail_id ) {
 
 			$src      = $this->get_absolute_url( $this->image_url( $thumbnail_id ) );
-			$alt      = WPSEO_Image_Utils::get_alt_tag( $thumbnail_id );
-			$title    = get_post_field( 'post_title', $thumbnail_id );
-			$images[] = $this->get_image_item( $post, $src, $title, $alt );
+			$images[] = $this->get_image_item( $post, $src );
 		}
 
 		/**
@@ -100,23 +99,17 @@ class WPSEO_Sitemap_Image_Parser {
 		$unfiltered_images = $this->parse_html_images( $content );
 
 		foreach ( $unfiltered_images as $image ) {
-			$images[] = $this->get_image_item( $post, $image['src'], $image['title'], $image['alt'] );
+			$images[] = $this->get_image_item( $post, $image['src'] );
 		}
 
 		foreach ( $this->parse_galleries( $content, $post->ID ) as $attachment ) {
-
-			$src = $this->get_absolute_url( $this->image_url( $attachment->ID ) );
-			$alt = WPSEO_Image_Utils::get_alt_tag( $attachment->ID );
-
-			$images[] = $this->get_image_item( $post, $src, $attachment->post_title, $alt );
+			$src      = $this->get_absolute_url( $this->image_url( $attachment->ID ) );
+			$images[] = $this->get_image_item( $post, $src );
 		}
 
 		if ( $post->post_type === 'attachment' && wp_attachment_is_image( $post ) ) {
-
-			$src = $this->get_absolute_url( $this->image_url( $post->ID ) );
-			$alt = WPSEO_Image_Utils::get_alt_tag( $post->ID );
-
-			$images[] = $this->get_image_item( $post, $src, $post->post_title, $alt );
+			$src      = $this->get_absolute_url( $this->image_url( $post->ID ) );
+			$images[] = $this->get_image_item( $post, $src );
 		}
 
 		foreach ( $images as $key => $image ) {
@@ -132,9 +125,40 @@ class WPSEO_Sitemap_Image_Parser {
 		 * @param array $images  Array of image items.
 		 * @param int   $post_id ID of the post.
 		 */
-		$images = apply_filters( 'wpseo_sitemap_urlimages', $images, $post->ID );
+		$image_list = apply_filters( 'wpseo_sitemap_urlimages', $images, $post->ID );
+		if ( isset( $image_list ) && is_array( $image_list ) ) {
+			$images = $image_list;
+		}
 
 		return $images;
+	}
+
+	/**
+	 * Primes the meta caches of the featured images of the given posts.
+	 *
+	 * This parser reads each post's featured image file location from the attachment's
+	 * meta individually; warming that meta cache in bulk avoids one query per post on
+	 * setups without a persistent object cache.
+	 *
+	 * @param WP_Post[] $posts The posts to prime the featured-image caches for.
+	 *
+	 * @return void
+	 */
+	public function prime_thumbnail_caches( $posts ) {
+
+		$thumbnail_ids = [];
+
+		foreach ( $posts as $post ) {
+			$thumbnail_id = get_post_thumbnail_id( $post );
+
+			if ( $thumbnail_id ) {
+				$thumbnail_ids[] = $thumbnail_id;
+			}
+		}
+
+		if ( ! empty( $thumbnail_ids ) ) {
+			update_meta_cache( 'post', array_unique( $thumbnail_ids ) );
+		}
 	}
 
 	/**
@@ -152,9 +176,18 @@ class WPSEO_Sitemap_Image_Parser {
 
 			$images[] = [
 				'src'   => $this->get_absolute_url( $this->image_url( $attachment->ID ) ),
-				'title' => $attachment->post_title,
-				'alt'   => WPSEO_Image_Utils::get_alt_tag( $attachment->ID ),
 			];
+		}
+
+		/**
+		 * Filter images to be included for the term in XML sitemap.
+		 *
+		 * @param array $image_list Array of image items.
+		 * @param int   $term_id    ID of the post.
+		 */
+		$image_list = apply_filters( 'wpseo_sitemap_urlimages_term', $images, $term->term_id );
+		if ( isset( $image_list ) && is_array( $image_list ) ) {
+			$images = $image_list;
 		}
 
 		return $images;
@@ -188,7 +221,11 @@ class WPSEO_Sitemap_Image_Parser {
 		// Clear the errors, so they don't get kept in memory.
 		libxml_clear_errors();
 
-		/** @var DOMElement $img */
+		/**
+		 * Image attribute.
+		 *
+		 * @var DOMElement $img
+		 */
 		foreach ( $post_dom->getElementsByTagName( 'img' ) as $img ) {
 
 			$src = $img->getAttribute( 'src' );
@@ -201,11 +238,16 @@ class WPSEO_Sitemap_Image_Parser {
 
 			if ( // This detects WP-inserted images, which we need to upsize. R.
 				! empty( $class )
-				&& ( false === strpos( $class, 'size-full' ) )
+				&& ( strpos( $class, 'size-full' ) === false )
 				&& preg_match( '|wp-image-(?P<id>\d+)|', $class, $matches )
 				&& get_post_status( $matches['id'] )
 			) {
-				$src = $this->image_url( $matches['id'] );
+				$query_params = wp_parse_url( $src, PHP_URL_QUERY );
+				$src          = $this->image_url( $matches['id'] );
+
+				if ( $query_params ) {
+					$src .= '?' . $query_params;
+				}
 			}
 
 			$src = $this->get_absolute_url( $src );
@@ -214,14 +256,12 @@ class WPSEO_Sitemap_Image_Parser {
 				continue;
 			}
 
-			if ( $src !== esc_url( $src ) ) {
+			if ( $src !== esc_url( $src, null, 'attribute' ) ) {
 				continue;
 			}
 
 			$images[] = [
 				'src'   => $src,
-				'title' => $img->getAttribute( 'title' ),
-				'alt'   => $img->getAttribute( 'alt' ),
 			];
 		}
 
@@ -246,7 +286,7 @@ class WPSEO_Sitemap_Image_Parser {
 			$id = $post_id;
 
 			if ( ! empty( $gallery['id'] ) ) {
-				$id = intval( $gallery['id'] );
+				$id = (int) $gallery['id'];
 			}
 
 			// Forked from core gallery_shortcode() to have exact same logic. R.
@@ -296,14 +336,12 @@ class WPSEO_Sitemap_Image_Parser {
 	/**
 	 * Get image item array with filters applied.
 	 *
-	 * @param WP_Post $post  Post object for the context.
-	 * @param string  $src   Image URL.
-	 * @param string  $title Optional image title.
-	 * @param string  $alt   Optional image alt text.
+	 * @param WP_Post $post Post object for the context.
+	 * @param string  $src  Image URL.
 	 *
 	 * @return array
 	 */
-	protected function get_image_item( $post, $src, $title = '', $alt = '' ) {
+	protected function get_image_item( $post, $src ) {
 
 		$image = [];
 
@@ -315,23 +353,13 @@ class WPSEO_Sitemap_Image_Parser {
 		 */
 		$image['src'] = apply_filters( 'wpseo_xml_sitemap_img_src', $src, $post );
 
-		if ( ! empty( $title ) ) {
-			$image['title'] = $title;
-		}
-
-		if ( ! empty( $alt ) ) {
-			$image['alt'] = $alt;
-		}
-
 		/**
 		 * Filter image data to be included in XML sitemap for the post.
 		 *
 		 * @param array  $image {
-		 *                      Array of image data.
+		 *     Array of image data.
 		 *
-		 * @type string  $src   Image URL.
-		 * @type string  $title Image title attribute (optional).
-		 * @type string  $alt   Image alt attribute (optional).
+		 *     @type string  $src   Image URL.
 		 * }
 		 *
 		 * @param object $post  Post object.
@@ -392,7 +420,7 @@ class WPSEO_Sitemap_Image_Parser {
 			return $src;
 		}
 
-		if ( WPSEO_Utils::is_url_relative( $src ) === true ) {
+		if ( YoastSEO()->helpers->url->is_relative( $src ) === true ) {
 
 			if ( $src[0] !== '/' ) {
 				return $src;
@@ -458,21 +486,21 @@ class WPSEO_Sitemap_Image_Parser {
 	/**
 	 * Returns an array with attachments for the post IDs that will be included.
 	 *
-	 * @param array $include Array with IDs to include.
+	 * @param array $included_ids Array with IDs to include.
 	 *
 	 * @return array The found attachments.
 	 */
-	protected function get_gallery_attachments_for_included( $include ) {
-		$ids_to_include = wp_parse_id_list( $include );
+	protected function get_gallery_attachments_for_included( $included_ids ) {
+		$ids_to_include = wp_parse_id_list( $included_ids );
 		$attachments    = $this->get_attachments(
 			[
 				'posts_per_page' => count( $ids_to_include ),
 				'post__in'       => $ids_to_include,
-			]
+			],
 		);
 
 		$gallery_attachments = [];
-		foreach ( $attachments as $key => $val ) {
+		foreach ( $attachments as $val ) {
 			$gallery_attachments[ $val->ID ] = $val;
 		}
 

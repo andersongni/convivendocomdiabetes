@@ -8,7 +8,7 @@
 /**
  * Sitemap Cache Data object, manages sitemap data stored in cache.
  */
-class WPSEO_Sitemap_Cache_Data implements WPSEO_Sitemap_Cache_Data_Interface, Serializable {
+class WPSEO_Sitemap_Cache_Data implements Serializable, WPSEO_Sitemap_Cache_Data_Interface {
 
 	/**
 	 * Sitemap XML data.
@@ -28,6 +28,8 @@ class WPSEO_Sitemap_Cache_Data implements WPSEO_Sitemap_Cache_Data_Interface, Se
 	 * Set the sitemap XML data
 	 *
 	 * @param string $sitemap XML Content of the sitemap.
+	 *
+	 * @return void
 	 */
 	public function set_sitemap( $sitemap ) {
 
@@ -51,19 +53,19 @@ class WPSEO_Sitemap_Cache_Data implements WPSEO_Sitemap_Cache_Data_Interface, Se
 	/**
 	 * Set the status of the sitemap, is it usable.
 	 *
-	 * @param bool|string $valid Is the sitemap valid or not.
+	 * @param bool|string $usable Is the sitemap usable or not.
 	 *
 	 * @return void
 	 */
-	public function set_status( $valid ) {
+	public function set_status( $usable ) {
 
-		if ( self::OK === $valid ) {
+		if ( $usable === self::OK ) {
 			$this->status = self::OK;
 
 			return;
 		}
 
-		if ( self::ERROR === $valid ) {
+		if ( $usable === self::ERROR ) {
 			$this->status  = self::ERROR;
 			$this->sitemap = '';
 
@@ -80,7 +82,7 @@ class WPSEO_Sitemap_Cache_Data implements WPSEO_Sitemap_Cache_Data_Interface, Se
 	 */
 	public function is_usable() {
 
-		return self::OK === $this->status;
+		return $this->status === self::OK;
 	}
 
 	/**
@@ -106,37 +108,109 @@ class WPSEO_Sitemap_Cache_Data implements WPSEO_Sitemap_Cache_Data_Interface, Se
 	/**
 	 * String representation of object.
 	 *
-	 * @link http://php.net/manual/en/serializable.serialize.php
+	 * {@internal This magic method is only "magic" as of PHP 7.4 in which the magic method was introduced.}
 	 *
-	 * @since 5.1.0
+	 * @link https://www.php.net/language.oop5.magic#object.serialize
+	 * @link https://wiki.php.net/rfc/custom_object_serialization
 	 *
-	 * @return string The string representation of the object or null.
+	 * @since 17.8.0
+	 *
+	 * @return array The data to be serialized.
 	 */
-	public function serialize() {
+	public function __serialize() { // phpcs:ignore PHPCompatibility.FunctionNameRestrictions.NewMagicMethods.__serializeFound
 
 		$data = [
 			'status' => $this->status,
 			'xml'    => $this->sitemap,
 		];
 
-		return serialize( $data );
+		return $data;
 	}
 
 	/**
 	 * Constructs the object.
 	 *
-	 * @link http://php.net/manual/en/serializable.unserialize.php
+	 * {@internal This magic method is only "magic" as of PHP 7.4 in which the magic method was introduced.}
 	 *
-	 * @since 5.1.0
+	 * @link https://www.php.net/language.oop5.magic#object.serialize
+	 * @link https://wiki.php.net/rfc/custom_object_serialization
 	 *
-	 * @param string $serialized The string representation of the object.
+	 * @since 17.8.0
+	 *
+	 * @param array $data The unserialized data to use to (re)construct the object.
 	 *
 	 * @return void
 	 */
-	public function unserialize( $serialized ) {
+	public function __unserialize( $data ) { // phpcs:ignore PHPCompatibility.FunctionNameRestrictions.NewMagicMethods.__unserializeFound
 
-		$data = unserialize( $serialized );
 		$this->set_sitemap( $data['xml'] );
 		$this->set_status( $data['status'] );
+	}
+
+	/**
+	 * String representation of object.
+	 *
+	 * {@internal The magic methods take precedence over the Serializable interface.
+	 * This means that in practice, this method will now only be called on PHP < 7.4.
+	 * For PHP 7.4 and higher, the magic methods will be used instead.}
+	 *
+	 * {@internal The Serializable interface is being phased out, in favour of the magic methods.
+	 * This method should be deprecated and removed and the class should no longer
+	 * implement the `Serializable` interface.
+	 * This change, however, can't be made until the minimum PHP version goes up to PHP 7.4 or higher.}
+	 *
+	 * @link http://php.net/manual/en/serializable.serialize.php
+	 * @link https://wiki.php.net/rfc/phase_out_serializable
+	 *
+	 * @since 5.1.0
+	 *
+	 * @return string The string representation of the object or null in C-format.
+	 */
+	public function serialize() {
+
+		return serialize( $this->__serialize() );
+	}
+
+	/**
+	 * Constructs the object.
+	 *
+	 * {@internal Unlike `serialize()` above, this method is NOT superseded by its magic counterpart
+	 * on PHP 7.4 and higher, so it is live code on every supported PHP version. PHP selects the
+	 * handler based on the *format* of the payload being read, not on the PHP version: `O:`-format
+	 * payloads are routed to `__unserialize()`, whereas `C:`-format payloads are dispatched here,
+	 * because this class implements `Serializable`. Verified on PHP 7.4 through 8.3.
+	 * There is no call to this method anywhere in the codebase; the engine invokes it.}
+	 *
+	 * {@internal `$data` must be treated as untrusted. `C:`-format payloads survive WordPress
+	 * unaltered on the way into the database, because `is_serialized()` has no case for `C` and
+	 * `maybe_serialize()` therefore stores such a string verbatim rather than escaping it. Any code
+	 * path that unserializes third-party data can consequently reach this method with a crafted
+	 * payload.
+	 * The nested call is restricted with `allowed_classes => false` for that reason: a legitimate
+	 * payload only ever contains the two strings produced by `__serialize()`, so instantiating a
+	 * class here is never valid, and permitting it turns this method into an object-injection sink
+	 * that ends in an arbitrary `__destruct()`. Do not relax that restriction.}
+	 *
+	 * {@internal The Serializable interface is being phased out, in favour of the magic methods.
+	 * This method should be deprecated and removed and the class should no longer implement the
+	 * `Serializable` interface. The minimum supported PHP version has since risen to 7.4, so that is
+	 * now possible, but it is deliberately left as a separate change: dropping the interface alters
+	 * how sitemap caches originally written on PHP < 7.4 are handled, as PHP then returns an empty
+	 * instance for those payloads instead of a populated one.}
+	 *
+	 * @link http://php.net/manual/en/serializable.unserialize.php
+	 * @link https://wiki.php.net/rfc/phase_out_serializable
+	 *
+	 * @since 5.1.0
+	 *
+	 * @param string $data Untrusted serialized representation of the data array, as carried in the
+	 *                     body of a `C:`-format payload naming this class.
+	 *
+	 * @return void
+	 */
+	public function unserialize( $data ) {
+
+		$data = unserialize( $data, [ 'allowed_classes' => false ] );
+		$this->__unserialize( $data );
 	}
 }

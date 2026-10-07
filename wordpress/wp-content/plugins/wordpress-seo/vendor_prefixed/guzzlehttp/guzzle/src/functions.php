@@ -2,41 +2,20 @@
 
 namespace YoastSEO_Vendor\GuzzleHttp;
 
-use YoastSEO_Vendor\GuzzleHttp\Handler\CurlHandler;
-use YoastSEO_Vendor\GuzzleHttp\Handler\CurlMultiHandler;
-use YoastSEO_Vendor\GuzzleHttp\Handler\Proxy;
-use YoastSEO_Vendor\GuzzleHttp\Handler\StreamHandler;
-/**
- * Expands a URI template
- *
- * @param string $template  URI template
- * @param array  $variables Template variables
- *
- * @return string
- */
-function uri_template($template, array $variables)
-{
-    if (\extension_loaded('uri_template')) {
-        // @codeCoverageIgnoreStart
-        return \YoastSEO_Vendor\uri_template($template, $variables);
-        // @codeCoverageIgnoreEnd
-    }
-    static $uriTemplate;
-    if (!$uriTemplate) {
-        $uriTemplate = new \YoastSEO_Vendor\GuzzleHttp\UriTemplate();
-    }
-    return $uriTemplate->expand($template, $variables);
-}
 /**
  * Debug function used to describe the provided value type and class.
  *
- * @param mixed $input
+ * @param mixed $input Any type of variable to describe the type of. This
+ *                     parameter misses a typehint because of that.
  *
  * @return string Returns a string containing the type of the variable and
  *                if a class is provided, the class name.
+ *
+ * @deprecated describe_type will be removed in guzzlehttp/guzzle:8.0. Use get_debug_type() instead.
  */
-function describe_type($input)
+function describe_type($input) : string
 {
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use get_debug_type() instead.', __FUNCTION__);
     switch (\gettype($input)) {
         case 'object':
             return 'object(' . \get_class($input) . ')';
@@ -46,24 +25,23 @@ function describe_type($input)
             \ob_start();
             \var_dump($input);
             // normalize float vs double
-            return \str_replace('double(', 'float(', \rtrim(\ob_get_clean()));
+            /** @var string $varDumpContent */
+            $varDumpContent = \ob_get_clean();
+            return \str_replace('double(', 'float(', \rtrim($varDumpContent, " \n\r\t\x00\v"));
     }
 }
 /**
  * Parses an array of header lines into an associative array of headers.
  *
- * @param array $lines Header lines array of strings in the following
- *                     format: "Name: Value"
- * @return array
+ * @param iterable $lines Header lines array of strings in the following
+ *                        format: "Name: Value"
+ *
+ * @deprecated headers_from_lines will be removed in guzzlehttp/guzzle:8.0. Use Utils::headersFromLines instead.
  */
-function headers_from_lines($lines)
+function headers_from_lines(iterable $lines) : array
 {
-    $headers = [];
-    foreach ($lines as $line) {
-        $parts = \explode(':', $line, 2);
-        $headers[\trim($parts[0])][] = isset($parts[1]) ? \trim($parts[1]) : null;
-    }
-    return $headers;
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use Utils::headersFromLines() instead.', __FUNCTION__);
+    return \YoastSEO_Vendor\GuzzleHttp\Utils::headersFromLines($lines);
 }
 /**
  * Returns a debug stream based on the provided variable.
@@ -71,57 +49,39 @@ function headers_from_lines($lines)
  * @param mixed $value Optional value
  *
  * @return resource
+ *
+ * @deprecated debug_resource will be removed in guzzlehttp/guzzle:8.0. Use Utils::debugResource instead.
  */
 function debug_resource($value = null)
 {
-    if (\is_resource($value)) {
-        return $value;
-    } elseif (\defined('STDOUT')) {
-        return \STDOUT;
-    }
-    return \fopen('php://output', 'w');
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use Utils::debugResource() instead.', __FUNCTION__);
+    return \YoastSEO_Vendor\GuzzleHttp\Utils::debugResource($value);
 }
 /**
  * Chooses and creates a default handler to use based on the environment.
  *
  * The returned handler is not wrapped by any default middlewares.
  *
+ * @return callable(\Psr\Http\Message\RequestInterface, array): Promise\PromiseInterface Returns the best handler for the given system.
+ *
  * @throws \RuntimeException if no viable Handler is available.
- * @return callable Returns the best handler for the given system.
+ *
+ * @deprecated choose_handler will be removed in guzzlehttp/guzzle:8.0. Use Utils::chooseHandler instead.
  */
-function choose_handler()
+function choose_handler() : callable
 {
-    $handler = null;
-    if (\function_exists('curl_multi_exec') && \function_exists('curl_exec')) {
-        $handler = \YoastSEO_Vendor\GuzzleHttp\Handler\Proxy::wrapSync(new \YoastSEO_Vendor\GuzzleHttp\Handler\CurlMultiHandler(), new \YoastSEO_Vendor\GuzzleHttp\Handler\CurlHandler());
-    } elseif (\function_exists('curl_exec')) {
-        $handler = new \YoastSEO_Vendor\GuzzleHttp\Handler\CurlHandler();
-    } elseif (\function_exists('curl_multi_exec')) {
-        $handler = new \YoastSEO_Vendor\GuzzleHttp\Handler\CurlMultiHandler();
-    }
-    if (\ini_get('allow_url_fopen')) {
-        $handler = $handler ? \YoastSEO_Vendor\GuzzleHttp\Handler\Proxy::wrapStreaming($handler, new \YoastSEO_Vendor\GuzzleHttp\Handler\StreamHandler()) : new \YoastSEO_Vendor\GuzzleHttp\Handler\StreamHandler();
-    } elseif (!$handler) {
-        throw new \RuntimeException('GuzzleHttp requires cURL, the ' . 'allow_url_fopen ini setting, or a custom HTTP handler.');
-    }
-    return $handler;
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use Utils::chooseHandler() instead.', __FUNCTION__);
+    return \YoastSEO_Vendor\GuzzleHttp\Utils::chooseHandler();
 }
 /**
- * Get the default User-Agent string to use with Guzzle
+ * Get the default User-Agent string to use with Guzzle.
  *
- * @return string
+ * @deprecated default_user_agent will be removed in guzzlehttp/guzzle:8.0. Use Utils::defaultUserAgent instead.
  */
-function default_user_agent()
+function default_user_agent() : string
 {
-    static $defaultAgent = '';
-    if (!$defaultAgent) {
-        $defaultAgent = 'GuzzleHttp/' . \YoastSEO_Vendor\GuzzleHttp\Client::VERSION;
-        if (\extension_loaded('curl') && \function_exists('curl_version')) {
-            $defaultAgent .= ' curl/' . \curl_version()['version'];
-        }
-        $defaultAgent .= ' PHP/' . \PHP_VERSION;
-    }
-    return $defaultAgent;
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use Utils::defaultUserAgent() instead.', __FUNCTION__);
+    return \YoastSEO_Vendor\GuzzleHttp\Utils::defaultUserAgent();
 }
 /**
  * Returns the default cacert bundle for the current system.
@@ -134,11 +94,13 @@ function default_user_agent()
  *
  * Note: the result of this function is cached for subsequent calls.
  *
- * @return string
  * @throws \RuntimeException if no bundle can be found.
+ *
+ * @deprecated default_ca_bundle will be removed in guzzlehttp/guzzle:8.0. This function is not needed in PHP 5.6+.
  */
-function default_ca_bundle()
+function default_ca_bundle() : string
 {
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. This function is not needed in PHP 5.6+.', __FUNCTION__);
     static $cached = null;
     static $cafiles = [
         // Red Hat, CentOS, Fedora (provided by the ca-certificates package)
@@ -175,15 +137,14 @@ function default_ca_bundle()
 No system CA bundle could be found in any of the the common system locations.
 PHP versions earlier than 5.6 are not properly configured to use the system's
 CA bundle by default. In order to verify peer certificates, you will need to
-supply the path on disk to a certificate bundle to the 'verify' request
-option: http://docs.guzzlephp.org/en/latest/clients.html#verify. If you do not
-need a specific certificate bundle, then Mozilla provides a commonly used CA
-bundle which can be downloaded here (provided by the maintainer of cURL):
-https://raw.githubusercontent.com/bagder/ca-bundle/master/ca-bundle.crt. Once
-you have a CA bundle available on disk, you can set the 'openssl.cafile' PHP
-ini setting to point to the path to the file, allowing you to omit the 'verify'
-request option. See http://curl.haxx.se/docs/sslcerts.html for more
-information.
+supply the path on disk to a certificate bundle to the 'verify' request option:
+https://github.com/guzzle/guzzle/blob/7.15/docs/request-options.md#verify. If
+you do not need a specific certificate bundle, then Mozilla provides a commonly
+used CA bundle which can be downloaded here (provided by the maintainer of
+cURL): https://curl.se/ca/cacert.pem. Once you have a CA bundle available on
+disk, you can set the 'openssl.cafile' PHP ini setting to point to the path to
+the file, allowing you to omit the 'verify' request option. See
+https://curl.se/docs/sslcerts.html for more information.
 EOT
 );
 }
@@ -191,17 +152,12 @@ EOT
  * Creates an associative array of lowercase header names to the actual
  * header casing.
  *
- * @param array $headers
- *
- * @return array
+ * @deprecated normalize_header_keys will be removed in guzzlehttp/guzzle:8.0. Use Utils::normalizeHeaderKeys instead.
  */
-function normalize_header_keys(array $headers)
+function normalize_header_keys(array $headers) : array
 {
-    $result = [];
-    foreach (\array_keys($headers) as $key) {
-        $result[\strtolower($key)] = $key;
-    }
-    return $result;
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use Utils::normalizeHeaderKeys() instead.', __FUNCTION__);
+    return \YoastSEO_Vendor\GuzzleHttp\Utils::normalizeHeaderKeys($headers);
 }
 /**
  * Returns true if the provided host matches any of the no proxy areas.
@@ -217,78 +173,67 @@ function normalize_header_keys(array $headers)
  * 3. The area starts with "." and the area is the last part of the host. e.g.
  *    '.mit.edu' will match any host that ends with '.mit.edu'.
  *
- * @param string $host         Host to check against the patterns.
- * @param array  $noProxyArray An array of host patterns.
+ * @param string   $host         Host to check against the patterns.
+ * @param string[] $noProxyArray An array of host patterns.
  *
- * @return bool
+ * @throws Exception\InvalidArgumentException
+ *
+ * @deprecated is_host_in_noproxy will be removed in guzzlehttp/guzzle:8.0. Use Utils::isHostInNoProxy instead.
  */
-function is_host_in_noproxy($host, array $noProxyArray)
+function is_host_in_noproxy(string $host, array $noProxyArray) : bool
 {
-    if (\strlen($host) === 0) {
-        throw new \InvalidArgumentException('Empty host provided');
-    }
-    // Strip port if present.
-    if (\strpos($host, ':')) {
-        $host = \explode($host, ':', 2)[0];
-    }
-    foreach ($noProxyArray as $area) {
-        // Always match on wildcards.
-        if ($area === '*') {
-            return \true;
-        } elseif (empty($area)) {
-            // Don't match on empty values.
-            continue;
-        } elseif ($area === $host) {
-            // Exact matches.
-            return \true;
-        } else {
-            // Special match if the area when prefixed with ".". Remove any
-            // existing leading "." and add a new leading ".".
-            $area = '.' . \ltrim($area, '.');
-            if (\substr($host, -\strlen($area)) === $area) {
-                return \true;
-            }
-        }
-    }
-    return \false;
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use Utils::isHostInNoProxy() instead.', __FUNCTION__);
+    return \YoastSEO_Vendor\GuzzleHttp\Utils::isHostInNoProxy($host, $noProxyArray);
 }
 /**
  * Wrapper for json_decode that throws when an error occurs.
  *
  * @param string $json    JSON data to parse
- * @param bool $assoc     When true, returned objects will be converted
+ * @param bool   $assoc   When true, returned objects will be converted
  *                        into associative arrays.
  * @param int    $depth   User specified recursion depth.
  * @param int    $options Bitmask of JSON decode options.
  *
- * @return mixed
- * @throws \InvalidArgumentException if the JSON cannot be decoded.
- * @link http://www.php.net/manual/en/function.json-decode.php
+ * @return object|array|string|int|float|bool|null
+ *
+ * @throws Exception\InvalidArgumentException if the JSON cannot be decoded.
+ *
+ * @see https://www.php.net/manual/en/function.json-decode.php
+ * @deprecated json_decode will be removed in guzzlehttp/guzzle:8.0. Use PHP's json_decode() instead.
  */
-function json_decode($json, $assoc = \false, $depth = 512, $options = 0)
+function json_decode(string $json, bool $assoc = \false, int $depth = 512, int $options = 0)
 {
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use PHP\'s json_decode() instead.', __FUNCTION__);
+    if ($depth < 1) {
+        throw new \YoastSEO_Vendor\GuzzleHttp\Exception\InvalidArgumentException('json_decode error: Maximum stack depth exceeded');
+    }
     $data = \json_decode($json, $assoc, $depth, $options);
     if (\JSON_ERROR_NONE !== \json_last_error()) {
-        throw new \InvalidArgumentException('json_decode error: ' . \json_last_error_msg());
+        throw new \YoastSEO_Vendor\GuzzleHttp\Exception\InvalidArgumentException('json_decode error: ' . \json_last_error_msg());
     }
+    /** @var object|array|string|int|float|bool|null $data */
     return $data;
 }
 /**
  * Wrapper for JSON encoding that throws when an error occurs.
  *
  * @param mixed $value   The value being encoded
- * @param int    $options JSON encode option bitmask
- * @param int    $depth   Set the maximum depth. Must be greater than zero.
+ * @param int   $options JSON encode option bitmask
+ * @param int   $depth   Set the maximum depth. Must be greater than zero.
  *
- * @return string
- * @throws \InvalidArgumentException if the JSON cannot be encoded.
- * @link http://www.php.net/manual/en/function.json-encode.php
+ * @throws Exception\InvalidArgumentException if the JSON cannot be encoded.
+ *
+ * @see https://www.php.net/manual/en/function.json-encode.php
+ * @deprecated json_encode will be removed in guzzlehttp/guzzle:8.0. Use PHP's json_encode() instead.
  */
-function json_encode($value, $options = 0, $depth = 512)
+function json_encode($value, int $options = 0, int $depth = 512) : string
 {
+    \YoastSEO_Vendor\trigger_deprecation('guzzlehttp/guzzle', '7.1', '%s() is deprecated and will be removed in 8.0. Use PHP\'s json_encode() instead.', __FUNCTION__);
+    /** @var positive-int $depth */
     $json = \json_encode($value, $options, $depth);
     if (\JSON_ERROR_NONE !== \json_last_error()) {
-        throw new \InvalidArgumentException('json_encode error: ' . \json_last_error_msg());
+        throw new \YoastSEO_Vendor\GuzzleHttp\Exception\InvalidArgumentException('json_encode error: ' . \json_last_error_msg());
     }
+    /** @var non-empty-string $json */
     return $json;
 }

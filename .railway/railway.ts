@@ -58,6 +58,8 @@ export default defineRailway(() => {
       WP_TITLE: preserve(),
       CCD_RECAPTCHA_SITE_KEY: preserve(),
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
+      // Search Console meta token — ver docs/SEO.md
+      CCD_GOOGLE_SITE_VERIFICATION: preserve(),
       // Opcional: CCD_A11Y_DISABLE=1 desliga tipografia/hero a11y em producao
     },
   });

@@ -27,7 +27,7 @@ class Yoast_Network_Settings_API {
 	/**
 	 * The singleton instance of this class.
 	 *
-	 * @var Yoast_Network_Settings_API
+	 * @var Yoast_Network_Settings_API|null
 	 */
 	private static $instance = null;
 
@@ -120,20 +120,20 @@ class Yoast_Network_Settings_API {
 	 * This function is added as a filter to `default_site_option_{$option}` for network options that
 	 * are registered with a default.
 	 *
-	 * @param mixed  $default Existing default value to return.
-	 * @param string $option  The option name.
+	 * @param mixed  $default_value Existing default value to return.
+	 * @param string $option        The option name.
 	 *
 	 * @return mixed The filtered default value.
 	 */
-	public function filter_default_option( $default, $option ) {
+	public function filter_default_option( $default_value, $option ) {
 
 		// If a default value was manually passed to the function, allow it to override.
-		if ( $default !== false ) {
-			return $default;
+		if ( $default_value !== false ) {
+			return $default_value;
 		}
 
 		if ( empty( $this->registered_settings[ $option ] ) ) {
-			return $default;
+			return $default_value;
 		}
 
 		return $this->registered_settings[ $option ]['default'];
@@ -155,9 +155,7 @@ class Yoast_Network_Settings_API {
 	 */
 	public static function get() {
 
-		if ( self::$instance === null ) {
-			self::$instance = new self();
-		}
+		self::$instance ??= new self();
 
 		return self::$instance;
 	}

@@ -22,14 +22,14 @@ class WPSEO_Admin_Gutenberg_Compatibility_Notification implements WPSEO_WordPres
 	 *
 	 * @var WPSEO_Gutenberg_Compatibility
 	 */
-	private $compatibility_checker;
+	protected $compatibility_checker;
 
 	/**
 	 * Instance of Yoast Notification Center.
 	 *
 	 * @var Yoast_Notification_Center
 	 */
-	private $notification_center;
+	protected $notification_center;
 
 	/**
 	 * WPSEO_Admin_Gutenberg_Compatibility_Notification constructor.
@@ -54,7 +54,19 @@ class WPSEO_Admin_Gutenberg_Compatibility_Notification implements WPSEO_WordPres
 	 * @return void
 	 */
 	public function manage_notification() {
-		if ( ! $this->compatibility_checker->is_installed() || $this->compatibility_checker->is_fully_compatible() ) {
+		/**
+		 * Filter: 'yoast_display_gutenberg_compat_notification' - Allows developer to disable the Gutenberg compatibility
+		 * notification.
+		 *
+		 * @param bool $display_notification
+		 */
+		$display_notification = apply_filters( 'yoast_display_gutenberg_compat_notification', true );
+
+		if (
+			! $this->compatibility_checker->is_installed()
+			|| $this->compatibility_checker->is_fully_compatible()
+			|| ! $display_notification
+		) {
 			$this->notification_center->remove_notification_by_id( $this->notification_id );
 
 			return;
@@ -68,7 +80,7 @@ class WPSEO_Admin_Gutenberg_Compatibility_Notification implements WPSEO_WordPres
 	 *
 	 * @return void
 	 */
-	private function add_notification() {
+	protected function add_notification() {
 		$level = $this->compatibility_checker->is_below_minimum() ? Yoast_Notification::ERROR : Yoast_Notification::WARNING;
 
 		$message = sprintf(
@@ -76,7 +88,7 @@ class WPSEO_Admin_Gutenberg_Compatibility_Notification implements WPSEO_WordPres
 			__( '%1$s detected you are using version %2$s of %3$s, please update to the latest version to prevent compatibility issues.', 'wordpress-seo' ),
 			'Yoast SEO',
 			$this->compatibility_checker->get_installed_version(),
-			'Gutenberg'
+			'Gutenberg',
 		);
 
 		$notification = new Yoast_Notification(
@@ -85,7 +97,7 @@ class WPSEO_Admin_Gutenberg_Compatibility_Notification implements WPSEO_WordPres
 				'id'       => $this->notification_id,
 				'type'     => $level,
 				'priority' => 1,
-			]
+			],
 		);
 
 		$this->notification_center->add_notification( $notification );

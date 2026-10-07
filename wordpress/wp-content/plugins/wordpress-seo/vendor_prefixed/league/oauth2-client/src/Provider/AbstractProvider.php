@@ -17,6 +17,8 @@ namespace YoastSEO_Vendor\League\OAuth2\Client\Provider;
 use YoastSEO_Vendor\GuzzleHttp\Client as HttpClient;
 use YoastSEO_Vendor\GuzzleHttp\ClientInterface as HttpClientInterface;
 use YoastSEO_Vendor\GuzzleHttp\Exception\BadResponseException;
+use YoastSEO_Vendor\GuzzleHttp\Exception\GuzzleException;
+use InvalidArgumentException;
 use YoastSEO_Vendor\League\OAuth2\Client\Grant\AbstractGrant;
 use YoastSEO_Vendor\League\OAuth2\Client\Grant\GrantFactory;
 use YoastSEO_Vendor\League\OAuth2\Client\OptionProvider\OptionProviderInterface;
@@ -42,7 +44,7 @@ abstract class AbstractProvider
     use GuardedPropertyTrait;
     use QueryBuilderTrait;
     /**
-     * @var string Key used in a token response to identify the resource owner.
+     * @var string|null Key used in a token response to identify the resource owner.
      */
     const ACCESS_TOKEN_RESOURCE_OWNER_ID = null;
     /**
@@ -53,6 +55,17 @@ abstract class AbstractProvider
      * @var string HTTP method used to fetch access tokens.
      */
     const METHOD_POST = 'POST';
+    /**
+     * @var string PKCE method used to fetch authorization token.
+     * The PKCE code challenge will be hashed with sha256 (recommended).
+     */
+    const PKCE_METHOD_S256 = 'S256';
+    /**
+     * @var string PKCE method used to fetch authorization token.
+     * The PKCE code challenge will be sent as plain text, this is NOT recommended.
+     * Only use `plain` if no other option is possible.
+     */
+    const PKCE_METHOD_PLAIN = 'plain';
     /**
      * @var string
      */
@@ -69,6 +82,10 @@ abstract class AbstractProvider
      * @var string
      */
     protected $state;
+    /**
+     * @var string|null
+     */
+    protected $pkceCode = null;
     /**
      * @var GrantFactory
      */
@@ -228,6 +245,30 @@ abstract class AbstractProvider
         return $this->state;
     }
     /**
+     * Set the value of the pkceCode parameter.
+     *
+     * When using PKCE this should be set before requesting an access token.
+     *
+     * @param string $pkceCode
+     * @return self
+     */
+    public function setPkceCode($pkceCode)
+    {
+        $this->pkceCode = $pkceCode;
+        return $this;
+    }
+    /**
+     * Returns the current value of the pkceCode parameter.
+     *
+     * This can be accessed by the redirect handler during authorization.
+     *
+     * @return string|null
+     */
+    public function getPkceCode()
+    {
+        return $this->pkceCode;
+    }
+    /**
      * Returns the base URL for authorizing a client.
      *
      * Eg. https://oauth.service.com/authorize
@@ -265,6 +306,18 @@ abstract class AbstractProvider
         return \bin2hex(\random_bytes($length / 2));
     }
     /**
+     * Returns a new random string to use as PKCE code_verifier and
+     * hashed as code_challenge parameters in an authorization flow.
+     * Must be between 43 and 128 characters long.
+     *
+     * @param  int $length Length of the random string to be generated.
+     * @return string
+     */
+    protected function getRandomPkceCode($length = 64)
+    {
+        return \substr(\strtr(\base64_encode(\random_bytes($length)), '+/', '-_'), 0, $length);
+    }
+    /**
      * Returns the default scopes used by this provider.
      *
      * This should only be the scopes that are required to request the details
@@ -284,10 +337,18 @@ abstract class AbstractProvider
         return ',';
     }
     /**
+     * @return string|null
+     */
+    protected function getPkceMethod()
+    {
+        return null;
+    }
+    /**
      * Returns authorization parameters based on provided options.
      *
      * @param  array $options
      * @return array Authorization parameters
+     * @throws InvalidArgumentException
      */
     protected function getAuthorizationParameters(array $options)
     {
@@ -304,6 +365,18 @@ abstract class AbstractProvider
         }
         // Store the state as it may need to be accessed later on.
         $this->state = $options['state'];
+        $pkceMethod = $this->getPkceMethod();
+        if (!empty($pkceMethod)) {
+            $this->pkceCode = $this->getRandomPkceCode();
+            if ($pkceMethod === static::PKCE_METHOD_S256) {
+                $options['code_challenge'] = \trim(\strtr(\base64_encode(\hash('sha256', $this->pkceCode, \true)), '+/', '-_'), '=');
+            } elseif ($pkceMethod === static::PKCE_METHOD_PLAIN) {
+                $options['code_challenge'] = $this->pkceCode;
+            } else {
+                throw new \InvalidArgumentException('Unknown PKCE method "' . $pkceMethod . '".');
+            }
+            $options['code_challenge_method'] = $pkceMethod;
+        }
         // Business code layer might set a different redirect_uri parameter
         // depending on the context, leave it as-is
         if (!isset($options['redirect_uri'])) {
@@ -327,6 +400,7 @@ abstract class AbstractProvider
      *
      * @param  array $options
      * @return string Authorization URL
+     * @throws InvalidArgumentException
      */
     public function getAuthorizationUrl(array $options = [])
     {
@@ -341,8 +415,9 @@ abstract class AbstractProvider
      * @param  array $options
      * @param  callable|null $redirectHandler
      * @return mixed
+     * @throws InvalidArgumentException
      */
-    public function authorize(array $options = [], callable $redirectHandler = null)
+    public function authorize(array $options = [], ?callable $redirectHandler = null)
     {
         $url = $this->getAuthorizationUrl($options);
         if ($redirectHandler) {
@@ -443,15 +518,24 @@ abstract class AbstractProvider
     /**
      * Requests an access token using a specified grant and option set.
      *
-     * @param  mixed $grant
-     * @param  array $options
-     * @throws IdentityProviderException
+     * @param  mixed                $grant
+     * @param  array<string, mixed> $options
      * @return AccessTokenInterface
+     * @throws IdentityProviderException
+     * @throws UnexpectedValueException
+     * @throws GuzzleException
      */
     public function getAccessToken($grant, array $options = [])
     {
         $grant = $this->verifyGrant($grant);
+        if (isset($options['scope']) && \is_array($options['scope'])) {
+            $separator = $this->getScopeSeparator();
+            $options['scope'] = \implode($separator, $options['scope']);
+        }
         $params = ['client_id' => $this->clientId, 'client_secret' => $this->clientSecret, 'redirect_uri' => $this->redirectUri];
+        if (!empty($this->pkceCode)) {
+            $params['code_verifier'] = $this->pkceCode;
+        }
         $params = $grant->prepareRequestParameters($params, $options);
         $request = $this->getAccessTokenRequest($params);
         $response = $this->getParsedResponse($request);
@@ -479,7 +563,7 @@ abstract class AbstractProvider
      *
      * @param  string $method
      * @param  string $url
-     * @param  AccessTokenInterface|string $token
+     * @param  AccessTokenInterface|string|null $token
      * @param  array $options Any of "headers", "body", and "protocolVersion".
      * @return RequestInterface
      */
@@ -511,6 +595,7 @@ abstract class AbstractProvider
      *
      * @param  RequestInterface $request
      * @return ResponseInterface
+     * @throws GuzzleException
      */
     public function getResponse(\YoastSEO_Vendor\Psr\Http\Message\RequestInterface $request)
     {
@@ -520,8 +605,10 @@ abstract class AbstractProvider
      * Sends a request and returns the parsed response.
      *
      * @param  RequestInterface $request
-     * @throws IdentityProviderException
      * @return mixed
+     * @throws IdentityProviderException
+     * @throws UnexpectedValueException
+     * @throws GuzzleException
      */
     public function getParsedResponse(\YoastSEO_Vendor\Psr\Http\Message\RequestInterface $request)
     {
@@ -557,7 +644,7 @@ abstract class AbstractProvider
      */
     protected function getContentType(\YoastSEO_Vendor\Psr\Http\Message\ResponseInterface $response)
     {
-        return \join(';', (array) $response->getHeader('content-type'));
+        return \implode(';', $response->getHeader('content-type'));
     }
     /**
      * Parses the response according to its content-type header.
@@ -604,7 +691,7 @@ abstract class AbstractProvider
      * Custom mapping of expiration, etc should be done here. Always call the
      * parent method when overloading this method.
      *
-     * @param  mixed $result
+     * @param  array<string, mixed> $result
      * @return array
      */
     protected function prepareAccessTokenResponse(array $result)
@@ -642,6 +729,9 @@ abstract class AbstractProvider
      *
      * @param  AccessToken $token
      * @return ResourceOwnerInterface
+     * @throws IdentityProviderException
+     * @throws UnexpectedValueException
+     * @throws GuzzleException
      */
     public function getResourceOwner(\YoastSEO_Vendor\League\OAuth2\Client\Token\AccessToken $token)
     {
@@ -653,6 +743,9 @@ abstract class AbstractProvider
      *
      * @param  AccessToken $token
      * @return mixed
+     * @throws IdentityProviderException
+     * @throws UnexpectedValueException
+     * @throws GuzzleException
      */
     protected function fetchResourceOwnerDetails(\YoastSEO_Vendor\League\OAuth2\Client\Token\AccessToken $token)
     {

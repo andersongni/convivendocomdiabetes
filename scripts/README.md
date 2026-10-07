@@ -8,6 +8,7 @@
 | `local-entrypoint.sh` / `sync-wp-content.sh` | Local rápido: copia plugins/themes do host → volume Linux |
 | `sync-local-wp-content.ps1` | Força o re-sync local após editar plugins/temas no host |
 | `optimize-uploads.py` | Comprime/redimensiona imagens em `wp-content/uploads` (Pillow) |
+| `seo-smoke.ps1` | Smoke SEO (robots/sitemap/meta/alts) local ou Railway — ver [docs/SEO.md](../docs/SEO.md) |
 | `terraform-import.ps1` / `.sh` | Import one-shot do estado Terraform do projeto Railway |
 
 ### Local rápido (Windows/Docker)

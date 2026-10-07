@@ -15,7 +15,7 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 	 *
 	 * @var string
 	 */
-	const CACHE_TRANSIENT_KEY = 'wpseo-dashboard-totals';
+	public const CACHE_TRANSIENT_KEY = 'wpseo-dashboard-totals';
 
 	/**
 	 * Holds an instance of the admin asset manager.
@@ -36,10 +36,8 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 	 *
 	 * @param WPSEO_Statistics|null $statistics WPSEO_Statistics instance.
 	 */
-	public function __construct( WPSEO_Statistics $statistics = null ) {
-		if ( $statistics === null ) {
-			$statistics = new WPSEO_Statistics();
-		}
+	public function __construct( ?WPSEO_Statistics $statistics = null ) {
+		$statistics ??= new WPSEO_Statistics();
 
 		$this->statistics    = $statistics;
 		$this->asset_manager = new WPSEO_Admin_Asset_Manager();
@@ -47,6 +45,8 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 
 	/**
 	 * Register WordPress hooks.
+	 *
+	 * @return void
 	 */
 	public function register_hooks() {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_dashboard_assets' ] );
@@ -66,6 +66,8 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 
 	/**
 	 * Adds dashboard widget to WordPress.
+	 *
+	 * @return void
 	 */
 	public function add_dashboard_widget() {
 		add_filter( 'postbox_classes_dashboard_wpseo-dashboard-overview', [ $this, 'wpseo_dashboard_overview_class' ] );
@@ -73,7 +75,7 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 			'wpseo-dashboard-overview',
 			/* translators: %s is the plugin name */
 			sprintf( __( '%s Posts Overview', 'wordpress-seo' ), 'Yoast SEO' ),
-			[ $this, 'display_dashboard_widget' ]
+			[ $this, 'display_dashboard_widget' ],
 		);
 	}
 
@@ -91,6 +93,8 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 
 	/**
 	 * Displays the dashboard widget.
+	 *
+	 * @return void
 	 */
 	public function display_dashboard_widget() {
 		echo '<div id="yoast-seo-dashboard-widget"></div>';
@@ -98,17 +102,18 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 
 	/**
 	 * Enqueues assets for the dashboard if the current page is the dashboard.
+	 *
+	 * @return void
 	 */
 	public function enqueue_dashboard_assets() {
 		if ( ! $this->is_dashboard_screen() ) {
 			return;
 		}
 
-		wp_localize_script( WPSEO_Admin_Asset_Manager::PREFIX . 'dashboard-widget', 'wpseoDashboardWidgetL10n', $this->localize_dashboard_script() );
-		$yoast_components_l10n = new WPSEO_Admin_Asset_Yoast_Components_L10n();
-		$yoast_components_l10n->localize_script( WPSEO_Admin_Asset_Manager::PREFIX . 'dashboard-widget' );
+		$this->asset_manager->localize_script( 'dashboard-widget', 'wpseoDashboardWidgetL10n', $this->localize_dashboard_script() );
 		$this->asset_manager->enqueue_script( 'dashboard-widget' );
 		$this->asset_manager->enqueue_style( 'wp-dashboard' );
+		$this->asset_manager->enqueue_style( 'monorepo' );
 	}
 
 	/**
@@ -118,24 +123,14 @@ class Yoast_Dashboard_Widget implements WPSEO_WordPress_Integration {
 	 */
 	public function localize_dashboard_script() {
 		return [
-			'feed_header'      => sprintf(
+			'feed_header'          => sprintf(
 				/* translators: %1$s resolves to Yoast.com */
 				__( 'Latest blog posts on %1$s', 'wordpress-seo' ),
-				'Yoast.com'
+				'Yoast.com',
 			),
-			'feed_footer'      => __( 'Read more like this on our SEO blog', 'wordpress-seo' ),
-			'ryte_header'      => sprintf(
-				/* translators: %1$s expands to Ryte. */
-				__( 'Indexability check by %1$s', 'wordpress-seo' ),
-				'Ryte'
-			),
-			'ryteEnabled'      => ( WPSEO_Options::get( 'onpage_indexability' ) === true ),
-			'ryte_fetch'       => __( 'Fetch the current status', 'wordpress-seo' ),
-			'ryte_analyze'     => __( 'Analyze entire site', 'wordpress-seo' ),
-			'ryte_fetch_url'   => esc_attr( add_query_arg( 'wpseo-redo-onpage', '1' ) ) . '#wpseo-dashboard-overview',
-			'ryte_landing_url' => WPSEO_Shortlinker::get( 'https://yoa.st/rytelp' ),
-			'wp_version'       => substr( $GLOBALS['wp_version'], 0, 3 ) . '-' . ( is_plugin_active( 'classic-editor/classic-editor.php' ) ? '1' : '0' ),
-			'php_version'      => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION,
+			'feed_footer'          => __( 'Read more like this on our SEO blog', 'wordpress-seo' ),
+			'wp_version'           => substr( $GLOBALS['wp_version'], 0, 3 ) . '-' . ( is_plugin_active( 'classic-editor/classic-editor.php' ) ? '1' : '0' ),
+			'php_version'          => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION,
 		];
 	}
 

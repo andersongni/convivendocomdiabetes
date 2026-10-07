@@ -44,6 +44,9 @@ fi
 if [ -n "${CCD_RECAPTCHA_SECRET_KEY:-}" ]; then
   wp config set CCD_RECAPTCHA_SECRET_KEY "${CCD_RECAPTCHA_SECRET_KEY}" --type=constant --allow-root --path=/var/www/html
 fi
+if [ -n "${CCD_GOOGLE_SITE_VERIFICATION:-}" ]; then
+  wp config set CCD_GOOGLE_SITE_VERIFICATION "${CCD_GOOGLE_SITE_VERIFICATION}" --type=constant --allow-root --path=/var/www/html
+fi
 
 if [ -n "${WP_HOME:-}" ]; then
   wp config set WP_HOME "${WP_HOME}" --type=constant --allow-root --path=/var/www/html

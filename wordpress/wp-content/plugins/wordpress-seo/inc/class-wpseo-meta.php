@@ -6,6 +6,10 @@
  * @since   1.5.0
  */
 
+use Yoast\WP\SEO\Config\Schema_Types;
+use Yoast\WP\SEO\Helpers\Schema\Article_Helper;
+use Yoast\WP\SEO\Repositories\Indexable_Repository;
+
 /**
  * This class implements defaults and value validation for all WPSEO Post Meta values.
  *
@@ -69,11 +73,10 @@ class WPSEO_Meta {
 	 *   in the relevant child classes (WPSEO_Metabox and WPSEO_Social_admin) as they are only needed there.
 	 * - Beware: even though the meta keys are divided into subsets, they still have to be uniquely named!}}
 	 *
-	 * @var array $meta_fields
+	 * @var array
 	 *            Array format:
 	 *                (required)       'type'          => (string) field type. i.e. text / textarea / checkbox /
 	 *                                                    radio / select / multiselect / upload etc.
-	 *                (required)       'title'         => (string) table row title.
 	 *                (recommended)    'default_value' => (string|array) default value for the field.
 	 *                                                    IMPORTANT:
 	 *                                                    - if the field has options, the default has to be the
@@ -90,111 +93,124 @@ class WPSEO_Meta {
 	 *                (optional)        'autocomplete' => (bool) whether autocomplete is on for text fields,
 	 *                                                    defaults to true.
 	 *                (optional)        'class'        => (string) classname(s) to add to the actual <input> tag.
-	 *                (optional)        'description'  => (string) description to show underneath the field.
-	 *                (optional)        'expl'         => (string) label for a checkbox.
-	 *                (optional)        'help'         => (string) help text to show on mouse over ? image.
 	 *                (optional)        'rows'         => (int) number of rows for a textarea, defaults to 3.
-	 *                (optional)        'placeholder'  => (string) Currently only used by add-on plugins.
 	 *                (optional)        'serialized'   => (bool) whether the value is expected to be serialized,
 	 *                                                     i.e. an array or object, defaults to false.
 	 *                                                     Currently only used by add-on plugins.
 	 */
 	public static $meta_fields = [
-		'general'  => [
+		'general'         => [
 			'focuskw' => [
-				'type'  => 'hidden',
-				'title' => '',
+				'type'         => 'hidden',
+				'title'        => '',
+				'show_in_rest' => true,
+				'single'       => true,
 			],
 			'title' => [
 				'type'          => 'hidden',
-				'title'         => '', // Translation added later.
 				'default_value' => '',
-				'description'   => '', // Translation added later.
-				'help'          => '', // Translation added later.
+				'show_in_rest'  => true,
+				'single'        => true,
 			],
 			'metadesc' => [
 				'type'          => 'hidden',
-				'title'         => '', // Translation added later.
 				'default_value' => '',
 				'class'         => 'metadesc',
 				'rows'          => 2,
-				'description'   => '', // Translation added later.
-				'help'          => '', // Translation added later.
+				'show_in_rest'  => true,
+				'single'        => true,
 			],
 			'linkdex' => [
 				'type'          => 'hidden',
-				'title'         => 'linkdex',
 				'default_value' => '0',
-				'description'   => '',
 			],
 			'content_score' => [
 				'type'          => 'hidden',
-				'title'         => 'content_score',
 				'default_value' => '0',
-				'description'   => '',
+			],
+			'inclusive_language_score' => [
+				'type'          => 'hidden',
+				'default_value' => '0',
+			],
+			'seo_title_score' => [
+				'type'          => 'hidden',
+				'default_value' => '0',
+			],
+			'meta_description_score' => [
+				'type'          => 'hidden',
+				'default_value' => '0',
 			],
 			'is_cornerstone' => [
 				'type'          => 'hidden',
-				'title'         => 'is_cornerstone',
 				'default_value' => 'false',
-				'description'   => '',
 			],
 		],
-		'advanced' => [
+		'advanced'        => [
 			'meta-robots-noindex'  => [
-				'type'          => 'select',
-				'title'         => '', // Translation added later.
+				'type'          => 'hidden',
 				'default_value' => '0', // = post-type default.
 				'options'       => [
-					'0' => '', // Post type default - translation added later.
-					'2' => '', // Index - translation added later.
-					'1' => '', // No-index - translation added later.
+					'0' => '', // Post type default.
+					'2' => '', // Index.
+					'1' => '', // No-index.
 				],
 			],
 			'meta-robots-nofollow' => [
-				'type'          => 'radio',
-				'title'         => '', // Translation added later.
+				'type'          => 'hidden',
 				'default_value' => '0', // = follow.
 				'options'       => [
-					'0' => '', // Follow - translation added later.
-					'1' => '', // No-follow - translation added later.
+					'0' => '', // Follow.
+					'1' => '', // No-follow.
 				],
 			],
 			'meta-robots-adv'      => [
-				'type'          => 'multiselect',
-				'title'         => '', // Translation added later.
+				'type'          => 'hidden',
 				'default_value' => '',
-				'description'   => '', // Translation added later.
 				'options'       => [
-					'noimageindex' => '', // Translation added later.
-					'noarchive'    => '', // Translation added later.
-					'nosnippet'    => '', // Translation added later.
+					'noimageindex' => '',
+					'noarchive'    => '',
+					'nosnippet'    => '',
 				],
 			],
 			'bctitle'              => [
-				'type'          => 'text',
-				'title'         => '', // Translation added later.
+				'type'          => 'hidden',
 				'default_value' => '',
-				'description'   => '', // Translation added later.
 			],
 			'canonical'            => [
-				'type'          => 'text',
-				'title'         => '', // Translation added later.
+				'type'          => 'hidden',
 				'default_value' => '',
-				'description'   => '', // Translation added later.
 			],
 			'redirect'             => [
-				'type'          => 'text',
-				'title'         => '', // Translation added later.
+				'type'          => 'url',
 				'default_value' => '',
-				'description'   => '', // Translation added later.
 			],
 		],
-		'social'   => [],
+		'social'          => [],
+		'schema'          => [
+			'schema_page_type'    => [
+				'type'    => 'hidden',
+				'options' => Schema_Types::PAGE_TYPES,
+			],
+			'schema_article_type' => [
+				'type'          => 'hidden',
+				'hide_on_pages' => true,
+				'options'       => Schema_Types::ARTICLE_TYPES,
+			],
+		],
 		/* Fields we should validate & save, but not show on any form. */
-		'non_form' => [
+		'non_form'        => [
 			'linkdex' => [
 				'type'          => null,
+				'default_value' => '0',
+			],
+		],
+		'content_planner' => [
+			'is_content_planner_banner_rendered'  => [
+				'type'          => 'hidden',
+				'default_value' => '0',
+			],
+			'is_content_planner_banner_dismissed' => [
+				'type'          => 'hidden',
 				'default_value' => '0',
 			],
 		],
@@ -235,9 +251,9 @@ class WPSEO_Meta {
 	 * @var array
 	 */
 	private static $social_fields = [
-		'title'       => 'text',
-		'description' => 'textarea',
-		'image'       => 'upload',
+		'title'       => 'hidden',
+		'description' => 'hidden',
+		'image'       => 'hidden',
 		'image-id'    => 'hidden',
 	];
 
@@ -247,15 +263,12 @@ class WPSEO_Meta {
 	 * @return void
 	 */
 	public static function init() {
-
 		foreach ( self::$social_networks as $option => $network ) {
-			if ( WPSEO_Options::get( $option, false ) === true ) {
+			if ( WPSEO_Options::get( $option, false, [ 'wpseo_social' ] ) === true ) {
 				foreach ( self::$social_fields as $box => $type ) {
 					self::$meta_fields['social'][ $network . '-' . $box ] = [
 						'type'          => $type,
-						'title'         => '', // Translation added later.
 						'default_value' => '',
-						'description'   => '', // Translation added later.
 					];
 				}
 			}
@@ -275,11 +288,30 @@ class WPSEO_Meta {
 		foreach ( self::$meta_fields as $subset => $field_group ) {
 			foreach ( $field_group as $key => $field_def ) {
 
+				// Register for all post types: sanitise callback only, REST disabled.
 				register_meta(
 					'post',
 					self::$meta_prefix . $key,
-					[ 'sanitize_callback' => [ __CLASS__, 'sanitize_post_meta' ] ]
+					[ 'sanitize_callback' => [ self::class, 'sanitize_post_meta' ] ],
 				);
+
+				// Re-register for the 'post' subtype with REST exposure and auth callback when show_in_rest is enabled.
+				if ( ! empty( $field_def['show_in_rest'] ) ) {
+					register_meta(
+						'post',
+						self::$meta_prefix . $key,
+						[
+							'show_in_rest'      => true,
+							'single'            => ( $field_def['single'] ?? false ),
+							'type'              => 'string',
+							'object_subtype'    => 'post',
+							'sanitize_callback' => [ self::class, 'sanitize_post_meta' ],
+							'auth_callback'     => static function ( $allowed, $meta_key, $object_id ) {
+								return current_user_can( 'edit_post', $object_id );
+							},
+						],
+					);
+				}
 
 				// Set the $fields_index property for efficiency.
 				self::$fields_index[ self::$meta_prefix . $key ] = [
@@ -299,8 +331,16 @@ class WPSEO_Meta {
 		}
 		unset( $subset, $field_group, $key, $field_def );
 
-		add_filter( 'update_post_metadata', [ __CLASS__, 'remove_meta_if_default' ], 10, 5 );
-		add_filter( 'add_post_metadata', [ __CLASS__, 'dont_save_meta_if_default' ], 10, 4 );
+		// Strip meta fields that have show_in_rest enabled from REST responses for users
+		// without edit_post capability. register_meta's auth_callback only covers writes,
+		// so read access must be restricted separately via this filter.
+		// Register only for 'post' post type. Other post types don't expose these fields.
+		add_filter( 'rest_prepare_post', [ self::class, 'hide_meta_from_unauthorized_rest_response' ], 10, 2 );
+
+		self::filter_schema_article_types();
+
+		add_filter( 'update_post_metadata', [ self::class, 'remove_meta_if_default' ], 10, 5 );
+		add_filter( 'add_post_metadata', [ self::class, 'dont_save_meta_if_default' ], 10, 4 );
 	}
 
 	/**
@@ -343,23 +383,39 @@ class WPSEO_Meta {
 					return [];
 				}
 
-				/* Adjust the no-index text strings based on the post type. */
-				$post_type_object = get_post_type_object( $post_type );
-
-				$field_defs['meta-robots-noindex']['title']        = sprintf( $field_defs['meta-robots-noindex']['title'], $post_type_object->labels->singular_name );
-				$field_defs['meta-robots-noindex']['options']['0'] = sprintf( $field_defs['meta-robots-noindex']['options']['0'], ( ( WPSEO_Options::get( 'noindex-' . $post_type, false ) === true ) ? $field_defs['meta-robots-noindex']['options']['1'] : $field_defs['meta-robots-noindex']['options']['2'] ), $post_type_object->label );
-				$field_defs['meta-robots-nofollow']['title']       = sprintf( $field_defs['meta-robots-nofollow']['title'], $post_type_object->labels->singular_name );
-
 				/* Don't show the breadcrumb title field if breadcrumbs aren't enabled. */
 				if ( WPSEO_Options::get( 'breadcrumbs-enable', false ) !== true && ! current_theme_supports( 'yoast-seo-breadcrumbs' ) ) {
 					unset( $field_defs['bctitle'] );
 				}
 
-				global $post;
-
 				if ( empty( $post->ID ) || ( ! empty( $post->ID ) && self::get_value( 'redirect', $post->ID ) === '' ) ) {
 					unset( $field_defs['redirect'] );
 				}
+				break;
+
+			case 'schema':
+				if ( ! WPSEO_Capability_Utils::current_user_can( 'wpseo_edit_advanced_metadata' ) && WPSEO_Options::get( 'disableadvanced_meta' ) ) {
+					return [];
+				}
+
+				$field_defs['schema_page_type']['default'] = WPSEO_Options::get( 'schema-page-type-' . $post_type );
+
+				$article_helper = new Article_Helper();
+				if ( $article_helper->is_article_post_type( $post_type ) ) {
+					$default_schema_article_type = WPSEO_Options::get( 'schema-article-type-' . $post_type );
+
+					/** This filter is documented in inc/options/class-wpseo-option-titles.php */
+					$allowed_article_types = apply_filters( 'wpseo_schema_article_types', Schema_Types::ARTICLE_TYPES );
+
+					if ( ! array_key_exists( $default_schema_article_type, $allowed_article_types ) ) {
+						$default_schema_article_type = WPSEO_Options::get_default( 'wpseo_titles', 'schema-article-type-' . $post_type );
+					}
+					$field_defs['schema_article_type']['default'] = $default_schema_article_type;
+				}
+				else {
+					unset( $field_defs['schema_article_type'] );
+				}
+
 				break;
 		}
 
@@ -391,7 +447,15 @@ class WPSEO_Meta {
 			case ( $meta_key === self::$meta_prefix . 'linkdex' ):
 				$int = WPSEO_Utils::validate_int( $meta_value );
 				if ( $int !== false && $int >= 0 ) {
-					$clean = strval( $int ); // Convert to string to make sure default check works.
+					$clean = (string) $int; // Convert to string to make sure default check works.
+				}
+				break;
+
+			case ( in_array( $meta_key, [ self::$meta_prefix . 'seo_title_score', self::$meta_prefix . 'meta_description_score' ], true ) ):
+				// Per-field scores are 0-100 percentages; out-of-range input keeps the "never scored" default.
+				$int = WPSEO_Utils::validate_int( $meta_value );
+				if ( $int !== false && $int >= 0 && $int <= 100 ) {
+					$clean = (string) $int; // Convert to string to make sure default check works.
 				}
 				break;
 
@@ -402,7 +466,6 @@ class WPSEO_Meta {
 				}
 				break;
 
-
 			case ( $field_def['type'] === 'select' || $field_def['type'] === 'radio' ):
 				// Only allow value if it's one of the predefined options.
 				if ( isset( $field_def['options'][ $meta_value ] ) ) {
@@ -410,21 +473,17 @@ class WPSEO_Meta {
 				}
 				break;
 
-
-			case ( $field_def['type'] === 'multiselect' && $meta_key === self::$meta_prefix . 'meta-robots-adv' ):
+			case ( $field_def['type'] === 'hidden' && $meta_key === self::$meta_prefix . 'meta-robots-adv' ):
 				$clean = self::validate_meta_robots_adv( $meta_value );
 				break;
 
-
-			case ( $field_def['type'] === 'text' && $meta_key === self::$meta_prefix . 'canonical' ):
-			case ( $field_def['type'] === 'text' && $meta_key === self::$meta_prefix . 'redirect' ):
+			case ( $field_def['type'] === 'url' || $meta_key === self::$meta_prefix . 'canonical' ):
 				// Validate as url(-part).
 				$url = WPSEO_Utils::sanitize_url( $meta_value );
 				if ( $url !== '' ) {
 					$clean = $url;
 				}
 				break;
-
 
 			case ( $field_def['type'] === 'upload' && in_array( $meta_key, [ self::$meta_prefix . 'opengraph-image', self::$meta_prefix . 'twitter-image' ], true ) ):
 				// Validate as url.
@@ -446,6 +505,13 @@ class WPSEO_Meta {
 				}
 				break;
 
+			case ( $field_def['type'] === 'hidden' && isset( $field_def['options'] ) ):
+				// Only allow value if it's one of the predefined options.
+				if ( isset( $field_def['options'][ $meta_value ] ) ) {
+					$clean = $meta_value;
+				}
+				break;
+
 			case ( $field_def['type'] === 'textarea' ):
 				if ( is_string( $meta_value ) ) {
 					// Remove line breaks and tabs.
@@ -458,7 +524,6 @@ class WPSEO_Meta {
 			case ( $field_def['type'] === 'multiselect' ):
 				$clean = $meta_value;
 				break;
-
 
 			case ( $field_def['type'] === 'text' ):
 			default:
@@ -520,7 +585,7 @@ class WPSEO_Meta {
 	 * @param string $meta_value New meta value.
 	 * @param string $prev_value The old meta value.
 	 *
-	 * @return null|bool True = stop saving, null = continue saving.
+	 * @return bool|null True = stop saving, null = continue saving.
 	 */
 	public static function remove_meta_if_default( $check, $object_id, $meta_key, $meta_value, $prev_value = '' ) {
 		/* If it's one of our meta fields, check against default. */
@@ -546,7 +611,7 @@ class WPSEO_Meta {
 	 * @param string $meta_key   The full meta key (including prefix).
 	 * @param string $meta_value New meta value.
 	 *
-	 * @return null|bool True = stop saving, null = continue saving.
+	 * @return bool|null True = stop saving, null = continue saving.
 	 */
 	public static function dont_save_meta_if_default( $check, $object_id, $meta_key, $meta_value ) {
 		/* If it's one of our meta fields, check against default. */
@@ -602,25 +667,40 @@ class WPSEO_Meta {
 			}
 		}
 
-		$custom = get_post_custom( $postid ); // Array of strings or empty array.
+		$custom    = get_post_custom( $postid ); // Array of strings or empty array.
+		$table_key = self::$meta_prefix . $key;
 
-		if ( isset( $custom[ self::$meta_prefix . $key ][0] ) ) {
-			$unserialized = maybe_unserialize( $custom[ self::$meta_prefix . $key ][0] );
-			if ( $custom[ self::$meta_prefix . $key ][0] === $unserialized ) {
-				return $custom[ self::$meta_prefix . $key ][0];
+		// Populate the field_def using the field_index lookup array.
+		$field_def = [];
+		if ( isset( self::$fields_index[ $table_key ] ) ) {
+			$field_def = self::$meta_fields[ self::$fields_index[ $table_key ]['subset'] ][ self::$fields_index[ $table_key ]['key'] ];
+		}
+
+		// Check if we have a custom post meta entry.
+		if ( isset( $custom[ $table_key ][0] ) ) {
+			$unserialized = maybe_unserialize( $custom[ $table_key ][0] );
+
+			// Check if it is already unserialized.
+			if ( $custom[ $table_key ][0] === $unserialized ) {
+				return $custom[ $table_key ][0];
 			}
 
-			if ( isset( self::$fields_index[ self::$meta_prefix . $key ] ) ) {
-				$field_def = self::$meta_fields[ self::$fields_index[ self::$meta_prefix . $key ]['subset'] ][ self::$fields_index[ self::$meta_prefix . $key ]['key'] ];
-				if ( isset( $field_def['serialized'] ) && $field_def['serialized'] === true ) {
-					// Ok, serialize value expected/allowed.
-					return $unserialized;
-				}
+			// Check whether we need to unserialize it.
+			if ( isset( $field_def['serialized'] ) && $field_def['serialized'] === true ) {
+				// Ok, serialize value expected/allowed.
+				return $unserialized;
 			}
 		}
 
 		// Meta was either not found or found, but object/array while not allowed to be.
 		if ( isset( self::$defaults[ self::$meta_prefix . $key ] ) ) {
+			// Update the default value to the current post type.
+			switch ( $key ) {
+				case 'schema_page_type':
+				case 'schema_article_type':
+					return '';
+			}
+
 			return self::$defaults[ self::$meta_prefix . $key ];
 		}
 
@@ -654,9 +734,9 @@ class WPSEO_Meta {
 	 * Deletes a meta value for a post.
 	 *
 	 * @param string $key     The internal key of the meta value to change (without prefix).
-	 * @param int    $post_id The ID of the post to change the meta for.
+	 * @param int    $post_id The ID of the post to delete the meta for.
 	 *
-	 * @return bool Whether the value was changed.
+	 * @return bool Whether the delete was successful or not.
 	 */
 	public static function delete( $key, $post_id ) {
 		return delete_post_meta( $post_id, self::$meta_prefix . $key );
@@ -698,7 +778,7 @@ class WPSEO_Meta {
 				;",
 			$old_metakey,
 			$wpdb->esc_like( self::$meta_prefix . '%' ),
-			self::$meta_prefix . 'linkdex'
+			self::$meta_prefix . 'linkdex',
 		);
 		$oldies = $wpdb->get_results( $query );
 
@@ -750,7 +830,7 @@ class WPSEO_Meta {
 				;",
 			self::$meta_prefix . 'meta-robots',
 			self::$meta_prefix . 'meta-robots-noindex',
-			self::$meta_prefix . 'meta-robots-nofollow'
+			self::$meta_prefix . 'meta-robots-nofollow',
 		);
 		$oldies = $wpdb->get_results( $query );
 
@@ -802,7 +882,7 @@ class WPSEO_Meta {
 
 					$query[] = $wpdb->prepare(
 						"( meta_key = %s AND meta_value NOT IN ( '" . implode( "','", esc_sql( $valid ) ) . "' ) )",
-						self::$meta_prefix . $key
+						self::$meta_prefix . $key,
 					);
 					unset( $valid );
 				}
@@ -810,13 +890,13 @@ class WPSEO_Meta {
 					$query[] = $wpdb->prepare(
 						'( meta_key = %s AND meta_value = %s )',
 						self::$meta_prefix . $key,
-						$field_def['default_value']
+						$field_def['default_value'],
 					);
 				}
 				else {
 					$query[] = $wpdb->prepare(
 						"( meta_key = %s AND meta_value = '' )",
-						self::$meta_prefix . $key
+						self::$meta_prefix . $key,
 					);
 				}
 			}
@@ -854,7 +934,7 @@ class WPSEO_Meta {
 		 */
 		$query  = $wpdb->prepare(
 			"SELECT meta_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s",
-			self::$meta_prefix . 'meta-robots-adv'
+			self::$meta_prefix . 'meta-robots-adv',
 		);
 		$oldies = $wpdb->get_results( $query );
 
@@ -927,8 +1007,8 @@ class WPSEO_Meta {
 	/**
 	 * Counts the total of all the keywords being used for posts except the given one.
 	 *
-	 * @param string  $keyword The keyword to be counted.
-	 * @param integer $post_id The is of the post to which the keyword belongs.
+	 * @param string $keyword The keyword to be counted.
+	 * @param int    $post_id The id of the post to which the keyword belongs.
 	 *
 	 * @return array
 	 */
@@ -938,60 +1018,109 @@ class WPSEO_Meta {
 			return [];
 		}
 
-		$query = [
-			'meta_query'     => [
-				'relation' => 'OR',
-				[
-					'key'   => '_yoast_wpseo_focuskw',
-					'value' => $keyword,
-				],
-			],
-			'post__not_in'   => [ $post_id ],
-			'fields'         => 'ids',
-			'post_type'      => 'any',
+		/**
+		 * The indexable repository.
+		 *
+		 * @var Indexable_Repository $repository
+		 */
+		$repository = YoastSEO()->classes->get( Indexable_Repository::class );
 
-			/*
-			 * We only need to return zero, one or two results:
-			 * - Zero: keyword hasn't been used before
-			 * - One: Keyword has been used once before
-			 * - Two or more: Keyword has been used twice before
+		$post_ids = $repository->query()
+			->select( 'object_id' )
+			->where( 'primary_focus_keyword', $keyword )
+			->where( 'object_type', 'post' )
+			->where_not_equal( 'object_id', $post_id )
+			->where_not_equal( 'post_status', 'trash' )
+			->limit( 2 )    // Limit to 2 results to save time and resources.
+			->find_array();
+
+		// Get object_id from each subarray in $post_ids.
+		$post_ids = ( is_array( $post_ids ) ) ? array_column( $post_ids, 'object_id' ) : [];
+
+		/*
+		 * If Premium is installed, get the additional keywords as well.
+		 * We only check for the additional keywords if we've not already found two.
+		 * In that case there's no use for an additional query as we already know
+		 * that the keyword has been used multiple times before.
+		 */
+		if ( count( $post_ids ) < 2 ) {
+			/**
+			 * Allows enhancing the array of posts' that share their focus keywords with the post's focus keywords.
+			 *
+			 * @param array  $post_ids The array of posts' ids that share their related keywords with the post.
+			 * @param string $keyword  The keyword to search for.
+			 * @param int    $post_id  The id of the post the keyword is associated to.
 			 */
-			'posts_per_page' => 2,
-		];
-
-		// If Yoast SEO Premium is active, get the additional keywords as well.
-		if ( WPSEO_Utils::is_yoast_seo_premium() ) {
-			$query['meta_query'][] = [
-				'key'     => '_yoast_wpseo_focuskeywords',
-				'value'   => sprintf( '"keyword":"%s"', $keyword ),
-				'compare' => 'LIKE',
-			];
+			$post_ids = apply_filters( 'wpseo_posts_for_focus_keyword', $post_ids, $keyword, $post_id );
 		}
 
-		$get_posts = new WP_Query( $query );
-
-		return $get_posts->posts;
+		return $post_ids;
 	}
-
-	/* ********************* DEPRECATED METHODS ********************* */
 
 	/**
-	 * Get a value from $_POST for a given key.
+	 * Returns the post types for the given post ids.
 	 *
-	 * Returns the $_POST value if exists, returns an empty string if key does not exist.
+	 * @param array $post_ids The post ids to get the post types for.
 	 *
-	 * @deprecated 9.6
-	 * @codeCoverageIgnore
-	 *
-	 * @param string $key Key of the value to get from $_POST.
-	 *
-	 * @return string Returns $_POST value, which will be a string the majority of the time.
-	 *                Will return empty string if key does not exists in $_POST.
+	 * @return array The post types.
 	 */
-	public static function get_post_value( $key ) {
-		_deprecated_function( __METHOD__, 'WPSEO 9.6' );
+	public static function post_types_for_ids( $post_ids ) {
+		// Check if post ids is not empty.
+		if ( ! empty( $post_ids ) ) {
+			/**
+			 * The indexable repository.
+			 *
+			 * @var Indexable_Repository $repository
+			 */
+			$repository = YoastSEO()->classes->get( Indexable_Repository::class );
 
-		// @codingStandardsIgnoreLine
-		return ( array_key_exists( $key, $_POST ) ) ? $_POST[ $key ] : '';
+			// Get the post subtypes for the posts that share the keyword.
+			$post_types = $repository->query()
+				->select( 'object_sub_type' )
+				->where_in( 'object_id', $post_ids )
+				->find_array();
+
+			// Get object_sub_type from each subarray in $post_ids.
+			$post_types = array_column( $post_types, 'object_sub_type' );
+		}
+		else {
+			$post_types = [];
+		}
+
+		return $post_types;
 	}
-} /* End of class */
+
+	/**
+	 * Strips REST-exposed Yoast meta fields from the response for users without edit_post capability on the post.
+	 *
+	 * @param WP_REST_Response $response The REST response.
+	 * @param WP_Post          $post     The post object.
+	 *
+	 * @return WP_REST_Response The (possibly modified) response.
+	 */
+	public static function hide_meta_from_unauthorized_rest_response( $response, $post ) {
+		if ( current_user_can( 'edit_post', $post->ID ) ) {
+			return $response;
+		}
+		$data = $response->get_data();
+		foreach ( self::$meta_fields as $field_group ) {
+			foreach ( $field_group as $key => $field_def ) {
+				if ( ! empty( $field_def['show_in_rest'] ) ) {
+					unset( $data['meta'][ self::$meta_prefix . $key ] );
+				}
+			}
+		}
+		$response->set_data( $data );
+		return $response;
+	}
+
+	/**
+	 * Filter the schema article types.
+	 *
+	 * @return void
+	 */
+	public static function filter_schema_article_types() {
+		/** This filter is documented in inc/options/class-wpseo-option-titles.php */
+		self::$meta_fields['schema']['schema_article_type']['options'] = apply_filters( 'wpseo_schema_article_types', self::$meta_fields['schema']['schema_article_type']['options'] );
+	}
+}

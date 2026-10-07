@@ -24,8 +24,12 @@ class WPSEO_Image_Utils {
 		 */
 		$url = preg_replace( '/(.*)-\d+x\d+\.(jpg|png|gif)$/', '$1.$2', $url );
 
+		static $uploads;
+
+		$uploads ??= wp_get_upload_dir();
+
 		// Don't try to do this for external URLs.
-		if ( strpos( $url, get_site_url() ) !== 0 ) {
+		if ( strpos( $url, $uploads['baseurl'] ) !== 0 ) {
 			return 0;
 		}
 
@@ -60,8 +64,17 @@ class WPSEO_Image_Utils {
 			return $id;
 		}
 
-		// phpcs:ignore WordPress.VIP.RestrictedFunctions -- We use the WP COM version if we can, see above.
+		// Note: We use the WP COM version if we can, see above.
 		$id = attachment_url_to_postid( $url );
+
+		if ( empty( $id ) ) {
+			/**
+			 * If no ID was found, maybe we're dealing with a scaled big image. So, let's try that.
+			 *
+			 * @see https://core.trac.wordpress.org/ticket/51058
+			 */
+			$id = self::get_scaled_image_id( $url );
+		}
 
 		if ( empty( $id ) ) {
 			wp_cache_set( $cache_key, 'not_found', '', ( 12 * HOUR_IN_SECONDS + wp_rand( 0, ( 4 * HOUR_IN_SECONDS ) ) ) );
@@ -74,19 +87,38 @@ class WPSEO_Image_Utils {
 	}
 
 	/**
+	 * Tries getting the ID of a potentially scaled image.
+	 *
+	 * @param string $url The URL of the image.
+	 *
+	 * @return int|false The ID of the image or false for failure.
+	 */
+	protected static function get_scaled_image_id( $url ) {
+		$path_parts = pathinfo( $url );
+		if ( isset( $path_parts['dirname'], $path_parts['filename'], $path_parts['extension'] ) ) {
+			$scaled_url = trailingslashit( $path_parts['dirname'] ) . $path_parts['filename'] . '-scaled.' . $path_parts['extension'];
+
+			return attachment_url_to_postid( $scaled_url );
+		}
+
+		return false;
+	}
+
+	/**
 	 * Retrieves the image data.
 	 *
 	 * @param array $image         Image array with URL and metadata.
 	 * @param int   $attachment_id Attachment ID.
 	 *
-	 * @return false|array $image {
+	 * @return array|false {
 	 *     Array of image data
 	 *
 	 *     @type string $alt      Image's alt text.
-	 *     @type string $alt      Image's alt text.
+	 *     @type string $path     Path of image.
 	 *     @type int    $width    Width of image.
 	 *     @type int    $height   Height of image.
 	 *     @type string $type     Image's MIME type.
+	 *     @type string $size     Image's size.
 	 *     @type string $url      Image's URL.
 	 *     @type int    $filesize The file size in bytes, if already set.
 	 * }
@@ -109,6 +141,29 @@ class WPSEO_Image_Utils {
 			$image['type'] = get_post_mime_type( $attachment_id );
 		}
 
+		/**
+		 * Filter: 'wpseo_image_data' - Filter image data.
+		 *
+		 * Elements with keys not listed in the section will be discarded.
+		 *
+		 * @param array $image_data {
+		 *     Array of image data
+		 *
+		 *     @type int    id       Image's ID as an attachment.
+		 *     @type string alt      Image's alt text.
+		 *     @type string path     Image's path.
+		 *     @type int    width    Width of image.
+		 *     @type int    height   Height of image.
+		 *     @type int    pixels   Number of pixels in the image.
+		 *     @type string type     Image's MIME type.
+		 *     @type string size     Image's size.
+		 *     @type string url      Image's URL.
+		 *     @type int    filesize The file size in bytes, if already set.
+		 * }
+		 * @param int   $attachment_id Attachment ID.
+		 */
+		$image = apply_filters( 'wpseo_image_data', $image, $attachment_id );
+
 		// Keep only the keys we need, and nothing else.
 		return array_intersect_key( $image, array_flip( [ 'id', 'alt', 'path', 'width', 'height', 'pixels', 'type', 'size', 'url', 'filesize' ] ) );
 	}
@@ -129,9 +184,9 @@ class WPSEO_Image_Utils {
 		 * Filter: 'wpseo_image_image_weight_limit' - Determines what the maximum weight
 		 * (in bytes) of an image is allowed to be, default is 2 MB.
 		 *
-		 * @api int - The maximum weight (in bytes) of an image.
+		 * @param int $max_bytes The maximum weight (in bytes) of an image.
 		 */
-		$max_size = apply_filters( 'wpseo_image_image_weight_limit', 2097152 );
+		$max_size = apply_filters( 'wpseo_image_image_weight_limit', 2_097_152 );
 
 		// We cannot check without a path, so assume it's fine.
 		if ( ! isset( $image['path'] ) ) {
@@ -144,8 +199,8 @@ class WPSEO_Image_Utils {
 	/**
 	 * Find the right version of an image based on size.
 	 *
-	 * @param int    $attachment_id Attachment ID.
-	 * @param string $size          Size name.
+	 * @param int          $attachment_id Attachment ID.
+	 * @param string|array $size          Size name, or array of width and height in pixels (e.g [800,400]).
 	 *
 	 * @return array|false Returns an array with image data on success, false on failure.
 	 */
@@ -156,12 +211,26 @@ class WPSEO_Image_Utils {
 		}
 
 		if ( ! $image ) {
-			$image         = image_get_intermediate_size( $attachment_id, $size );
-			$image['size'] = $size;
+			$image = image_get_intermediate_size( $attachment_id, $size );
+		}
+
+		if ( ! is_array( $image ) ) {
+			$image_src = wp_get_attachment_image_src( $attachment_id, $size );
+			if ( is_array( $image_src ) && isset( $image_src[1] ) && isset( $image_src[2] ) ) {
+				$image           = [];
+				$image['url']    = $image_src[0];
+				$image['width']  = $image_src[1];
+				$image['height'] = $image_src[2];
+				$image['size']   = 'full';
+			}
 		}
 
 		if ( ! $image ) {
 			return false;
+		}
+
+		if ( ! isset( $image['size'] ) ) {
+			$image['size'] = $size;
 		}
 
 		return self::get_data( $image, $attachment_id );
@@ -197,9 +266,7 @@ class WPSEO_Image_Utils {
 	public static function get_absolute_path( $path ) {
 		static $uploads;
 
-		if ( $uploads === null ) {
-			$uploads = wp_get_upload_dir();
-		}
+		$uploads ??= wp_get_upload_dir();
 
 		// Add the uploads basedir if the path does not start with it.
 		if ( empty( $uploads['error'] ) && strpos( $path, $uploads['basedir'] ) !== 0 ) {
@@ -241,10 +308,16 @@ class WPSEO_Image_Utils {
 			return $image['filesize'];
 		}
 
+		if ( ! isset( $image['path'] ) ) {
+			return 0;
+		}
+
 		// If the file size for the file is over our limit, we're going to go for a smaller version.
-		// @todo Save the filesize to the image metadata.
-		// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged -- If file size doesn't properly return, we'll not fail.
-		return @filesize( self::get_absolute_path( $image['path'] ) );
+		if ( function_exists( 'wp_filesize' ) ) {
+			return wp_filesize( self::get_absolute_path( $image['path'] ) );
+		}
+
+		return file_exists( $image['path'] ) ? (int) filesize( $image['path'] ) : 0;
 	}
 
 	/**
@@ -321,13 +394,13 @@ class WPSEO_Image_Utils {
 	/**
 	 * Retrieve the internal WP image file sizes.
 	 *
-	 * @return array $image_sizes An array of image sizes.
+	 * @return array An array of image sizes.
 	 */
 	public static function get_sizes() {
 		/**
 		 * Filter: 'wpseo_image_sizes' - Determines which image sizes we'll loop through to get an appropriate image.
 		 *
-		 * @api array - The array of image sizes to loop through.
+		 * @param array<string> $sizes The array of image sizes to loop through.
 		 */
 		return apply_filters( 'wpseo_image_sizes', [ 'full', 'large', 'medium_large' ] );
 	}
@@ -368,7 +441,7 @@ class WPSEO_Image_Utils {
 	/**
 	 * Gets the post's first usable content image. Null if none is available.
 	 *
-	 * @param int $post_id The post id.
+	 * @param int|null $post_id The post id.
 	 *
 	 * @return string|null The image URL.
 	 */
@@ -419,14 +492,20 @@ class WPSEO_Image_Utils {
 	 */
 	public static function get_attachment_id_from_settings( $setting ) {
 		$image_id = WPSEO_Options::get( $setting . '_id', false );
-		if ( ! $image_id ) {
-			$image = WPSEO_Options::get( $setting, false );
-			if ( $image ) {
-				// There is not an option to put a URL in an image field in the settings anymore, only to upload it through the media manager.
-				// This means an attachment always exists, so doing this is only needed once.
-				$image_id = self::get_attachment_by_url( $image );
-				WPSEO_Options::set( $setting . '_id', $image_id );
-			}
+		if ( $image_id ) {
+			return $image_id;
+		}
+
+		$image = WPSEO_Options::get( $setting, false );
+		if ( $image ) {
+			// There is not an option to put a URL in an image field in the settings anymore, only to upload it through the media manager.
+			// This means an attachment always exists, so doing this is only needed once.
+			$image_id = self::get_attachment_by_url( $image );
+		}
+
+		// Only store a new ID if it is not 0, to prevent an update loop.
+		if ( $image_id ) {
+			WPSEO_Options::set( $setting . '_id', $image_id );
 		}
 
 		return $image_id;

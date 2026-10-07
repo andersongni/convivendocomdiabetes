@@ -62,10 +62,21 @@ add_action(
 		wp_add_inline_style(
 			$handle,
 			<<<'CSS'
-/* Sempre esconde paginacao no blog; o scroll carrega o restante. */
+/*
+ * Paginacao continua no HTML (crawl/rel=next), so sai do fluxo visual.
+ * Infinite scroll segue lendo os links dessas paginas.
+ */
 body.blog .navigation.pagination,
 .ccd-blog-infinite .navigation.pagination {
-	display: none !important;
+	position: absolute !important;
+	width: 1px !important;
+	height: 1px !important;
+	padding: 0 !important;
+	margin: -1px !important;
+	overflow: hidden !important;
+	clip: rect(0, 0, 0, 0) !important;
+	white-space: nowrap !important;
+	border: 0 !important;
 }
 .ccd-blog-infinite-status {
 	display: flex;

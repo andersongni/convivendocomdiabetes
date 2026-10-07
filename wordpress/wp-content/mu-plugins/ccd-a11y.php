@@ -221,7 +221,7 @@ add_filter(
 );
 
 /**
- * Posts: titulo + byline no topo; remove navegacao anterior/proximo.
+ * Posts: titulo + byline no topo (mantem prev/next para links internos).
  */
 add_action(
 	'template_redirect',
@@ -290,13 +290,6 @@ add_action(
 						$replaced = $with_byline;
 					}
 				}
-
-				$replaced = preg_replace(
-					'#<nav class="navigation post-navigation"[^>]*>.*?</nav>#s',
-					'',
-					$replaced,
-					1
-				);
 
 				return is_string( $replaced ) ? $replaced : $html;
 			}
@@ -695,10 +688,13 @@ body.single-post .post-content-single > .ccd-post-byline a:focus {
 	text-decoration: underline !important;
 }
 body.single-post .post-content-single > .post-meta,
-body.single-post .row.post-meta.small,
-body.single-post .post-navigation,
-body.single-post nav.navigation.post-navigation {
+body.single-post .row.post-meta.small {
 	display: none !important;
+}
+body.single-post .post-navigation {
+	max-width: 720px;
+	margin: 1.5rem auto 0;
+	padding: 0 1.25rem;
 }
 
 @media (max-width: 767px) {

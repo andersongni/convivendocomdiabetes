@@ -9,75 +9,86 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Evita o aviso do Edge/Chromium:
- * "[Intervention] Images loaded lazily and replaced with placeholders…"
+ * Lazy-load padrao do WP; eager so no LCP (logo / fetchpriority=high).
+ * Evita peso abaixo da dobra sem reativar o Intervention do Edge em massa.
  */
-add_filter( 'wp_lazy_loading_enabled', '__return_false' );
-add_filter(
-	'wp_img_tag_add_loading_attr',
-	static function () {
-		return false;
-	},
-	99
-);
-add_filter(
-	'wp_iframe_tag_add_loading_attr',
-	static function () {
-		return false;
-	},
-	99
-);
-
-/**
- * Forca loading=eager (remove lazy) em HTML de conteudo.
- *
- * @param string $content Conteudo.
- * @return string
- */
-function ccd_force_img_loading_eager( $content ) {
-	if ( ! is_string( $content ) || $content === '' || stripos( $content, '<img' ) === false ) {
-		return $content;
-	}
-	$content = (string) preg_replace( '/\sloading=(["\'])lazy\1/i', ' loading="eager"', $content );
-	$content = (string) preg_replace( '/<img(?![^>]*\bloading=)/i', '<img loading="eager"', $content );
-	return $content;
-}
-
-foreach ( array( 'the_content', 'the_excerpt', 'widget_text', 'widget_custom_html_content', 'post_thumbnail_html', 'get_custom_logo' ) as $ccd_lazy_filter ) {
-	add_filter( $ccd_lazy_filter, 'ccd_force_img_loading_eager', 99 );
-}
-
 add_filter(
 	'wp_get_attachment_image_attributes',
-	static function ( $attr ) {
+	static function ( $attr, $attachment, $size ) {
 		if ( ! is_array( $attr ) ) {
 			return $attr;
 		}
-		$attr['loading'] = 'eager';
+		$is_logo = ! empty( $attr['class'] ) && stripos( (string) $attr['class'], 'custom-logo' ) !== false;
+		$is_lcp  = ! empty( $attr['fetchpriority'] ) && strtolower( (string) $attr['fetchpriority'] ) === 'high';
+		if ( $is_logo || $is_lcp ) {
+			$attr['loading'] = 'eager';
+		}
 		return $attr;
+	},
+	99,
+	3
+);
+
+add_filter(
+	'get_custom_logo',
+	static function ( $html ) {
+		if ( ! is_string( $html ) || $html === '' ) {
+			return $html;
+		}
+		$html = (string) preg_replace( '/\sloading=(["\'])lazy\1/i', ' loading="eager"', $html );
+		if ( stripos( $html, 'loading=' ) === false ) {
+			$html = (string) preg_replace( '/<img\b/i', '<img loading="eager"', $html, 1 );
+		}
+		return $html;
 	},
 	99
 );
 
 /**
- * Passada final no HTML completo (shortcodes/page builders).
+ * Home: primeira imagem do conteudo (foto da Bia) fica eager; demais lazy.
+ */
+add_filter(
+	'the_content',
+	static function ( $content ) {
+		if ( ! is_string( $content ) || $content === '' || stripos( $content, '<img' ) === false ) {
+			return $content;
+		}
+		if ( ! is_front_page() ) {
+			return $content;
+		}
+		$n = 0;
+		return (string) preg_replace_callback(
+			'/<img\b[^>]*>/i',
+			static function ( $m ) use ( &$n ) {
+				++$n;
+				$tag = $m[0];
+				if ( $n === 1 ) {
+					$tag = preg_replace( '/\sloading=(["\'])[^"\']*\1/i', '', $tag );
+					$tag = preg_replace( '/<img\b/i', '<img loading="eager" fetchpriority="high"', $tag, 1 );
+					return $tag;
+				}
+				if ( ! preg_match( '/\bloading=/i', $tag ) ) {
+					$tag = preg_replace( '/<img\b/i', '<img loading="lazy"', $tag, 1 );
+				}
+				return $tag;
+			},
+			$content
+		);
+	},
+	99
+);
+
+/**
+ * HTML: nao deixar o browser cachear documento por dias (Apache ExpiresDefault
+ * antigo + soft-nav inline faziam o menu engolir cliques apos deploy).
  */
 add_action(
-	'template_redirect',
+	'send_headers',
 	static function () {
-		if ( is_admin() || wp_doing_ajax() || wp_is_json_request() ) {
+		if ( is_admin() || headers_sent() ) {
 			return;
 		}
-		ob_start(
-			static function ( $html ) {
-				if ( ! is_string( $html ) || $html === '' ) {
-					return $html;
-				}
-				$html = (string) preg_replace( '/\sloading=(["\'])lazy\1/i', ' loading="eager"', $html );
-				$html = (string) preg_replace( '/<img(?![^>]*\bloading=)/i', '<img loading="eager"', $html );
-				return $html;
-			}
-		);
+		header( 'Cache-Control: no-cache, must-revalidate', true );
 	},
 	0
 );
@@ -133,6 +144,35 @@ ul.dropdown-menu a,
 	user-select: none !important;
 	cursor: pointer !important;
 	caret-color: transparent !important;
+}
+
+/*
+ * Area de clique = area de hover do item.
+ * O tema coloca padding no <li> (hover) e o <a> fica so no texto.
+ */
+#main_menu > li,
+ul.main-menu > li,
+ul.dropdown-menu > li,
+#menu-menu-principal > li,
+#offcanvas_menu > li,
+ul.offcanvas_menu > li {
+	padding: 0 !important;
+}
+#main_menu > li > a,
+ul.main-menu > li > a,
+ul.dropdown-menu > li > a,
+#menu-menu-principal > li > a,
+#offcanvas_menu > li > a,
+ul.offcanvas_menu > li > a {
+	display: block !important;
+	padding: 0.85rem !important;
+	box-sizing: border-box !important;
+}
+/* Submenus ja tem padding no <a>; garante bloco clicavel. */
+ul.dropdown-menu ul li > a,
+#offcanvas_menu ul li > a,
+ul.offcanvas_menu ul li > a {
+	display: block !important;
 }
 
 /*

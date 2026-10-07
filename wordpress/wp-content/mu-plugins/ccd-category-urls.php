@@ -1,14 +1,55 @@
 <?php
 /**
  * Plugin Name: CCD Category URLs
- * Description: Arquivos de categoria em /slug/ (sem /category/) e sem conflito com _wp_old_slug de posts.
+ * Description: Arquivos de categoria em /slug/ (sem /category/) e sem conflito com _wp_old_slug / guess 404.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_CATEGORY_URLS_VERSION = '1';
+const CCD_CATEGORY_URLS_VERSION = '2';
+
+/**
+ * @return string[]
+ */
+function ccd_category_urls_slugs() {
+	static $slugs = null;
+	if ( is_array( $slugs ) ) {
+		return $slugs;
+	}
+	global $wpdb;
+	$rows = $wpdb->get_col(
+		"SELECT t.slug
+		 FROM {$wpdb->terms} AS t
+		 INNER JOIN {$wpdb->term_taxonomy} AS tt ON t.term_id = tt.term_id
+		 WHERE tt.taxonomy = 'category'"
+	);
+	$slugs = array();
+	if ( is_array( $rows ) ) {
+		foreach ( $rows as $slug ) {
+			$slug = sanitize_title( (string) $slug );
+			if ( $slug !== '' ) {
+				$slugs[ $slug ] = true;
+			}
+		}
+	}
+	return $slugs;
+}
+
+/**
+ * Path de um segmento (ex.: diabetes) a partir do REQUEST_URI.
+ *
+ * @return string
+ */
+function ccd_category_urls_request_slug() {
+	$path = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '';
+	$path = trim( (string) $path, '/' );
+	if ( $path === '' || str_contains( $path, '/' ) ) {
+		return '';
+	}
+	return sanitize_title( $path );
+}
 
 /**
  * Liga stripcategorybase do Yoast, limpa old slugs que colidem com categorias e faz flush.
@@ -31,6 +72,10 @@ function ccd_category_urls_ensure() {
 	ccd_category_urls_purge_conflicting_old_slugs();
 	flush_rewrite_rules( false );
 	update_option( 'ccd_category_urls', CCD_CATEGORY_URLS_VERSION, false );
+
+	if ( function_exists( 'ccd_page_cache_purge_all' ) ) {
+		ccd_page_cache_purge_all();
+	}
 }
 add_action( 'init', 'ccd_category_urls_ensure', 20 );
 
@@ -42,21 +87,7 @@ add_action( 'init', 'ccd_category_urls_ensure', 20 );
 function ccd_category_urls_purge_conflicting_old_slugs() {
 	global $wpdb;
 
-	$slugs = $wpdb->get_col(
-		"SELECT t.slug
-		 FROM {$wpdb->terms} AS t
-		 INNER JOIN {$wpdb->term_taxonomy} AS tt ON t.term_id = tt.term_id
-		 WHERE tt.taxonomy = 'category'"
-	);
-	if ( ! is_array( $slugs ) || $slugs === array() ) {
-		return;
-	}
-
-	foreach ( $slugs as $slug ) {
-		$slug = sanitize_title( (string) $slug );
-		if ( $slug === '' ) {
-			continue;
-		}
+	foreach ( array_keys( ccd_category_urls_slugs() ) as $slug ) {
 		$wpdb->delete(
 			$wpdb->postmeta,
 			array(
@@ -95,15 +126,36 @@ add_action( 'post_updated', 'ccd_category_urls_on_post_updated', 20, 3 );
  * @return string
  */
 function ccd_category_urls_block_old_slug( $link ) {
-	$path = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '';
-	$path = trim( (string) $path, '/' );
-	if ( $path === '' || str_contains( $path, '/' ) ) {
+	$slug = ccd_category_urls_request_slug();
+	if ( $slug === '' ) {
 		return $link;
 	}
-	$term = get_term_by( 'slug', $path, 'category' );
-	if ( $term instanceof WP_Term && ! is_wp_error( $term ) ) {
+	$known = ccd_category_urls_slugs();
+	if ( isset( $known[ $slug ] ) ) {
 		return '';
 	}
 	return $link;
 }
 add_filter( 'old_slug_redirect_url', 'ccd_category_urls_block_old_slug' );
+
+/**
+ * Impede guess 404 (LIKE post_name%) quando o path é slug de categoria.
+ *
+ * @param mixed $pre Valor prévio do filtro.
+ * @return mixed
+ */
+function ccd_category_urls_block_guess_404( $pre ) {
+	if ( null !== $pre ) {
+		return $pre;
+	}
+	$slug = ccd_category_urls_request_slug();
+	if ( $slug === '' ) {
+		return $pre;
+	}
+	$known = ccd_category_urls_slugs();
+	if ( isset( $known[ $slug ] ) ) {
+		return false;
+	}
+	return $pre;
+}
+add_filter( 'pre_redirect_guess_404_permalink', 'ccd_category_urls_block_guess_404' );

@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CCD Blog Infinite Scroll
- * Description: No /blog/, carrega posts no scroll em vez de paginacao numerada.
+ * Description: No /blog/ e arquivos de categoria, carrega posts no scroll em vez de paginacao numerada.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -9,10 +9,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Blog index (pagina de posts), nao a home estatica.
+ * Blog index (pagina de posts) ou arquivo de categoria — nao a home estatica.
  */
 function ccd_blog_infinite_is_target() {
-	return is_home() && ! is_front_page();
+	if ( is_home() && ! is_front_page() ) {
+		return true;
+	}
+	return is_category();
+}
+
+/**
+ * Texto de fim conforme o contexto da listagem.
+ *
+ * @return string
+ */
+function ccd_blog_infinite_end_message() {
+	if ( is_category() ) {
+		return 'Você chegou ao fim desta categoria.';
+	}
+	return 'Você chegou ao fim do blog.';
 }
 
 /**
@@ -44,10 +59,24 @@ function ccd_blog_infinite_state() {
 		'nextUrl' => $next_link ? esc_url_raw( $next_link ) : '',
 		'hasMore' => (bool) $next_link,
 		'loading' => 'Carregando mais posts…',
-		'end'     => 'Você chegou ao fim do blog.',
+		'end'     => ccd_blog_infinite_end_message(),
 		'error'   => 'Não foi possível carregar mais posts. Tente novamente.',
 	);
 }
+
+/**
+ * Classe no body no servidor: esconde paginacao sem esperar JS
+ * (e sobrevive a page cache antigo sem body.category no CSS).
+ */
+add_filter(
+	'body_class',
+	static function ( $classes ) {
+		if ( ccd_blog_infinite_is_target() ) {
+			$classes[] = 'ccd-blog-infinite';
+		}
+		return $classes;
+	}
+);
 
 add_action(
 	'wp_enqueue_scripts',
@@ -57,7 +86,7 @@ add_action(
 		}
 
 		$handle = 'ccd-blog-infinite-scroll';
-		wp_register_style( $handle, false, array(), '1.1.0' );
+		wp_register_style( $handle, false, array(), '1.2.1' );
 		wp_enqueue_style( $handle );
 		wp_add_inline_style(
 			$handle,
@@ -67,6 +96,7 @@ add_action(
  * Infinite scroll segue lendo os links dessas paginas.
  */
 body.blog .navigation.pagination,
+body.category .navigation.pagination,
 .ccd-blog-infinite .navigation.pagination {
 	position: absolute !important;
 	width: 1px !important;
@@ -109,7 +139,7 @@ body.blog .navigation.pagination,
 CSS
 		);
 
-		wp_register_script( $handle, false, array( 'jquery', 'ccd-soft-nav' ), '1.1.0', true );
+		wp_register_script( $handle, false, array( 'jquery', 'ccd-soft-nav' ), '1.2.1', true );
 		wp_enqueue_script( $handle );
 		wp_add_inline_script(
 			$handle,
@@ -138,7 +168,6 @@ CSS
 			teardown();
 			teardown = null;
 		}
-		$('body').removeClass('ccd-blog-infinite');
 		$('.ccd-blog-infinite-status, .ccd-blog-infinite-sentinel').remove();
 		$(window).off('scroll.ccdBlogInfinite');
 	}
@@ -146,10 +175,16 @@ CSS
 	function boot(cfg) {
 		stop();
 		cfg = cfg || {};
-		if (!cfg.active) return;
+		if (!cfg.active) {
+			$('body').removeClass('ccd-blog-infinite');
+			return;
+		}
 
 		var $list = $('.post-list.row').first();
-		if (!$list.length) return;
+		if (!$list.length) {
+			$('body').removeClass('ccd-blog-infinite');
+			return;
+		}
 
 		$('body').addClass('ccd-blog-infinite');
 		if (!cfg.hasMore || !cfg.nextUrl) return;

@@ -63,7 +63,7 @@ if ($html === false) {
 	return;
 }
 
-$lib = WP_CONTENT_DIR . '/ccd-env-urls-lib.php';
+$lib = WP_CONTENT_DIR . '/mu-plugins/ccd-env-urls-lib.php';
 if (is_readable($lib)) {
 	require_once $lib;
 	if (function_exists('ccd_env_url_rewrite')) {

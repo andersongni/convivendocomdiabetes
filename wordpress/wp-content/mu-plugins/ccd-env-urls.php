@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$ccd_env_urls_lib = dirname( __DIR__ ) . '/ccd-env-urls-lib.php';
+$ccd_env_urls_lib = __DIR__ . '/ccd-env-urls-lib.php';
 if ( is_readable( $ccd_env_urls_lib ) ) {
 	require_once $ccd_env_urls_lib;
 }
@@ -127,4 +127,23 @@ add_action(
 		);
 	},
 	1
+);
+
+/**
+ * Invalida page cache uma vez apos corrigir rewrite de hosts (railway.app / http).
+ */
+add_action(
+	'plugins_loaded',
+	static function () {
+		if ( ! function_exists( 'ccd_page_cache_purge_all' ) ) {
+			return;
+		}
+		$flag = 'ccd_env_urls_cache_bust_v2';
+		if ( get_option( $flag ) === '1' ) {
+			return;
+		}
+		ccd_page_cache_purge_all();
+		update_option( $flag, '1', true );
+	},
+	30
 );

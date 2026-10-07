@@ -51,8 +51,10 @@ RUN set -eux; \
   sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   rm -f /var/www/html/wp-config.php; \
-  # Healthcheck Railway: path sem ponto e sem redirect do WP (RewriteCond !-f).
-  printf 'ok\n' > /var/www/html/health; \
+  # Healthcheck canonico /ccdhealth: Alias em apache-performance.conf →
+  # wp-content/ccd-health-ok.txt. Arquivo na docroot e fallback se Alias falhar.
+  printf 'ok\n' > /var/www/html/ccdhealth; \
+  test -f /var/www/html/wp-content/ccd-health-ok.txt || printf 'ok\n' > /var/www/html/wp-content/ccd-health-ok.txt; \
   chown -R www-data:www-data /var/www/html
 
 ENV PORT=80

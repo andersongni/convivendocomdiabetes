@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CCD Healthcheck
- * Description: Endpoints /health e /ccdhealth (HTTP 200) para o Railway, sem redirects do WordPress.
+ * Description: Fallback /ccdhealth (HTTP 200) se o Alias Apache nao atender. Canonico: /ccdhealth.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -9,16 +9,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Responde antes de canonical/SSL redirects (WP_HOME etc.).
- * Preferir Alias Apache /ccdhealth (sem bootstrap WP); isto e fallback.
+ * Preferir Alias Apache /ccdhealth → wp-content/ccd-health-ok.txt (sem bootstrap WP).
+ * Este hook so corre se o pedido chegar ao PHP.
  */
 add_action(
 	'muplugins_loaded',
 	static function () {
 		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
 		$path = (string) parse_url( $uri, PHP_URL_PATH );
-		$path = untrailingslashit( $path );
-		if ( $path !== '/health' && $path !== '/ccdhealth' ) {
+		$path = rtrim( $path, '/' );
+		if ( $path !== '/ccdhealth' ) {
 			return;
 		}
 

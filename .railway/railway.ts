@@ -37,7 +37,8 @@ export default defineRailway(() => {
       dockerfilePath: "Dockerfile",
     },
     deploy: {
-      // Path sem ponto; Alias Apache (ccd-health-ok.txt) — 200 sem WP/redirect.
+      // Canonico: /ccdhealth — Alias Apache → ccd-health-ok.txt (+ fallback mu-plugin).
+      // Railway so aceita [a-zA-Z0-9/_] (sem ponto) e nao segue 301.
       healthcheckPath: "/ccdhealth",
       healthcheckTimeout: 300,
     },
@@ -56,6 +57,8 @@ export default defineRailway(() => {
       WP_ADMIN_PASSWORD: preserve(),
       WP_ADMIN_USER: preserve(),
       WP_TITLE: preserve(),
+      WP_HOME: "https://www.convivendocomdiabetes.com",
+      WP_SITEURL: "https://www.convivendocomdiabetes.com",
       CCD_RECAPTCHA_SITE_KEY: preserve(),
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
       // Search Console meta token — ver docs/SEO.md

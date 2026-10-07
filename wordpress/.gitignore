@@ -8,6 +8,7 @@ wp-content/*
 !wp-content/plugins/
 !wp-content/themes/
 !wp-content/advanced-cache.php
+!wp-content/ccd-health-ok.txt
 
 # ignore these plugins
 wp-content/plugins/hello.php

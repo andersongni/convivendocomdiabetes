@@ -37,24 +37,9 @@
 
 
     <?php
-
-    the_post_navigation( array(
-        'next_text' => '<span class="meta-nav" aria-hidden="true">' . esc_html__( 'Next:', 'mesmerize' ) . '</span> ' .
-                       '<span class="screen-reader-text">' . esc_html__( 'Next post:', 'mesmerize' ) . '</span> ' .
-                       '<span class="post-title">%title</span><i class="font-icon-post fa fa-angle-double-right"></i>',
-        'prev_text' => '<i class="font-icon-post fa fa-angle-double-left"></i>' .
-                       '<span class="meta-nav" aria-hidden="true">' . esc_html__( 'Previous:',
-                'mesmerize' ) . '</span> ' .
-                       '<span class="screen-reader-text">' . esc_html__( 'Previous post:', 'mesmerize' ) . '</span> ' .
-                       '<span class="post-title">%title</span>',
-    ) );
-
-    if ( comments_open() || get_comments_number() ):
-
+    if ( comments_open() || get_comments_number() ) :
         comments_template();
-
     endif;
-
     ?>
 
 </div>

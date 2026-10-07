@@ -34,20 +34,6 @@
 			<?php get_template_part( 'template-parts/content-post-single-header' ); ?>
 		</footer>
 	</div>
-
-	<?php
-	the_post_navigation(
-		array(
-			'next_text' => '<span class="meta-nav" aria-hidden="true">' . esc_html__( 'Next:', 'empowerwp' ) . '</span> ' .
-				'<span class="screen-reader-text">' . esc_html__( 'Next post:', 'empowerwp' ) . '</span> ' .
-				'<span class="post-title">%title</span><i class="font-icon-post fa fa-angle-double-right"></i>',
-			'prev_text' => '<i class="font-icon-post fa fa-angle-double-left"></i>' .
-				'<span class="meta-nav" aria-hidden="true">' . esc_html__( 'Previous:', 'empowerwp' ) . '</span> ' .
-				'<span class="screen-reader-text">' . esc_html__( 'Previous post:', 'empowerwp' ) . '</span> ' .
-				'<span class="post-title">%title</span>',
-		)
-	);
-	?>
 </article>
 
 <?php

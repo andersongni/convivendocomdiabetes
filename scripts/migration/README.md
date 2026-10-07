@@ -69,7 +69,7 @@ python .\scripts\migration\filter-dump.py dump-database.sql dump-filtered.sql
   -DbHost 127.0.0.1 -DbPort 3307 `
   -User root -Password "<MYSQLPASSWORD>" -Database railway `
   -DumpPath dump-filtered.sql `
-  -SiteUrl https://convivendocomdiabetes-production.up.railway.app
+  -SiteUrl https://convivendocomdiabetes.com
 
 # Inspecionar dump
 python .\scripts\migration\inspect-dump.py dump-filtered.sql

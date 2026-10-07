@@ -15,7 +15,7 @@
   .\scripts\migration\sync-local-to-railway.ps1 -SyncUploads
 #>
 param(
-  [string]$SiteUrl = "https://convivendocomdiabetes-production.up.railway.app",
+  [string]$SiteUrl = "https://convivendocomdiabetes.com",
   [string]$DumpPath = "",
   [switch]$UseExistingDump,
   [switch]$SyncUploads,

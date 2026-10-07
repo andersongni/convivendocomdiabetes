@@ -16,6 +16,7 @@ $Domains = @(
   "localhost",
   "127.0.0.1",
   "convivendocomdiabetes-production.up.railway.app",
+  "convivendocomdiabetes-staging.up.railway.app",
   "convivendocomdiabetes.com.br",
   "www.convivendocomdiabetes.com.br",
   "convivendocomdiabetes.com",
@@ -206,7 +207,7 @@ foreach ($b in $Browsers) {
 Write-Step "Pronto."
 Write-Host ""
 Write-Host "Teste agora (de preferencia aba anonima):"
-Write-Host "  https://convivendocomdiabetes-production.up.railway.app/"
+Write-Host "  https://convivendocomdiabetes.com/"
 Write-Host "  http://localhost:8080/"
 Write-Host ""
 Write-Host "Dica: se o 301 ainda aparecer, abra Ctrl+Shift+N e cole a URL."

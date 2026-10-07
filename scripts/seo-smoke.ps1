@@ -1,7 +1,7 @@
 # Smoke SEO: robots, sitemap, meta description da home, alts vazios.
 # Uso:
 #   .\scripts\seo-smoke.ps1
-#   .\scripts\seo-smoke.ps1 -BaseUrl "https://convivendocomdiabetes-production.up.railway.app"
+#   .\scripts\seo-smoke.ps1 -BaseUrl "https://convivendocomdiabetes.com"
 
 param(
   [string]$BaseUrl = "http://localhost:8080"

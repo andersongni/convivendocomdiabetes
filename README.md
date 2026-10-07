@@ -2,7 +2,7 @@
 
 Site WordPress do [Convivendo com Diabetes](https://convivendocomdiabetes.com), com ambiente local em Docker e produção no [Railway](https://railway.com).
 
-Produção atual (paralela): [convivendocomdiabetes-production.up.railway.app](https://convivendocomdiabetes-production.up.railway.app)
+Produção: [https://convivendocomdiabetes.com](https://convivendocomdiabetes.com) (`www` → 301 para o apex).
 
 SEO: ver [docs/SEO.md](./docs/SEO.md) (Yoast, sitemaps, E-E-A-T, Search Console / CWV).
 

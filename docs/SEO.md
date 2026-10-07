@@ -25,7 +25,7 @@ Faça **uma vez** após o deploy que trouxer Yoast 28.6 + mu-plugins SEO:
 
 1. Abra [Google Search Console](https://search.google.com/search-console).
 2. Adicione propriedade **URL prefix**:  
-   `https://convivendocomdiabetes-production.up.railway.app`
+   `https://convivendocomdiabetes.com`
 3. Escolha verificação por **meta tag**.
 4. Copie só o valor de `content="..."` para a variável de ambiente do serviço WordPress:
 
@@ -36,17 +36,17 @@ CCD_GOOGLE_SITE_VERIFICATION=cole_aqui_o_token
 5. No Railway: Variables → set → redeploy (ou restart) do serviço.
 6. Confirme a propriedade no GSC.
 7. Em **Sitemaps**, envie:  
-   `https://convivendocomdiabetes-production.up.railway.app/sitemap_index.xml`
+   `https://convivendocomdiabetes.com/sitemap_index.xml`
 
 ### 2) Bing Webmaster (opcional, recomendado)
 
-1. [Bing Webmaster Tools](https://www.bing.com/webmasters) → Add site (mesma URL Railway).
+1. [Bing Webmaster Tools](https://www.bing.com/webmasters) → Add site (`https://convivendocomdiabetes.com`).
 2. Pode importar do GSC ou verificar por meta/xml.
 3. Envie o mesmo `sitemap_index.xml`.
 
 ### 3) Yoast — otimização de dados (indexables)
 
-No wp-admin do Railway:
+No wp-admin de produção (`https://convivendocomdiabetes.com/login`):
 
 1. **Yoast SEO → Tools / Ferramentas** (ou “Start SEO data optimization”).
 2. Rode a indexação completa até 100%.
@@ -54,11 +54,11 @@ No wp-admin do Railway:
 
 ### 4) Core Web Vitals / PageSpeed (campo)
 
-1. Rode [PageSpeed Insights](https://pagespeed.web.dev/) na home e em 1 post típico (URL Railway).
+1. Rode [PageSpeed Insights](https://pagespeed.web.dev/) na home e em 1 post típico no apex.
 2. Anote LCP / INP / CLS mobile.
 3. Repita em 7–14 dias pelo relatório **Core Web Vitals** do Search Console (precisa de tráfego real).
 
-Alvo inicial (paralelo, não legado):
+Alvo inicial:
 
 - LCP &lt; 2.5s (mobile)
 - INP &lt; 200ms
@@ -66,10 +66,10 @@ Alvo inicial (paralelo, não legado):
 
 ### 5) Smoke automatizado pós-deploy
 
-No PC (apontando para Railway):
+No PC (apontando para produção):
 
 ```powershell
-.\scripts\seo-smoke.ps1 -BaseUrl "https://convivendocomdiabetes-production.up.railway.app"
+.\scripts\seo-smoke.ps1 -BaseUrl "https://convivendocomdiabetes.com"
 ```
 
 Local:

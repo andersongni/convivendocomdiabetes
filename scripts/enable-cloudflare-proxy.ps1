@@ -109,57 +109,71 @@ foreach ($name in @($Domain, "www.$Domain")) {
 Write-Host ''
 Write-Host 'Configurando Cache Rules...'
 try {
-	$phases = Invoke-Cf GET "/zones/$ZoneId/rulesets/phases/http_request_cache_settings/entrypoint"
-	$rulesetId = $phases.result.id
+	try {
+		$phases = Invoke-Cf GET "/zones/$ZoneId/rulesets/phases/http_request_cache_settings/entrypoint"
+		$rulesetId = $phases.result.id
+	} catch {
+		$created = Invoke-Cf POST "/zones/$ZoneId/rulesets" @{
+			name  = 'CCD cache settings'
+			kind  = 'zone'
+			phase = 'http_request_cache_settings'
+			rules = @()
+		}
+		$rulesetId = $created.result.id
+	}
+
+	$rules = @(
+		@{
+			description = 'CCD bypass admin/login/cookies'
+			expression  = '(http.request.uri.path contains "/wp-admin") or (http.request.uri.path eq "/login") or (http.request.uri.path contains "/wp-login.php") or (http.request.uri.path eq "/ccdhealth") or (http.cookie contains "wordpress_logged_in")'
+			action      = 'set_cache_settings'
+			action_parameters = @{
+				cache = $false
+			}
+			enabled = $true
+		},
+		@{
+			description = 'CCD cache static wp-content/includes'
+			expression  = '(http.request.uri.path contains "/wp-content/") or (http.request.uri.path contains "/wp-includes/")'
+			action      = 'set_cache_settings'
+			action_parameters = @{
+				cache       = $true
+				edge_ttl    = @{ mode = 'override_origin'; default = 2592000 }
+				browser_ttl = @{ mode = 'override_origin'; default = 2592000 }
+			}
+			enabled = $true
+		},
+		@{
+			description = 'CCD cache HTML anonymous GET'
+			expression  = '(http.request.method eq "GET") and (http.host eq "convivendocomdiabetes.com" or http.host eq "www.convivendocomdiabetes.com")'
+			action      = 'set_cache_settings'
+			action_parameters = @{
+				cache       = $true
+				edge_ttl    = @{ mode = 'override_origin'; default = 3600 }
+				browser_ttl = @{ mode = 'respect_origin' }
+			}
+			enabled = $true
+		}
+	)
+
+	Invoke-Cf PUT "/zones/$ZoneId/rulesets/$rulesetId" @{
+		rules = $rules
+	} | Out-Null
+	Write-Host 'OK  Cache Rules (bypass admin, static 30d, HTML 1h)'
 } catch {
-	# Cria ruleset se nao existir
-	$created = Invoke-Cf POST "/zones/$ZoneId/rulesets" @{
-		name  = 'CCD cache settings'
-		kind  = 'zone'
-		phase = 'http_request_cache_settings'
-		rules = @()
-	}
-	$rulesetId = $created.result.id
+	Write-Warning @"
+Cache Rules falhou (token sem permissao Rulesets/Cache Rules):
+$($_.Exception.Message)
+
+Edite o token em Cloudflare → Account API tokens → Permissions:
+  - Zone → DNS → Edit
+  - Zone → Zone Settings → Edit
+  - Zone → Cache Rules → Edit
+  - Zone → Zone → Read
+Zone Resources: Include → Specific zone → convivendocomdiabetes.com
+Depois rode este script de novo.
+"@
 }
-
-$rules = @(
-	@{
-		description = 'CCD bypass admin/login/cookies'
-		expression  = '(http.request.uri.path contains "/wp-admin") or (http.request.uri.path eq "/login") or (http.request.uri.path contains "/wp-login.php") or (http.request.uri.path eq "/ccdhealth") or (http.cookie contains "wordpress_logged_in")'
-		action      = 'set_cache_settings'
-		action_parameters = @{
-			cache = $false
-		}
-		enabled = $true
-	},
-	@{
-		description = 'CCD cache static wp-content/includes'
-		expression  = '(http.request.uri.path contains "/wp-content/") or (http.request.uri.path contains "/wp-includes/")'
-		action      = 'set_cache_settings'
-		action_parameters = @{
-			cache     = $true
-			edge_ttl  = @{ mode = 'override_origin'; default = 2592000 }
-			browser_ttl = @{ mode = 'override_origin'; default = 2592000 }
-		}
-		enabled = $true
-	},
-	@{
-		description = 'CCD cache HTML anonymous GET'
-		expression  = '(http.request.method eq "GET") and (http.host eq "convivendocomdiabetes.com" or http.host eq "www.convivendocomdiabetes.com")'
-		action      = 'set_cache_settings'
-		action_parameters = @{
-			cache       = $true
-			edge_ttl    = @{ mode = 'override_origin'; default = 3600 }
-			browser_ttl = @{ mode = 'respect_origin' }
-		}
-		enabled = $true
-	}
-)
-
-Invoke-Cf PUT "/zones/$ZoneId/rulesets/$rulesetId" @{
-	rules = $rules
-} | Out-Null
-Write-Host 'OK  Cache Rules (bypass admin, static 30d, HTML 1h)'
 
 Write-Host ''
 Write-Host 'Teste:'

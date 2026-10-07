@@ -47,26 +47,12 @@ if [ -n "${RAILWAY_ENVIRONMENT:-}" ] || [ -n "${RAILWAY_ENVIRONMENT_ID:-}" ]; th
   echo "[wp] Updates in-place desligados (Railway) — use docs/UPDATES.md"
 fi
 
-# Redis object cache (opcional — defina WP_REDIS_HOST no Railway / Compose)
+# Redis: NAO instalar drop-in ainda. Auth falha (NOAUTH) derruba wp-cli e o
+# healthcheck; o drop-in so e ativado depois do bootstrap, com probe de auth.
 REDIS_DROPIN_SRC="/var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php"
 REDIS_DROPIN_DST="/var/www/html/wp-content/object-cache.php"
-if [ -n "${WP_REDIS_HOST:-}" ] && [ -f "$REDIS_DROPIN_SRC" ]; then
-  cp -a "$REDIS_DROPIN_SRC" "$REDIS_DROPIN_DST"
-  wp config set WP_REDIS_HOST "${WP_REDIS_HOST}" --type=constant --allow-root --path=/var/www/html
-  wp config set WP_REDIS_PORT "${WP_REDIS_PORT:-6379}" --raw --type=constant --allow-root --path=/var/www/html
-  wp config set WP_REDIS_PREFIX "${WP_REDIS_PREFIX:-ccd_}" --type=constant --allow-root --path=/var/www/html
-  if [ -n "${WP_REDIS_PASSWORD:-}" ]; then
-    wp config set WP_REDIS_PASSWORD "${WP_REDIS_PASSWORD}" --type=constant --allow-root --path=/var/www/html
-  fi
-  if [ -n "${WP_REDIS_USERNAME:-}" ]; then
-    wp config set WP_REDIS_USERNAME "${WP_REDIS_USERNAME}" --type=constant --allow-root --path=/var/www/html
-  fi
-  # Evita falha dura se Redis estiver momentaneamente indisponivel no boot.
-  wp config set WP_REDIS_GRACEFUL true --raw --type=constant --allow-root --path=/var/www/html
-else
-  rm -f "$REDIS_DROPIN_DST"
-  wp config set WP_REDIS_DISABLED true --raw --type=constant --allow-root --path=/var/www/html
-fi
+rm -f "$REDIS_DROPIN_DST"
+wp config set WP_REDIS_DISABLED true --raw --type=constant --allow-root --path=/var/www/html || true
 
 if [ -n "${CCD_RECAPTCHA_SITE_KEY:-}" ]; then
   wp config set CCD_RECAPTCHA_SITE_KEY "${CCD_RECAPTCHA_SITE_KEY}" --type=constant --allow-root --path=/var/www/html
@@ -117,7 +103,24 @@ fi
 
 SITE_URL="${WP_HOME:-http://localhost:8080}"
 
-if ! wp core is-installed --allow-root --path=/var/www/html >/dev/null 2>&1; then
+# Nunca tratar falha de wp-cli (Redis/cache) como "nao instalado" — evita
+# wp core install destrutivo em producao com DB ja populado.
+wp_is_installed() {
+  if wp core is-installed --allow-root --path=/var/www/html >/dev/null 2>&1; then
+    return 0
+  fi
+  # Fallback: tabela de opcoes com siteurl (nao carrega object-cache).
+  local siteurl
+  siteurl="$(wp db query "SELECT option_value FROM wp_options WHERE option_name='siteurl' LIMIT 1" \
+    --skip-column-names --allow-root --path=/var/www/html 2>/dev/null | tr -d '\r' | head -n 1 || true)"
+  if [ -n "${siteurl}" ]; then
+    echo "[wp] wp-cli is-installed falhou, mas siteurl existe (${siteurl}) — tratando como instalado"
+    return 0
+  fi
+  return 1
+}
+
+if ! wp_is_installed; then
   echo "[wp] WordPress nao instalado — bootstrap inicial"
 
   wp core install \
@@ -145,6 +148,65 @@ else
     wp rewrite structure '/%postname%/' --hard --allow-root --path=/var/www/html || true
   fi
 fi
+
+# Redis object cache (depois do bootstrap). Probe de auth; se falhar, segue sem drop-in.
+ccd_enable_redis() {
+  if [ -z "${WP_REDIS_HOST:-}" ] || [ ! -f "$REDIS_DROPIN_SRC" ]; then
+    echo "[wp] Redis desligado (sem WP_REDIS_HOST ou drop-in)"
+    rm -f "$REDIS_DROPIN_DST"
+    wp config set WP_REDIS_DISABLED true --raw --type=constant --allow-root --path=/var/www/html || true
+    return 0
+  fi
+
+  local redis_port="${WP_REDIS_PORT:-6379}"
+  local redis_prefix="${WP_REDIS_PREFIX:-ccd_}"
+  if [ -z "${redis_prefix}" ]; then
+    redis_prefix="ccd_"
+  fi
+
+  # Probe: Railway Redis exige AUTH; sem senha/user corretos = NOAUTH e site offline.
+  if ! php -r '
+    $h = getenv("WP_REDIS_HOST") ?: "";
+    $p = (int) (getenv("WP_REDIS_PORT") ?: 6379);
+    $pass = getenv("WP_REDIS_PASSWORD") ?: "";
+    $user = getenv("WP_REDIS_USERNAME") ?: "";
+    if ($h === "") { fwrite(STDERR, "no host\n"); exit(1); }
+    try {
+      $r = new Redis();
+      if (!$r->connect($h, $p, 2.0)) { fwrite(STDERR, "connect failed\n"); exit(2); }
+      if ($pass !== "") {
+        $ok = ($user !== "") ? $r->auth([$user, $pass]) : $r->auth($pass);
+        if (!$ok) { fwrite(STDERR, "auth failed\n"); exit(3); }
+      }
+      if ($r->ping() === false) { fwrite(STDERR, "ping failed\n"); exit(4); }
+      exit(0);
+    } catch (Throwable $e) {
+      fwrite(STDERR, $e->getMessage() . "\n");
+      exit(5);
+    }
+  '; then
+    echo "[wp] AVISO: Redis inacessivel/auth falhou — boot sem object-cache (site continua no ar)"
+    rm -f "$REDIS_DROPIN_DST"
+    wp config set WP_REDIS_DISABLED true --raw --type=constant --allow-root --path=/var/www/html || true
+    return 0
+  fi
+
+  echo "[wp] Redis OK — ativando object-cache drop-in"
+  cp -a "$REDIS_DROPIN_SRC" "$REDIS_DROPIN_DST"
+  wp config delete WP_REDIS_DISABLED --type=constant --allow-root --path=/var/www/html 2>/dev/null || true
+  wp config set WP_REDIS_HOST "${WP_REDIS_HOST}" --type=constant --allow-root --path=/var/www/html
+  wp config set WP_REDIS_PORT "${redis_port}" --raw --type=constant --allow-root --path=/var/www/html
+  wp config set WP_REDIS_PREFIX "${redis_prefix}" --type=constant --allow-root --path=/var/www/html
+  if [ -n "${WP_REDIS_PASSWORD:-}" ]; then
+    wp config set WP_REDIS_PASSWORD "${WP_REDIS_PASSWORD}" --type=constant --allow-root --path=/var/www/html
+  fi
+  if [ -n "${WP_REDIS_USERNAME:-}" ]; then
+    wp config set WP_REDIS_USERNAME "${WP_REDIS_USERNAME}" --type=constant --allow-root --path=/var/www/html
+  fi
+  wp config set WP_REDIS_GRACEFUL true --raw --type=constant --allow-root --path=/var/www/html
+}
+
+ccd_enable_redis
 
 # Idioma padrao do site: Portugues do Brasil (todos os usuarios herdam se locale vazio).
 if ! wp language core is-installed pt_BR --allow-root --path=/var/www/html >/dev/null 2>&1; then

@@ -92,7 +92,7 @@ jobs:
             exit 1
           fi
 
-      - name: Integration MySQL (boot + /login + www 301)
+      - name: Integration MySQL+Redis (boot + /login + www 301 + Redis auth)
         run: |
           set -euo pipefail
           chmod +x scripts/ci-integration-mysql.sh

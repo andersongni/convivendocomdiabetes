@@ -20,9 +20,11 @@ O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait fo
 | PHP lint | `mu-plugins` + `ccd-backup` |
 | Build | Dockerfile de produção |
 | `/ccdhealth` | Alias Apache, sem DB, sem 301 |
-| MySQL integration | `wp-boot` + `/login` + Host `www` → 301 apex |
+| MySQL+Redis integration | `wp-boot` + `/login` + www→apex 301 + Redis auth + degradacao sem senha |
 
 Script local da integração: `scripts/ci-integration-mysql.sh` (precisa da imagem `convivendocomdiabetes:ci`).
+
+**Regressao coberta:** Redis com `requirepass` sem `WP_REDIS_PASSWORD` **nao** pode derrubar `/ccdhealth` (boot degrada sem object-cache).
 
 ## Smoke production (`.github/workflows/smoke-prod.yml`)
 

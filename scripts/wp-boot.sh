@@ -138,6 +138,14 @@ else
   fi
 fi
 
+# Idioma padrao do site: Portugues do Brasil (todos os usuarios herdam se locale vazio).
+if ! wp language core is-installed pt_BR --allow-root --path=/var/www/html >/dev/null 2>&1; then
+  echo "[wp] Instalando idioma pt_BR"
+  wp language core install pt_BR --allow-root --path=/var/www/html || true
+fi
+wp site switch-language pt_BR --allow-root --path=/var/www/html >/dev/null 2>&1 || true
+wp option update WPLANG pt_BR --allow-root --path=/var/www/html >/dev/null 2>&1 || true
+
 # Mantem o tema ativo do dump (empowerwp/mesmerize); so ativa fallback se ele nao existir
 CURRENT_THEME="$(wp option get stylesheet --allow-root --path=/var/www/html 2>/dev/null || true)"
 if [ -n "$CURRENT_THEME" ] && [ -f "/var/www/html/wp-content/themes/${CURRENT_THEME}/style.css" ]; then

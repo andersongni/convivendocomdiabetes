@@ -248,12 +248,25 @@ add_action(
  * @return string
  */
 function ccd_noptin_bia_avatar_url() {
-	$upload = wp_upload_dir( null, false );
+	$upload  = wp_upload_dir( null, false );
 	$basedir = ! empty( $upload['basedir'] ) ? trailingslashit( (string) $upload['basedir'] ) : '';
 	$baseurl = ! empty( $upload['baseurl'] ) ? trailingslashit( (string) $upload['baseurl'] ) : content_url( 'uploads/' );
 	$baseurl = set_url_scheme( $baseurl, 'https' );
 	$rel     = '2022/07/Bia-2-2';
 
+	// Preferir avatar 288px (ccd-perf gera no volume).
+	if ( function_exists( 'ccd_perf_ensure_bia_avatar_small' ) ) {
+		$small = ccd_perf_ensure_bia_avatar_small( 288 );
+		if ( is_string( $small ) && $small !== '' && $basedir !== '' && str_starts_with( $small, $basedir ) ) {
+			return $baseurl . ltrim( str_replace( '\\', '/', substr( $small, strlen( $basedir ) ) ), '/' );
+		}
+	}
+	if ( $basedir !== '' && is_file( $basedir . $rel . '-288.webp' ) ) {
+		return $baseurl . $rel . '-288.webp';
+	}
+	if ( $basedir !== '' && is_file( $basedir . $rel . '.webp' ) ) {
+		return $baseurl . $rel . '.webp';
+	}
 	if ( $basedir !== '' && is_file( $basedir . $rel . '.jpg' ) ) {
 		return $baseurl . $rel . '.jpg';
 	}
@@ -527,10 +540,10 @@ JS;
 
 /**
  * Alinha o form 2859: popup no 1o acesso + imagem/altura locais.
- * Versao 7: avatar Bia-2-2 com fallback jpg/png (Railway vs local).
+ * Versao 8: avatar Bia-2-2-288.webp (popup leve).
  */
 add_action( 'init', static function () {
-	if ( get_option( 'ccd_noptin_form_2859_fixed' ) === '7' ) {
+	if ( get_option( 'ccd_noptin_form_2859_fixed' ) === '8' ) {
 		return;
 	}
 
@@ -568,7 +581,7 @@ add_action( 'init', static function () {
 	$noptin_opts['always_show_to_admin'] = false;
 	update_option( 'noptin_options', $noptin_opts, false );
 
-	update_option( 'ccd_noptin_form_2859_fixed', '7', false );
+	update_option( 'ccd_noptin_form_2859_fixed', '8', false );
 
 	wp_cache_delete('noptin_popup_forms', 'noptin');
 

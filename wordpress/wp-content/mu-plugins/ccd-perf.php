@@ -1,12 +1,15 @@
 <?php
 /**
  * Plugin Name: CCD Performance
- * Description: Fontes, third-parties, WebP LCP e trim de assets no front.
+ * Description: Fontes, CSS/JS async, Noptin lazy, WebP LCP e trim de assets.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+/** Cache-Control HTML amigo de CDN (s-maxage) sem cachear no browser. */
+const CCD_PERF_HTML_CACHE = 'public, max-age=0, s-maxage=3600, must-revalidate';
 
 /**
  * Preconnect para Google Fonts (quando ainda usadas).
@@ -32,11 +35,167 @@ add_filter(
 		if ( $handle !== 'mesmerize-fonts' || ! is_string( $src ) || $src === '' ) {
 			return $src;
 		}
-		// Menos pesos: Open Sans + Muli (API css legado do Mesmerize).
 		return 'https://fonts.googleapis.com/css?family=Open+Sans:400,600,700|Muli:400,600,700&display=swap&subset=latin';
 	},
 	30,
 	2
+);
+
+/**
+ * CSS pesado do tema: nao bloqueia first paint (media=print → all).
+ *
+ * @param string $html   Link tag.
+ * @param string $handle Style handle.
+ * @return string
+ */
+function ccd_perf_async_style_tag( $html, $handle ) {
+	if ( is_admin() || ! is_string( $html ) ) {
+		return $html;
+	}
+	$async = array(
+		'mesmerize-style-bundle',
+		'empowerwp-style-bundle',
+		'mesmerize-style',
+		'empowerwp-style',
+		'noptin_front',
+		'noptin-form',
+		'noptin_form_styles',
+		'ccd-noptin-form',
+	);
+	if ( ! in_array( $handle, $async, true ) ) {
+		return $html;
+	}
+	if ( stripos( $html, 'onload=' ) !== false ) {
+		return $html;
+	}
+	$noscript = $html;
+	$html     = str_replace( "media='all'", "media='print' onload=\"this.media='all'\"", $html );
+	$html     = str_replace( 'media="all"', 'media="print" onload="this.media=\'all\'"', $html );
+	if ( stripos( $html, 'media=' ) === false ) {
+		$html = str_replace( '<link ', '<link media="print" onload="this.media=\'all\'" ', $html );
+	}
+	return $html . '<noscript>' . $noscript . '</noscript>';
+}
+add_filter( 'style_loader_tag', 'ccd_perf_async_style_tag', 20, 2 );
+
+/**
+ * Defer jQuery + masonry/imagesloaded (tema ja defere theme.bundle).
+ *
+ * @param string $tag    Script tag.
+ * @param string $handle Script handle.
+ * @param string $src    Script src.
+ * @return string
+ */
+function ccd_perf_defer_script_tag( $tag, $handle, $src ) {
+	if ( is_admin() || ! is_string( $tag ) ) {
+		return $tag;
+	}
+	$defer = array( 'jquery', 'jquery-core', 'jquery-migrate', 'masonry', 'imagesloaded' );
+	if ( ! in_array( $handle, $defer, true ) ) {
+		return $tag;
+	}
+	if ( stripos( $tag, ' defer' ) !== false || stripos( $tag, ' async' ) !== false ) {
+		return $tag;
+	}
+	return str_replace( ' src', ' defer src', $tag );
+}
+add_filter( 'script_loader_tag', 'ccd_perf_defer_script_tag', 20, 3 );
+
+/**
+ * Pagina embute shortcode/bloco Noptin (precisa CSS/JS cedo)?
+ *
+ * @return bool
+ */
+function ccd_perf_needs_noptin_now() {
+	if ( is_admin() ) {
+		return false;
+	}
+	$post = get_post();
+	if ( ! ( $post instanceof WP_Post ) ) {
+		return false;
+	}
+	$content = (string) $post->post_content;
+	return has_shortcode( $content, 'noptin' )
+		|| has_shortcode( $content, 'noptin-form' )
+		|| str_contains( $content, '[noptin' )
+		|| str_contains( $content, 'wp:noptin' );
+}
+
+/**
+ * Lazy-load Noptin apos idle/interacao (home tem shortcode abaixo da dobra).
+ */
+add_action(
+	'wp_enqueue_scripts',
+	static function () {
+		if ( is_admin() || is_user_logged_in() ) {
+			return;
+		}
+
+		$handles_style  = array( 'noptin_front', 'noptin-form', 'noptin_form_styles', 'ccd-noptin-form' );
+		$handles_script = array( 'noptin_front', 'noptin-form', 'ccd-noptin-recaptcha' );
+		$styles         = array();
+		$scripts        = array();
+		$timeout_ms     = ccd_perf_needs_noptin_now() ? 1800 : 5000;
+
+		foreach ( $handles_style as $h ) {
+			$obj = wp_styles()->query( $h );
+			if ( $obj && ! empty( $obj->src ) ) {
+				$src = $obj->src;
+				if ( $obj->ver ) {
+					$src = add_query_arg( 'ver', $obj->ver, $src );
+				}
+				$styles[] = $src;
+			}
+			wp_dequeue_style( $h );
+		}
+		foreach ( $handles_script as $h ) {
+			$obj = wp_scripts()->query( $h );
+			if ( $obj && ! empty( $obj->src ) ) {
+				$src = $obj->src;
+				if ( $obj->ver ) {
+					$src = add_query_arg( 'ver', $obj->ver, $src );
+				}
+				$scripts[] = $src;
+			}
+			wp_dequeue_script( $h );
+		}
+
+		if ( ! $styles && defined( 'NOPTIN_PLUGIN_FILE' ) ) {
+			$styles[] = plugins_url( 'includes/assets/css/frontend.css', NOPTIN_PLUGIN_FILE );
+		}
+		if ( ! $scripts && defined( 'NOPTIN_PLUGIN_FILE' ) ) {
+			$scripts[] = plugins_url( 'includes/assets/js/dist/frontend.js', NOPTIN_PLUGIN_FILE );
+		}
+		// Fallback paths vistos em producao.
+		if ( ! $styles ) {
+			$styles[] = content_url( 'plugins/newsletter-optin-box/includes/assets/css/frontend.css' );
+		}
+		if ( ! $scripts ) {
+			$scripts[] = content_url( 'plugins/newsletter-optin-box/includes/assets/js/dist/frontend.js' );
+		}
+
+		wp_register_script( 'ccd-noptin-lazy', false, array(), '1.1.0', true );
+		wp_enqueue_script( 'ccd-noptin-lazy' );
+		wp_add_inline_script(
+			'ccd-noptin-lazy',
+			'window.ccdNoptinLazy=' . wp_json_encode(
+				array(
+					'styles'  => array_values( array_unique( array_filter( $styles ) ) ),
+					'scripts' => array_values( array_unique( array_filter( $scripts ) ) ),
+					'timeout' => (int) $timeout_ms,
+				)
+			) . ';'
+			. '(function(){var d=window.ccdNoptinLazy||{},done=false,t=d.timeout||4000;function load(){if(done)return;done=true;'
+			. '(d.styles||[]).forEach(function(href){var l=document.createElement("link");l.rel="stylesheet";l.href=href;document.head.appendChild(l);});'
+			. '(d.scripts||[]).forEach(function(src){var s=document.createElement("script");s.src=src;s.defer=true;document.body.appendChild(s);});'
+			. '}'
+			. '["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});'
+			. 'if("requestIdleCallback" in window){requestIdleCallback(load,{timeout:t});}else{setTimeout(load,t);}'
+			. '})();',
+			'after'
+		);
+	},
+	10000
 );
 
 /**
@@ -49,21 +208,19 @@ add_action(
 			return;
 		}
 		$need = false;
-		if ( function_exists( 'wpforms_has_form' ) || defined( 'CCD_CONTACT_FORM_ID' ) ) {
-			$post = get_post();
-			if ( $post instanceof WP_Post ) {
-				$content = (string) $post->post_content;
-				if (
-					has_shortcode( $content, 'wpforms' )
-					|| str_contains( $content, 'wpforms' )
-					|| str_contains( $content, 'ccd-contact' )
-				) {
-					$need = true;
-				}
-			}
-			if ( is_page( 'contato' ) || is_page( 'fale-comigo' ) || is_page( 'contact' ) ) {
+		$post = get_post();
+		if ( $post instanceof WP_Post ) {
+			$content = (string) $post->post_content;
+			if (
+				has_shortcode( $content, 'wpforms' )
+				|| str_contains( $content, 'wpforms' )
+				|| str_contains( $content, 'ccd-contact' )
+			) {
 				$need = true;
 			}
+		}
+		if ( is_page( array( 'contato', 'fale-comigo', 'contact' ) ) ) {
+			$need = true;
 		}
 		if ( $need ) {
 			return;
@@ -74,7 +231,6 @@ add_action(
 			wp_dequeue_script( $handle );
 			wp_deregister_script( $handle );
 		}
-		// Handles comuns do Lite.
 		wp_dequeue_style( 'wpforms-gutenberg-form-selector' );
 		wp_dequeue_script( 'wpforms-generic' );
 		wp_dequeue_script( 'wpforms-confirmation' );
@@ -83,7 +239,7 @@ add_action(
 );
 
 /**
- * Garante sibling .webp ao lado de JPEG/PNG (GD/Imagick) e reescreve HTML.
+ * Garante sibling .webp ao lado de JPEG/PNG (GD/Imagick).
  *
  * @param string $abs Absolute path to image.
  * @return string|null Absolute webp path if usable.
@@ -118,8 +274,54 @@ function ccd_perf_ensure_webp( $abs ) {
 }
 
 /**
- * Converte URL de upload jpg/png → webp quando o arquivo existe (ou gera).
+ * Redimensiona avatar Bia para max edge (popup Noptin).
  *
+ * @param int $max_edge Max width/height.
+ * @return string|null Absolute path to -288.webp (or similar).
+ */
+function ccd_perf_ensure_bia_avatar_small( $max_edge = 288 ) {
+	$max_edge = max( 96, (int) $max_edge );
+	$upload   = wp_upload_dir( null, false );
+	if ( empty( $upload['basedir'] ) ) {
+		return null;
+	}
+	$base   = trailingslashit( (string) $upload['basedir'] ) . '2022/07/';
+	$dest   = $base . 'Bia-2-2-' . $max_edge . '.webp';
+	if ( is_readable( $dest ) && filesize( $dest ) > 0 ) {
+		return $dest;
+	}
+	$sources = array( $base . 'Bia-2-2.webp', $base . 'Bia-2-2.jpg', $base . 'Bia-2-2.png' );
+	$src     = null;
+	foreach ( $sources as $candidate ) {
+		if ( is_readable( $candidate ) ) {
+			$src = $candidate;
+			break;
+		}
+	}
+	if ( ! $src || ! function_exists( 'wp_get_image_editor' ) ) {
+		return null;
+	}
+	$editor = wp_get_image_editor( $src );
+	if ( is_wp_error( $editor ) ) {
+		return null;
+	}
+	$editor->resize( $max_edge, $max_edge, false );
+	if ( method_exists( $editor, 'set_quality' ) ) {
+		$editor->set_quality( 78 );
+	}
+	if ( $editor->supports_mime_type( 'image/webp' ) ) {
+		$saved = $editor->save( $dest, 'image/webp' );
+	} else {
+		$dest  = $base . 'Bia-2-2-' . $max_edge . '.jpg';
+		$saved = $editor->save( $dest, 'image/jpeg' );
+	}
+	if ( is_wp_error( $saved ) || ! is_readable( $dest ) ) {
+		return null;
+	}
+	return $dest;
+}
+
+/**
  * @param string $url Image URL.
  * @return string
  */
@@ -152,8 +354,6 @@ function ccd_perf_url_to_webp( $url ) {
 }
 
 /**
- * Rewrita src/srcset para WebP + dims em imagens sem width/height.
- *
  * @param string $html HTML fragment.
  * @return string
  */
@@ -165,6 +365,16 @@ function ccd_perf_rewrite_img_html( $html ) {
 		'/<img\b[^>]*>/i',
 		static function ( $m ) {
 			$tag = $m[0];
+			// Avatar Noptin / Bia full-res → versao 288.
+			if ( preg_match( '#/uploads/2022/07/Bia-2-2\.(jpe?g|png|webp)#i', $tag ) ) {
+				$small = ccd_perf_ensure_bia_avatar_small( 288 );
+				if ( $small ) {
+					$upload = wp_upload_dir( null, false );
+					$rel    = ltrim( str_replace( '\\', '/', substr( $small, strlen( (string) $upload['basedir'] ) ) ), '/' );
+					$url    = trailingslashit( (string) $upload['baseurl'] ) . $rel;
+					$tag    = preg_replace( '/\ssrc=(["\'])[^"\']+\1/i', ' src="' . esc_url( $url ) . '"', $tag, 1 );
+				}
+			}
 			if ( preg_match( '/\ssrc=(["\'])([^"\']+)\1/i', $tag, $sm ) ) {
 				$new = ccd_perf_url_to_webp( $sm[2] );
 				if ( $new !== $sm[2] ) {
@@ -178,15 +388,14 @@ function ccd_perf_rewrite_img_html( $html ) {
 					if ( $part === '' ) {
 						continue;
 					}
-					$bits = preg_split( '/\s+/', $part, 2 );
-					$url  = ccd_perf_url_to_webp( $bits[0] );
+					$bits  = preg_split( '/\s+/', $part, 2 );
+					$url   = ccd_perf_url_to_webp( $bits[0] );
 					$out[] = $url . ( isset( $bits[1] ) ? ' ' . $bits[1] : '' );
 				}
 				if ( $out ) {
 					$tag = str_replace( $ss[0], ' srcset=' . $ss[1] . esc_attr( implode( ', ', $out ) ) . $ss[1], $tag );
 				}
 			}
-			// CLS: dims faltando — tenta getimagesize no arquivo local.
 			if ( ! preg_match( '/\swidth=/i', $tag ) || ! preg_match( '/\sheight=/i', $tag ) ) {
 				if ( preg_match( '/\ssrc=(["\'])([^"\']+)\1/i', $tag, $sm2 ) ) {
 					$upload = wp_upload_dir( null, false );
@@ -220,8 +429,7 @@ add_filter( 'post_thumbnail_html', 'ccd_perf_rewrite_img_html', 20 );
 add_filter( 'get_custom_logo', 'ccd_perf_rewrite_img_html', 20 );
 
 /**
- * One-shot: gera WebP das imagens pesadas da home (LCP) no primeiro hit logado/admin
- * ou via cron leve no front (rate-limited).
+ * One-shot: WebP LCP + avatar Bia 288px.
  */
 add_action(
 	'init',
@@ -229,11 +437,11 @@ add_action(
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			return;
 		}
-		if ( get_option( 'ccd_perf_webp_home_v1' ) === '1' ) {
+		$flag = 'ccd_perf_assets_v2';
+		if ( get_option( $flag ) === '1' ) {
 			return;
 		}
-		// Evita trabalho em todo request anonimo: so 1/50 ou admin.
-		$roll = is_user_logged_in() || ( wp_rand( 1, 50 ) === 1 );
+		$roll = is_user_logged_in() || ( wp_rand( 1, 40 ) === 1 );
 		if ( ! $roll ) {
 			return;
 		}
@@ -242,19 +450,17 @@ add_action(
 			return;
 		}
 		$base = trailingslashit( (string) $upload['basedir'] );
-		$targets = array(
-			'2022/07/INICIAL.jpg',
-			'2022/07/INICIAL-240x300.jpg',
-			'2022/07/Bia-2-2.jpg',
-		);
-		$ok = 0;
-		foreach ( $targets as $rel ) {
+		$ok   = 0;
+		foreach ( array( '2022/07/INICIAL.jpg', '2022/07/INICIAL-240x300.jpg', '2022/07/Bia-2-2.jpg' ) as $rel ) {
 			if ( ccd_perf_ensure_webp( $base . $rel ) ) {
 				++$ok;
 			}
 		}
+		if ( ccd_perf_ensure_bia_avatar_small( 288 ) ) {
+			++$ok;
+		}
 		if ( $ok > 0 ) {
-			update_option( 'ccd_perf_webp_home_v1', '1', false );
+			update_option( $flag, '1', false );
 			if ( function_exists( 'ccd_page_cache_purge_all' ) ) {
 				ccd_page_cache_purge_all();
 			}

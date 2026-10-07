@@ -1,0 +1,19 @@
+;;
+;; Domain:     convivendocomdiabetes.com.
+;; Purpose:    Cloudflare DNS FASE B — Proxy ON (orange cloud) → Railway
+;; Prerequisite: SSL Railway OK no apex; ver docs/PERFORMANCE.md
+;;
+;;; BEFORE IMPORT:
+;;; 1) SSL/TLS mode = Full (strict)
+;;; 2) Delete/replace existing apex + www CNAMEs if needed
+;;; 3) Import this file OR toggle Proxy ON manually on both CNAMEs
+;;; 4) Create Cache Rules listed in docs/PERFORMANCE.md
+;;;
+
+;; CNAME Records (proxied)
+convivendocomdiabetes.com.	1	IN	CNAME	2nwibhf4.up.railway.app. ; cf_tags=cf-proxied:true
+www.convivendocomdiabetes.com.	1	IN	CNAME	06vb1egv.up.railway.app. ; cf_tags=cf-proxied:true
+
+;; TXT Records (Railway ownership — keep DNS-only)
+_railway-verify.convivendocomdiabetes.com.	1	IN	TXT	"railway-verify=dd2d48cb4403dffcfec653711be850dd9ae80e7fedb0847b17180f1b38b677ea"
+_railway-verify.www.convivendocomdiabetes.com.	1	IN	TXT	"railway-verify=10c4fa72238eb07ef7b5935523e812bff6096a78820aef39b480da92ee73e39f"

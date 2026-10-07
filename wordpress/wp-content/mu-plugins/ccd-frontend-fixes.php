@@ -80,8 +80,8 @@ add_filter(
 );
 
 /**
- * HTML: nao deixar o browser cachear documento por dias (Apache ExpiresDefault
- * antigo + soft-nav inline faziam o menu engolir cliques apos deploy).
+ * HTML: browser revalida (max-age=0); CDN/Cloudflare pode usar s-maxage.
+ * (Antes: no-cache puro — soft-nav + ExpiresDefault longos quebravam o menu.)
  */
 add_action(
 	'send_headers',
@@ -89,7 +89,10 @@ add_action(
 		if ( is_admin() || headers_sent() ) {
 			return;
 		}
-		header( 'Cache-Control: no-cache, must-revalidate', true );
+		$cc = defined( 'CCD_PERF_HTML_CACHE' )
+			? CCD_PERF_HTML_CACHE
+			: 'public, max-age=0, s-maxage=3600, must-revalidate';
+		header( 'Cache-Control: ' . $cc, true );
 	},
 	0
 );

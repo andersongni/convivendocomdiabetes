@@ -73,6 +73,7 @@ if (is_readable($lib)) {
 
 header('Content-Type: text/html; charset=UTF-8');
 header('X-CCD-Cache: HIT');
-header('Cache-Control: public, max-age=60');
+// Browser revalida; Cloudflare/edge pode honrar s-maxage (ver docs/PERFORMANCE.md).
+header('Cache-Control: public, max-age=0, s-maxage=3600, must-revalidate');
 echo $html;
 exit;

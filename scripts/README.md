@@ -12,6 +12,8 @@
 | [docs/UPDATES.md](../docs/UPDATES.md) | Política: atualizar local e promover via git/IaC |
 | `optimize-uploads.py` | Comprime/redimensiona imagens em `wp-content/uploads` (Pillow) |
 | `seo-smoke.ps1` | Smoke SEO (robots/sitemap/meta/alts) local ou Railway — ver [docs/SEO.md](../docs/SEO.md) |
+| `smoke-prod.sh` | Smoke HTTP produção (apex + www 301) — ver [docs/CI.md](../docs/CI.md) |
+| `ci-integration-mysql.sh` | Integração CI: imagem prod + MySQL + `/login` |
 | `terraform-import.ps1` / `.sh` | Import one-shot do estado Terraform do projeto Railway |
 
 ### Local rápido (Windows/Docker)

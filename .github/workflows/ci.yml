@@ -91,3 +91,9 @@ jobs:
             echo "FAIL: /ccdhealth redirecionou para $loc"
             exit 1
           fi
+
+      - name: Integration MySQL (boot + /login + www 301)
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ci-integration-mysql.sh
+          ./scripts/ci-integration-mysql.sh

@@ -72,12 +72,12 @@ docker compose down
 
 ## Produção (Railway)
 
-1. Push na branch `main` → GitHub Actions (CI: lint PHP + build + smoke `/ccdhealth`) → Railway deploy (Wait for CI).
-2. Smoke de produção (agenda 6h / manual): workflow `Smoke production` em www.
+1. Push na branch `main` → GitHub Actions (CI: lint PHP + build + `/ccdhealth` + integração MySQL) → Railway deploy (Wait for CI).
+2. Smoke de produção (cron 6h / manual / `repository_dispatch`): apex + 301 de `www` — ver [docs/CI.md](./docs/CI.md).
 3. MySQL gerenciado + volume de uploads persistente.
 4. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
 
-Healthcheck: `GET /ccdhealth` → 200 text/plain (ver `.railway/railway.ts`). Deploy espera o CI do GitHub (`checkSuites` / Wait for CI).
+Healthcheck: `GET /ccdhealth` → 200 text/plain (ver `.railway/railway.ts`). Deploy espera o CI do GitHub (`checkSuites` / Wait for CI). Canônico: `https://convivendocomdiabetes.com`.
 
 Alterações de infra Railway via CLI:
 

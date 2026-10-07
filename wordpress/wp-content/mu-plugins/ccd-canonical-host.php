@@ -75,6 +75,12 @@ function ccd_canonical_host_redirect()
 		return;
 	}
 
+	// Permite hop Clear-Site-Data em www (só cache) antes do 301 canônico.
+	$qs = isset($_SERVER['QUERY_STRING']) ? (string) $_SERVER['QUERY_STRING'] : '';
+	if ($qs !== '' && preg_match('/(?:^|&)action=ccd_clear_cache(?:&|$)/', $qs)) {
+		return;
+	}
+
 	$scheme = 'https';
 	if (defined('WP_HOME') && is_string(WP_HOME) && str_starts_with(WP_HOME, 'http://')) {
 		$scheme = 'http';

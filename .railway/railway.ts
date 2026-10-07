@@ -37,8 +37,8 @@ export default defineRailway(() => {
       dockerfilePath: "Dockerfile",
     },
     deploy: {
-      // Asset estatico: evita 302 do wp-login (SSL/canonical) no healthcheck HTTP
-      healthcheckPath: "/wp-includes/js/jquery/jquery.min.js",
+      // Path sem ponto; Alias Apache (ccd-health-ok.txt) — 200 sem WP/redirect.
+      healthcheckPath: "/ccdhealth",
       healthcheckTimeout: 300,
     },
     replicas: { sfo: 1 },

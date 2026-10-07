@@ -145,13 +145,20 @@ test "${code}" = "200"
 tr -d '\r' </tmp/ci-health-www.body | grep -qi 'ok'
 
 echo "[ci] Redis object-cache ativado (auth OK)..."
-if ! docker logs "${WP_NAME}" 2>&1 | grep -q 'Redis OK'; then
-  echo "[ci] FAIL: boot nao reportou Redis OK"
-  docker logs "${WP_NAME}" 2>&1 | tail -n 100 || true
-  exit 1
-fi
-if ! docker exec "${WP_NAME}" test -f /var/www/html/wp-content/object-cache.php; then
-  echo "[ci] FAIL: object-cache.php ausente"
+ok=0
+for i in $(seq 1 30); do
+  if docker exec "${WP_NAME}" test -f /var/www/html/wp-content/object-cache.php 2>/dev/null \
+    && docker logs "${WP_NAME}" 2>&1 | grep -q 'Redis OK'; then
+    echo "[ci] object-cache.php + Redis OK"
+    ok=1
+    break
+  fi
+  sleep 2
+done
+if [ "${ok}" != "1" ]; then
+  echo "[ci] FAIL: Redis object-cache nao ativou"
+  docker logs "${WP_NAME}" 2>&1 | grep -E 'Redis|object-cache|NOAUTH' | tail -n 40 || true
+  docker logs "${WP_NAME}" 2>&1 | tail -n 60 || true
   exit 1
 fi
 

@@ -215,4 +215,86 @@ if [ "${ok}" != "1" ]; then
   exit 1
 fi
 
-echo "[ci] OK integration MySQL+Redis"
+echo "[ci] Hero de categoria sem intro/meta no banner (regressao)..."
+# Meta description no termo NAO pode vazar no hero (altura + mensagem indevida).
+CI_CAT_SLUG='ci-hub'
+CI_CAT_MARKER='CCD_CI_CATEGORY_INTRO_MUST_NOT_APPEAR_IN_HERO'
+docker exec "${WP_NAME}" wp term create category 'CI Hub' \
+  --slug="${CI_CAT_SLUG}" \
+  --description="${CI_CAT_MARKER}. Texto longo de hub SEO que nunca deve ir ao hero." \
+  --allow-root --path=/var/www/html >/dev/null
+# Dispara ensure de stripcategorybase + flush (ccd-category-urls).
+docker exec "${WP_NAME}" wp option delete ccd_category_urls --allow-root --path=/var/www/html >/dev/null 2>&1 || true
+curl -sS -o /dev/null --max-time 15 "${BASE}/" || true
+docker exec "${WP_NAME}" wp rewrite flush --hard --allow-root --path=/var/www/html >/dev/null 2>&1 || true
+
+cat_html=""
+cat_url=""
+for path in "/${CI_CAT_SLUG}/" "/category/${CI_CAT_SLUG}/"; do
+  code=$(curl -sS -L -o /tmp/ci-cat-hero.html -w '%{http_code}' --max-time 15 \
+    "${BASE}${path}" || echo 000)
+  if [ "${code}" = "200" ] && grep -qi 'hero-title' /tmp/ci-cat-hero.html; then
+    cat_html="$(cat /tmp/ci-cat-hero.html)"
+    cat_url="${path}"
+    break
+  fi
+done
+if [ -z "${cat_html}" ]; then
+  echo "[ci] FAIL: arquivo de categoria ${CI_CAT_SLUG} nao respondeu 200 com hero"
+  exit 1
+fi
+echo "[ci] categoria hero via ${cat_url}"
+
+if printf '%s\n' "${cat_html}" | grep -q 'ccd-category-intro'; then
+  echo "[ci] FAIL: hero de categoria renderizou .ccd-category-intro (mensagem indevida)"
+  printf '%s\n' "${cat_html}" | grep -n 'ccd-category-intro' | head -n 5 || true
+  exit 1
+fi
+
+# Trecho do banner: entre header-wrapper e header-separator.
+hero_chunk="$(printf '%s\n' "${cat_html}" | awk '/header-wrapper/,/header-separator/')"
+if printf '%s\n' "${hero_chunk}" | grep -qF "${CI_CAT_MARKER}"; then
+  echo "[ci] FAIL: meta/descricao da categoria vazou no hero"
+  printf '%s\n' "${hero_chunk}" | grep -nF "${CI_CAT_MARKER}" | head -n 5 || true
+  exit 1
+fi
+if ! printf '%s\n' "${hero_chunk}" | grep -qi 'hero-title'; then
+  echo "[ci] FAIL: hero de categoria sem .hero-title"
+  exit 1
+fi
+# So o titulo no banner — sem paragrafo extra de descricao apos o h1.
+if printf '%s\n' "${hero_chunk}" | grep -qiE '<h1[^>]*class="[^"]*hero-title[^"]*"[^>]*>.*</h1>[[:space:]]*<p'; then
+  echo "[ci] FAIL: hero de categoria tem <p> logo apos o titulo (intro indevida)"
+  exit 1
+fi
+echo "[ci] hero de categoria OK (sem intro)"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export WP_NAME BASE WP_ADMIN_USER WP_ADMIN_PASS
+chmod +x \
+  "${SCRIPT_DIR}/ci-seed-content.sh" \
+  "${SCRIPT_DIR}/ci-seo-smoke.sh" \
+  "${SCRIPT_DIR}/ci-ux-smoke.sh"
+
+echo "[ci] Seed conteudo (old-slug + paginas SEO)..."
+"${SCRIPT_DIR}/ci-seed-content.sh"
+
+echo "[ci] SEO smoke..."
+"${SCRIPT_DIR}/ci-seo-smoke.sh"
+
+echo "[ci] UX smoke..."
+"${SCRIPT_DIR}/ci-ux-smoke.sh"
+
+if [ "${CCD_CI_SKIP_E2E:-}" != "1" ] && command -v npm >/dev/null 2>&1; then
+  echo "[ci] Playwright E2E..."
+  (
+    cd "${SCRIPT_DIR}/../e2e"
+    npm ci --no-fund --no-audit
+    npx playwright install chromium --with-deps
+    CCD_E2E_BASE_URL="${BASE}" npm run test:ci
+  )
+else
+  echo "[ci] Playwright E2E pulado (CCD_CI_SKIP_E2E=1 ou npm ausente)"
+fi
+
+echo "[ci] OK integration MySQL+Redis+SEO+UX+E2E"

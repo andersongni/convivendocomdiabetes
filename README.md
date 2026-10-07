@@ -108,6 +108,7 @@ Resumo:
 
 - `terraform/` — serviços, variáveis e domínio no Railway.
 - `.github/workflows/` — CI e apply Terraform (secrets: token Railway, etc.).
+- Testes: PHPUnit (`composer test`), integração MySQL/Redis/SEO/UX (`scripts/ci-integration-mysql.sh`), E2E Playwright (`e2e/`). Detalhes em [docs/CI.md](./docs/CI.md).
 - Import one-shot: `scripts/terraform-import.ps1` / `.sh`.
 
 ## Domínio customizado

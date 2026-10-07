@@ -35,16 +35,44 @@ jobs:
             exit "$fail"
           '
 
-  build:
-    name: Build + smoke /ccdhealth
+  unit:
+    name: PHPUnit (mu-plugin helpers)
     runs-on: ubuntu-24.04
     needs: lint
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer install + PHPUnit
+        run: |
+          set -euo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          vendor/bin/phpunit --colors=always
+
+  build:
+    name: Build + smoke + integration
+    runs-on: ubuntu-24.04
+    needs: [lint, unit]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Setup Node (Playwright)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
 
       - name: Build Docker image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -92,8 +120,9 @@ jobs:
             exit 1
           fi
 
-      - name: Integration MySQL+Redis (boot + /login + www 301 + Redis auth)
+      - name: Integration MySQL+Redis+SEO+UX+E2E
         run: |
           set -euo pipefail
-          chmod +x scripts/ci-integration-mysql.sh
+          chmod +x scripts/ci-integration-mysql.sh scripts/ci-seed-content.sh \
+            scripts/ci-seo-smoke.sh scripts/ci-ux-smoke.sh
           ./scripts/ci-integration-mysql.sh

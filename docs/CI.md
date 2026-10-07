@@ -17,16 +17,35 @@ O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait fo
 | Etapa | O que valida |
 |-------|----------------|
 | PHP lint | `mu-plugins` + `ccd-backup` |
+| PHPUnit | Helpers puros dos mu-plugins (`tests/Unit`, stubs em `tests/stubs`) |
 | Build | Dockerfile de produção |
 | `/ccdhealth` | Liveness estático, sem DB, sem 301 |
 | `/ccdready` | Readiness MySQL (gate blue/green no Railway) |
-| MySQL+Redis integration | `wp-boot` + `/login` + www→apex 301 + Redis auth + degradacao sem senha |
+| MySQL+Redis integration | `wp-boot` + `/login` + www→apex 301 + Redis auth + degradacao + **hero de categoria** |
+| Seed + SEO smoke | Conteúdo mínimo + old-slug + robots/sitemap/metas/`/diabetes/` (`scripts/ci-seed-content.sh`, `ci-seo-smoke.sh`) |
+| UX smoke | Admin CLI, comentários, upload, blog/contato/nav (`scripts/ci-ux-smoke.sh`) |
+| Playwright E2E | Caminhos críticos no mesmo stack (`e2e/`) |
 
 Script local da integração: `scripts/ci-integration-mysql.sh` (precisa da imagem `convivendocomdiabetes:ci`).
 
+Para pular E2E localmente: `CCD_CI_SKIP_E2E=1 ./scripts/ci-integration-mysql.sh`.
+
 Blue/green / overlap: [BLUE_GREEN.md](./BLUE_GREEN.md).
 
-**Regressao coberta:** Redis com `requirepass` sem `WP_REDIS_PASSWORD` **nao** pode derrubar `/ccdhealth` (boot degrada sem object-cache).
+### PHPUnit (local)
+
+```bash
+composer install
+composer test
+```
+
+### Regressoes cobertas
+
+- Redis com `requirepass` sem `WP_REDIS_PASSWORD` **nao** pode derrubar `/ccdhealth` (boot degrada sem object-cache).
+- Hero de categoria **nao** pode renderizar `.ccd-category-intro` nem a meta/descricao do termo no banner (altura + mensagem indevida). O CI cria a categoria `ci-hub` com marker e falha se o texto aparecer no hero.
+- `/diabetes/` **nao** redireciona para post com `_wp_old_slug=diabetes` (seed + SEO smoke + E2E).
+- `/category/diabetes/` → **301** limpo para `/diabetes/` (Yoast stripcategorybase).
+- Metas uteis em blog/contato/clipping/hipoglicemia; pilares editoriais; schema Organization (E-E-A-T).
 
 ## Smoke production (`.github/workflows/smoke-prod.yml`)
 

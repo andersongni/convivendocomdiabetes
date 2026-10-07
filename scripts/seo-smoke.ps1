@@ -62,14 +62,22 @@ function Get-HtmlMetaDescription([string]$pageHtml) {
   return ""
 }
 
-$catPath = "$env:TEMP\ccd-seo-smoke-cat.html"
-$code = curl.exe -sS -o $catPath -w "%{http_code}" --max-time 30 "$BaseUrl/diabetes/"
-$catHtml = if (Test-Path $catPath) { Get-Content $catPath -Raw } else { "" }
+$catHeaders = curl.exe -sSI --max-time 20 "$BaseUrl/diabetes/"
+$catFinalCode = curl.exe -sS -o "$env:TEMP\ccd-seo-smoke-cat.html" -w "%{http_code}" --max-time 30 "$BaseUrl/diabetes/"
+$catHtml = if (Test-Path "$env:TEMP\ccd-seo-smoke-cat.html") { Get-Content "$env:TEMP\ccd-seo-smoke-cat.html" -Raw } else { "" }
 $catTitle = Get-HtmlTitle $catHtml
-Check "categoria /diabetes/ HTTP" ($code -eq "200") "status=$code"
+$catIsPostRedirect = $catHeaders -match '(?i)location:\s*.*diabetes-tipo-2'
+Check "categoria /diabetes/ HTTP" ($catFinalCode -eq "200") "status=$catFinalCode"
+Check "categoria /diabetes/ nao vira post" (-not $catIsPostRedirect) "sem 301 para post antigo"
 Check "categoria title com nome" (
-  $catTitle -match '(?i)diabetes' -and $catTitle -notmatch '^\s*-\s*'
+  $catTitle -match '(?i)diabetes' -and $catTitle -notmatch '^\s*-\s*' -and $catTitle -notmatch '(?i)diagnostico'
 ) "title=$catTitle"
+
+$catBaseHeaders = curl.exe -sSI --max-time 20 "$BaseUrl/category/diabetes/"
+$catBaseLoc = if ($catBaseHeaders -match '(?i)location:\s*(\S+)') { $Matches[1].Trim() } else { "" }
+Check "category/diabetes 301 limpo" (
+  $catBaseHeaders -match '(?i)^HTTP/\S+\s+301\b' -and $catBaseLoc -match '(?i)/diabetes/?$' -and $catBaseLoc -notmatch '/category/'
+) "location=$catBaseLoc"
 
 $blogPath = "$env:TEMP\ccd-seo-smoke-blog.html"
 $code = curl.exe -sS -o $blogPath -w "%{http_code}" --max-time 30 "$BaseUrl/blog/"

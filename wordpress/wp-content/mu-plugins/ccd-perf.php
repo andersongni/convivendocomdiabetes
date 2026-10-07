@@ -56,7 +56,7 @@ add_action(
 		if ( is_admin() ) {
 			return;
 		}
-		$font = ccd_perf_assets_url() . 'fonts/opensans-w400-normal.woff2';
+		$font = ccd_perf_assets_url() . 'fonts/opensans.woff2';
 		echo '<link rel="preload" as="font" type="font/woff2" href="' . esc_url( $font ) . '" crossorigin>' . "\n";
 		if ( ! is_front_page() ) {
 			return;

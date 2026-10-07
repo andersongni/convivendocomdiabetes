@@ -50,7 +50,7 @@ Uploads (`wordpress/wp-content/uploads/`) e dumps SQL **não** entram no Git nem
 | `.env` / `.env.example` | **Localhost** | Docker Compose (`http://localhost:8080`) |
 | `.env.railway.example` | **Railway** | Referência; valores no dashboard / IaC (`.railway/railway.ts`) |
 
-Não misturar: o Compose não lê `.env.railway*`. O domínio legado `convivendocomdiabetes.com` não faz parte do Railway.
+Não misturar: o Compose não lê `.env.railway*`. Produção canônica: `https://convivendocomdiabetes.com` (`www` → 301).
 
 ## Rodar local
 
@@ -72,11 +72,12 @@ docker compose down
 
 ## Produção (Railway)
 
-1. Push na branch `main` → build/deploy automático do serviço WordPress.
-2. MySQL gerenciado + volume de uploads persistente.
-3. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
+1. Push na branch `main` → GitHub Actions (CI: lint PHP + build + smoke `/ccdhealth`) → Railway deploy (Wait for CI).
+2. Smoke de produção (agenda 6h / manual): workflow `Smoke production` em www.
+3. MySQL gerenciado + volume de uploads persistente.
+4. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
 
-Healthcheck: asset estático em `/wp-includes/js/jquery/jquery.min.js` (ver `.railway/railway.ts`).
+Healthcheck: `GET /ccdhealth` → 200 text/plain (ver `.railway/railway.ts`). Deploy espera o CI do GitHub (`checkSuites` / Wait for CI).
 
 Alterações de infra Railway via CLI:
 

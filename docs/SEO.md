@@ -1,7 +1,7 @@
 # SEO — Convivendo com Diabetes
 
-Ambiente de produção paralela atual: `https://convivendocomdiabetes-production.up.railway.app`  
-Domínio legado (`convivendocomdiabetes.com`) fica fora deste fluxo até revisão futura.
+Produção canônica: `https://convivendocomdiabetes.com`  
+`https://www.convivendocomdiabetes.com` redireciona (301) para o apex.
 
 ## O que o código já promove (git)
 
@@ -86,13 +86,11 @@ O mu-plugin preenche gaps, mas qualidade “nota 10” ainda pede:
 - Atualizar posts de saúde desatualizados (data visível + conteúdo).
 - Manter `/sobre/` e canais oficiais alinhados (Instagram/LinkedIn).
 
-## Domínio legado
+## Host canônico
 
-Fora do escopo até decisão explícita. Quando migrar:
-
-1. 301 de `convivendocomdiabetes.com` / `www` → host canônico.
-2. Trocar propriedade GSC / sitemap / `WP_HOME`.
-3. Novo smoke + reenvio de sitemap.
+1. Propriedade GSC / sitemap no apex: `https://convivendocomdiabetes.com`.
+2. `WP_HOME` / `WP_SITEURL` = `https://convivendocomdiabetes.com`.
+3. Confirmar 301 de `www` → apex e reenviar `sitemap_index.xml` se a propriedade GSC mudou.
 
 ## Variáveis
 

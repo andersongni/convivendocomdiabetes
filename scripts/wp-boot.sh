@@ -165,12 +165,17 @@ if [ -n "${WP_HOME:-}" ]; then
   REWRITE_FOR="$(wp option get ccd_url_rewrite_for --allow-root --path=/var/www/html 2>/dev/null || true)"
   if [ "${FORCE_URL_REWRITE:-0}" = "1" ] || [ "$REWRITE_FOR" != "$WP_HOME" ]; then
     echo "[wp] Removendo URLs do host antigo do banco (uma vez)..."
+    # Ordem: www e railway primeiro; apex so se WP_HOME for outro host.
     wp search-replace "https://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
-    wp search-replace "http://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "https://convivendocomdiabetes-production.up.railway.app" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "http://localhost:8080" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    if [ "${WP_HOME}" != "https://convivendocomdiabetes.com" ]; then
+      wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+      wp search-replace "http://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    else
+      wp search-replace "http://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    fi
     wp option update ccd_url_rewrite_for "${WP_HOME}" --allow-root --path=/var/www/html || true
   else
     echo "[wp] URL rewrite ja aplicado para ${WP_HOME}"

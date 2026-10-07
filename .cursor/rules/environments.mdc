@@ -1,5 +1,5 @@
 ---
-description: Escopo de ambientes — localhost, Railway em www, apex redirect
+description: Escopo de ambientes — localhost, Railway no apex, www redirect
 alwaysApply: true
 ---
 
@@ -10,21 +10,21 @@ alwaysApply: true
 1. **Desenvolver e validar só no localhost** (`docker compose`, `http://localhost:8080`).
 2. **Promover para Railway** via código no repo + IaC (`.railway/railway.ts`, Terraform em `terraform/` quando aplicável) e push na `main`.
 3. **Estrutura de banco**: mudanças de schema vão em migrations versionadas em `db/` (não editar produção “na mão”; não depender de dump completo para DDL).
-4. **Produção pública**: `https://www.convivendocomdiabetes.com` (serviço Railway). Apex `convivendocomdiabetes.com` redireciona para `www` quando aplicável.
+4. **Produção pública**: `https://convivendocomdiabetes.com` (serviço Railway). `www.convivendocomdiabetes.com` redireciona (301) para o apex.
 
 ## Alvos válidos
 
 | Ambiente | URL / acesso | Uso |
 |----------|----------------|-----|
 | Local | `http://localhost:8080` | Desenvolvimento e QA |
-| Produção (Railway) | `https://www.convivendocomdiabetes.com` | Site público + wp-admin (`/login`) |
+| Produção (Railway) | `https://convivendocomdiabetes.com` | Site público + wp-admin (`/login`) |
 
-Não usar `*.up.railway.app` como URL canônica (domínio de serviço removido). `WP_HOME` / `WP_SITEURL` em produção = `https://www.convivendocomdiabetes.com`.
+Não usar `*.up.railway.app` como URL canônica (domínio de serviço removido). `WP_HOME` / `WP_SITEURL` em produção = `https://convivendocomdiabetes.com`.
 
 ## Fluxo esperado
 
 ```
-localhost (código + migrations) → commit/push → Railway (IaC/Dockerfile/boot aplica) → www
+localhost (código + migrations) → commit/push → Railway (IaC/Dockerfile/boot aplica) → apex
 ```
 
 ## O que promove vs o que não promove

@@ -31,7 +31,8 @@ export default defineRailway(() => {
   });
 
   const convivendocomdiabetes = service("convivendocomdiabetes", {
-    source: github("andersongni/convivendocomdiabetes", { checkSuites: false }),
+    // Wait for CI: Railway so dispara deploy apos workflows de push em main passarem.
+    source: github("andersongni/convivendocomdiabetes", { checkSuites: true }),
     build: {
       builder: "DOCKERFILE",
       dockerfilePath: "Dockerfile",
@@ -57,8 +58,8 @@ export default defineRailway(() => {
       WP_ADMIN_PASSWORD: preserve(),
       WP_ADMIN_USER: preserve(),
       WP_TITLE: preserve(),
-      WP_HOME: "https://www.convivendocomdiabetes.com",
-      WP_SITEURL: "https://www.convivendocomdiabetes.com",
+      WP_HOME: "https://convivendocomdiabetes.com",
+      WP_SITEURL: "https://convivendocomdiabetes.com",
       CCD_RECAPTCHA_SITE_KEY: preserve(),
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
       // Search Console meta token — ver docs/SEO.md

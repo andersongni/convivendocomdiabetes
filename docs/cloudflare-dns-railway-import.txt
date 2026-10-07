@@ -9,7 +9,8 @@
 ;;; 3) DNS → Import and Export → Import DNS records → this file
 ;;; 4) Leave "Proxy imported DNS records" OFF (records already set to DNS-only below)
 ;;;
-;;; Canonical site target after cutover: https://www.convivendocomdiabetes.com
+;;; Canonical site target after cutover: https://convivendocomdiabetes.com
+;;; www responde no Railway e o app faz 301 → apex (Apache + mu-plugin).
 ;;;
 
 ;; CNAME Records (Railway traffic — DNS only / grey cloud)

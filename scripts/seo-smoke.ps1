@@ -73,11 +73,17 @@ Check "categoria title com nome" (
   $catTitle -match '(?i)diabetes' -and $catTitle -notmatch '^\s*-\s*' -and $catTitle -notmatch '(?i)diagnostico'
 ) "title=$catTitle"
 
-$catBaseHeaders = curl.exe -sSI --max-time 20 "$BaseUrl/category/diabetes/"
-$catBaseLoc = if ($catBaseHeaders -match '(?i)location:\s*(\S+)') { $Matches[1].Trim() } else { "" }
-Check "category/diabetes 301 limpo" (
-  $catBaseHeaders -match '(?i)^HTTP/\S+\s+301\b' -and $catBaseLoc -match '(?i)/diabetes/?$' -and $catBaseLoc -notmatch '/category/'
-) "location=$catBaseLoc"
+$catBaseHeaders = (curl.exe -sSI --max-time 20 "$BaseUrl/category/diabetes/" | Out-String)
+$catBaseLoc = ""
+if ($catBaseHeaders -match '(?im)^[Ll]ocation:\s*(\S+)') {
+  $catBaseLoc = ([string]$Matches[1]).Trim().TrimEnd("`r")
+}
+$catBaseOk = (
+  $catBaseHeaders -match '(?im)^HTTP/\S+\s+301\b' -and
+  $catBaseLoc -match '(?i)/diabetes/?$' -and
+  $catBaseLoc -notmatch '/category/'
+)
+Check "category/diabetes 301 limpo" $catBaseOk "location=$catBaseLoc"
 
 $blogPath = "$env:TEMP\ccd-seo-smoke-blog.html"
 $code = curl.exe -sS -o $blogPath -w "%{http_code}" --max-time 30 "$BaseUrl/blog/"
@@ -94,8 +100,42 @@ $contatoHtml = if (Test-Path $contatoPath) { Get-Content $contatoPath -Raw } els
 $contatoDesc = Get-HtmlMetaDescription $contatoHtml
 Check "contato HTTP" ($code -eq "200") "status=$code"
 Check "contato meta sem shortcode" (
-  $contatoDesc.Length -ge 70 -and $contatoDesc -notmatch '\[wpforms' -and $contatoDesc -notmatch '&nbsp;'
+  $contatoDesc.Length -ge 70 -and $contatoDesc -notmatch '\[wpforms' -and $contatoDesc -notmatch '&nbsp;' -and $contatoDesc -notmatch '\[ccd_'
 ) "len=$($contatoDesc.Length)"
+
+$homeTitle = Get-HtmlTitle $html
+Check "home title util" (
+  $homeTitle -match '(?i)diabetes' -and $homeTitle -notmatch '(?i)^In[ií]cio\b'
+) "title=$homeTitle"
+
+$clipPath = "$env:TEMP\ccd-seo-smoke-clipping.html"
+$code = curl.exe -sS -o $clipPath -w "%{http_code}" --max-time 30 "$BaseUrl/clipping/"
+$clipHtml = if (Test-Path $clipPath) { Get-Content $clipPath -Raw } else { "" }
+$clipDesc = Get-HtmlMetaDescription $clipHtml
+Check "clipping HTTP" ($code -eq "200") "status=$code"
+Check "clipping meta util" (
+  $clipDesc.Length -ge 70 -and $clipDesc -notmatch '&nbsp;' -and $clipDesc -notmatch '(?i)^Campanhas'
+) "len=$($clipDesc.Length)"
+
+$recHeaders = curl.exe -sSI --max-time 20 "$BaseUrl/receitas/"
+$recIsPostRedirect = $recHeaders -match '(?i)location:\s*.*receitas-gostosas'
+$recCode = curl.exe -sS -o "$env:TEMP\ccd-seo-smoke-receitas.html" -w "%{http_code}" --max-time 30 "$BaseUrl/receitas/"
+$recHtml = if (Test-Path "$env:TEMP\ccd-seo-smoke-receitas.html") { Get-Content "$env:TEMP\ccd-seo-smoke-receitas.html" -Raw } else { "" }
+$recTitle = Get-HtmlTitle $recHtml
+Check "categoria /receitas/ HTTP" ($recCode -eq "200") "status=$recCode"
+Check "categoria /receitas/ nao vira post" (-not $recIsPostRedirect) "sem 301 para post antigo"
+Check "categoria /receitas/ title" (
+  $recTitle -match '(?i)receitas' -and $recTitle -notmatch '(?i)Ano Novo'
+) "title=$recTitle"
+
+$hipPath = "$env:TEMP\ccd-seo-smoke-hipo.html"
+$code = curl.exe -sS -o $hipPath -w "%{http_code}" --max-time 30 "$BaseUrl/hipoglicemia/"
+$hipHtml = if (Test-Path $hipPath) { Get-Content $hipPath -Raw } else { "" }
+$hipDesc = Get-HtmlMetaDescription $hipHtml
+Check "hipoglicemia HTTP" ($code -eq "200") "status=$code"
+Check "hipoglicemia meta util" (
+  $hipDesc.Length -ge 70 -and $hipDesc -match '(?i)hipoglicemia' -and $hipDesc -notmatch '(?i)^Tenho altos'
+) "len=$($hipDesc.Length)"
 
 Write-Host ""
 if ($fail -gt 0) {

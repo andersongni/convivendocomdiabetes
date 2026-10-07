@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_CONTENT_VERSION = '1';
+const CCD_SEO_CONTENT_VERSION = '2';
 
 /**
  * @return string[]
@@ -74,19 +74,105 @@ function ccd_seo_focus_from_title( $title ) {
 }
 
 /**
+ * Meta fraca (shortcode, saudação, lista de ingredientes, etc.).
+ *
+ * @param string $desc Meta atual.
+ * @return bool
+ */
+function ccd_seo_metadesc_is_weak( $desc ) {
+	$desc = trim( html_entity_decode( wp_strip_all_tags( (string) $desc ), ENT_QUOTES, 'UTF-8' ) );
+	$desc = preg_replace( '/\s+/u', ' ', $desc );
+	if ( ! is_string( $desc ) || $desc === '' ) {
+		return true;
+	}
+	$len = function_exists( 'mb_strlen' ) ? mb_strlen( $desc ) : strlen( $desc );
+	if ( $len < 70 ) {
+		return true;
+	}
+	if ( preg_match( '/\[(?:wpforms|ccd_|\/?\w+)/i', $desc ) ) {
+		return true;
+	}
+	if ( stripos( $desc, '&nbsp;' ) !== false || str_contains( $desc, "\xc2\xa0" ) ) {
+		return true;
+	}
+	if ( preg_match( '/^(Oi|Ol[aá]|Ingredientes|Blog\s*[—\-]|\.{0,3}\s*$)/iu', $desc ) ) {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Extrai trecho útil do corpo (pula saudações / ingredientes).
+ *
+ * @param string $html Conteúdo.
+ * @return string
+ */
+function ccd_seo_body_snippet( $html ) {
+	$text = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( (string) $html ) ) );
+	if ( $text === '' ) {
+		return '';
+	}
+	$parts = preg_split( '/(?<=[.!?])\s+/u', $text ) ?: array( $text );
+	$keep  = array();
+	foreach ( $parts as $part ) {
+		$part = trim( (string) $part );
+		if ( $part === '' ) {
+			continue;
+		}
+		if ( preg_match( '/^(Oi|Ol[aá]|Ingredientes|Modo de preparo|Preparo)\b/iu', $part ) ) {
+			continue;
+		}
+		$keep[] = $part;
+		$joined = implode( ' ', $keep );
+		$len    = function_exists( 'mb_strlen' ) ? mb_strlen( $joined ) : strlen( $joined );
+		if ( $len >= 110 ) {
+			break;
+		}
+	}
+	$out = trim( implode( ' ', $keep ) );
+	if ( $out === '' ) {
+		$out = $text;
+	}
+	return ccd_seo_truncate_words( $out, 155 );
+}
+
+/**
  * @param WP_Post $post Post.
  * @return string
  */
 function ccd_seo_metadesc_from_post( WP_Post $post ) {
+	if ( function_exists( 'ccd_seo_post_metadescs' ) ) {
+		$map = ccd_seo_post_metadescs();
+		if ( isset( $map[ $post->post_name ] ) ) {
+			return $map[ $post->post_name ];
+		}
+	}
+	if ( function_exists( 'ccd_seo_page_metadescs' ) && $post->post_type === 'page' ) {
+		$map = ccd_seo_page_metadescs();
+		if ( isset( $map[ $post->post_name ] ) ) {
+			return $map[ $post->post_name ];
+		}
+	}
+
 	$excerpt = trim( (string) $post->post_excerpt );
-	if ( $excerpt !== '' ) {
+	if ( $excerpt !== '' && ! ccd_seo_metadesc_is_weak( $excerpt ) ) {
 		return ccd_seo_truncate_words( $excerpt, 155 );
 	}
-	$body = ccd_seo_truncate_words( $post->post_content, 155 );
-	if ( $body !== '' ) {
+
+	$body = ccd_seo_body_snippet( $post->post_content );
+	if ( $body !== '' && ! ccd_seo_metadesc_is_weak( $body ) ) {
 		return $body;
 	}
-	return ccd_seo_truncate_words( $post->post_title . ' — Convivendo com Diabetes', 155 );
+
+	$title = trim( wp_strip_all_tags( (string) $post->post_title ) );
+	if ( preg_match( '/\b(receita|bolo|cupcake|torta|biscoito|p[aã]o|brigadeiro|pudim)\b/iu', $title ) ) {
+		return ccd_seo_truncate_words(
+			$title . ' — receita diet sem açúcar do blog Convivendo com Diabetes.',
+			155
+		);
+	}
+
+	return ccd_seo_truncate_words( $title . ' — Convivendo com Diabetes', 155 );
 }
 
 /**
@@ -159,8 +245,9 @@ function ccd_seo_ensure_post( $post_id, $force = false ) {
 	$new_desc  = $desc;
 	$new_focus = $focus;
 	$is_home   = (int) get_option( 'page_on_front' ) === (int) $post->ID;
+	$weak      = ccd_seo_metadesc_is_weak( $desc );
 
-	if ( $force || $desc === '' ) {
+	if ( $force || $desc === '' || $weak ) {
 		if ( $is_home && function_exists( 'ccd_seo_home_metadesc' ) ) {
 			$new_desc = ccd_seo_home_metadesc();
 		} else {

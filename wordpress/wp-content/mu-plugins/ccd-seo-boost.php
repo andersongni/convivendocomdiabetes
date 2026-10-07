@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_BOOST_VERSION = '2';
+const CCD_SEO_BOOST_VERSION = '3';
 
 /**
  * @return string
@@ -18,14 +18,72 @@ function ccd_seo_home_metadesc() {
 }
 
 /**
+ * @return string
+ */
+function ccd_seo_home_title() {
+	return 'Diabetes tipo 2: rotina, saúde e convivência | Convivendo com Diabetes';
+}
+
+/**
  * Metas manuais de páginas-chave (slug => description).
  *
  * @return array<string, string>
  */
 function ccd_seo_page_metadescs() {
 	return array(
-		'blog'    => 'Artigos, receitas e histórias reais sobre diabetes tipo 2, rotina e saúde no blog Convivendo com Diabetes.',
-		'contato' => 'Fale com a Bia Libonati: dúvidas, parcerias e imprensa sobre diabetes tipo 2 e convivência com a condição.',
+		'blog'                 => 'Artigos, receitas e histórias reais sobre diabetes tipo 2, rotina e saúde no blog Convivendo com Diabetes.',
+		'contato'              => 'Fale com a Bia Libonati: dúvidas, parcerias e imprensa sobre diabetes tipo 2 e convivência com a condição.',
+		'clipping'             => 'Portfólio da Bia Libonati na mídia: campanhas, entrevistas e aparições sobre diabetes e saúde.',
+		'resenha-de-livros'    => 'Resenhas de livros sobre diabetes, saúde e bem-estar recomendados pela Bia Libonati.',
+		'eventos-e-campanhas'  => 'Eventos e campanhas de conscientização sobre diabetes com a participação da Bia Libonati.',
+		'servicos'             => 'Serviços de conteúdo e consultoria em diabetes e obesidade com a jornalista Bia Libonati.',
+		'sobre'                => 'Conheça a Bia Libonati: jornalista que convive com diabetes tipo 2 e cria o Convivendo com Diabetes.',
+	);
+}
+
+/**
+ * Metas manuais de posts estratégicos (slug => description).
+ *
+ * @return array<string, string>
+ */
+function ccd_seo_post_metadescs() {
+	return array(
+		'hipoglicemia' => 'O que é hipoglicemia no diabetes, sinais de alerta e como agir com segurança no dia a dia.',
+		'diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico' => 'Diabetes tipo 2: o que é, diferença entre tipos e quais exames ajudam no diagnóstico.',
+		'diabetes-tipo-2-tem-cura-saiba-mais-sobre-os-tratamentos-disponiveis' => 'Diabetes tipo 2 tem cura? Entenda tratamentos, insulina e o que a ciência diz hoje.',
+		'quantas-vezes-por-dia-devo-medir-minha-glicemia' => 'Quantas vezes medir a glicemia por dia? Orientações práticas para o controle no cotidiano.',
+		'jejum-intermitente-e-diabetes-e-permitido-ou-nao' => 'Jejum intermitente e diabetes: quando pode, riscos e por que falar com o médico antes.',
+		'a-logica-do-cuidado-no-tratamento-de-diabetes' => 'A lógica do cuidado no tratamento do diabetes: rotina, adesão e convivência com a condição.',
+		'novidades-no-tratamento-do-diabetes-falta-pouco-para-o-pancreas-artificial' => 'Tecnologias no tratamento do diabetes: sensores, bombas e o caminho do pâncreas artificial.',
+		'brasileiros-mais-proximos-do-pancreas-artificial' => 'Como o Brasil avança em tecnologias próximas ao pâncreas artificial no tratamento do diabetes.',
+		'entenda-como-o-diabetes-pode-afetar-a-visao' => 'Como o diabetes pode afetar a visão: riscos oculares e a importância do controle glicêmico.',
+		'metade-dos-diabeticos-morre-devido-a-infarto-ou-avc-mas-apenas-3-temem-essa-complicacao' => 'Diabetes, coração e AVC: por que o risco cardiovascular merece atenção no dia a dia.',
+		'viagens-e-diabetes-um-guia-para-se-dar-bem-quando-estiver-longe-de-casa' => 'Guia prático de viagens com diabetes: medicamentos, glicemia e organização longe de casa.',
+		'cupcake-de-maca-diet-vai-no-microondas' => 'Receita de cupcake de maçã diet no microondas: opção prática e sem açúcar para o dia a dia.',
+		'bolo-red-velvet-diet-com-recheio-de-creme-de-cream-cheese' => 'Bolo red velvet diet com creme de cream cheese: receita sem açúcar para celebrar sem culpa.',
+		'bolo-de-fuba-diet-sem-farinha' => 'Bolo de fubá diet sem farinha de trigo: receita simples e adequada para quem evita açúcar.',
+	);
+}
+
+/**
+ * Descrições de categorias-hub (slug => texto).
+ *
+ * @return array<string, string>
+ */
+function ccd_seo_category_descriptions() {
+	return array(
+		'diabetes'              => 'Conteúdos sobre diabetes tipo 1 e tipo 2: diagnóstico, tratamento, rotina e convivência com a condição.',
+		'diabetes-tipo-1-e-tipo-2' => 'Artigos sobre diabetes tipo 1 e tipo 2: diferenças, diagnóstico, cuidados e histórias reais.',
+		'alimentacao'           => 'Alimentação e diabetes: dicas práticas, hábitos e escolhas do dia a dia para conviver melhor.',
+		'receitas'              => 'Receitas diets e sem açúcar para quem convive com diabetes — doces e salgados do dia a dia.',
+		'receitas-doces'        => 'Receitas doces sem açúcar e diets para diabéticos, com sabor e praticidade.',
+		'receitas-salgadas'     => 'Receitas salgadas adequadas para quem monitora glicemia e busca refeições equilibradas.',
+		'receitas-veganas'      => 'Receitas veganas e diets pensadas para o dia a dia com diabetes.',
+		'leites-vegetais'       => 'Leites vegetais e alternativas sem açúcar no contexto da alimentação com diabetes.',
+		'psicologia'            => 'Saúde emocional e diabetes: convivência, motivações e bem-estar no cotidiano.',
+		'blog'                  => 'Textos do blog Convivendo com Diabetes sobre rotina, saúde e experiências reais.',
+		'eventos-e-campanhas'   => 'Eventos e campanhas de conscientização sobre diabetes acompanhados pela Bia Libonati.',
+		'resenha-de-livros'     => 'Resenhas de livros sobre diabetes, saúde e qualidade de vida.',
 	);
 }
 
@@ -69,6 +127,10 @@ function ccd_seo_term_document_title( WP_Term $term ) {
  * @return string
  */
 function ccd_seo_term_metadesc( WP_Term $term ) {
+	$map = ccd_seo_category_descriptions();
+	if ( isset( $map[ $term->slug ] ) ) {
+		return ccd_seo_boost_truncate( $map[ $term->slug ], 155 );
+	}
 	$from_term = trim( wp_strip_all_tags( term_description( $term->term_id, $term->taxonomy ) ) );
 	if ( $from_term !== '' ) {
 		return ccd_seo_boost_truncate( $from_term, 155 );
@@ -80,6 +142,40 @@ function ccd_seo_term_metadesc( WP_Term $term ) {
 		),
 		155
 	);
+}
+
+/**
+ * Sincroniza title Yoast (post/page).
+ *
+ * @param int    $post_id Post ID.
+ * @param string $title   Title.
+ * @return void
+ */
+function ccd_seo_sync_yoast_title( $post_id, $title ) {
+	$post_id = (int) $post_id;
+	if ( $post_id <= 0 || $title === '' ) {
+		return;
+	}
+	update_post_meta( $post_id, '_yoast_wpseo_title', $title );
+
+	global $wpdb;
+	$table  = $wpdb->prefix . 'yoast_indexable';
+	$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+	if ( $exists ) {
+		$wpdb->update(
+			$table,
+			array(
+				'title'      => $title,
+				'updated_at' => current_time( 'mysql' ),
+			),
+			array(
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%s' ),
+			array( '%s', '%d' )
+		);
+	}
 }
 
 /**
@@ -248,7 +344,7 @@ function ccd_seo_sync_category_term_seo() {
 }
 
 /**
- * Aplica metas das páginas blog/contato.
+ * Aplica metas das páginas-chave.
  *
  * @return void
  */
@@ -268,6 +364,59 @@ function ccd_seo_sync_key_page_metadescs() {
 	}
 }
 
+/**
+ * Aplica metas dos posts estratégicos.
+ *
+ * @return void
+ */
+function ccd_seo_sync_key_post_metadescs() {
+	foreach ( ccd_seo_post_metadescs() as $slug => $desc ) {
+		$posts = get_posts(
+			array(
+				'name'           => $slug,
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+			)
+		);
+		if ( ! empty( $posts[0] ) ) {
+			ccd_seo_sync_yoast_description( (int) $posts[0], $desc );
+			if ( function_exists( 'ccd_seo_focus_from_title' ) ) {
+				$post = get_post( (int) $posts[0] );
+				if ( $post instanceof WP_Post && function_exists( 'ccd_seo_sync_yoast_fields' ) ) {
+					ccd_seo_sync_yoast_fields( (int) $post->ID, $desc, ccd_seo_focus_from_title( $post->post_title ) );
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Preenche description vazia das categorias-hub.
+ *
+ * @return void
+ */
+function ccd_seo_sync_category_term_descriptions() {
+	foreach ( ccd_seo_category_descriptions() as $slug => $desc ) {
+		$term = get_term_by( 'slug', $slug, 'category' );
+		if ( ! ( $term instanceof WP_Term ) || is_wp_error( $term ) ) {
+			continue;
+		}
+		$current = trim( wp_strip_all_tags( (string) $term->description ) );
+		if ( $current !== '' ) {
+			continue;
+		}
+		wp_update_term(
+			(int) $term->term_id,
+			'category',
+			array(
+				'description' => $desc,
+			)
+		);
+	}
+}
+
 function ccd_seo_boost_apply() {
 	if ( get_option( 'ccd_seo_boost' ) === CCD_SEO_BOOST_VERSION ) {
 		return;
@@ -276,6 +425,7 @@ function ccd_seo_boost_apply() {
 	$home_id = (int) get_option( 'page_on_front' );
 	if ( $home_id > 0 ) {
 		ccd_seo_sync_yoast_description( $home_id, ccd_seo_home_metadesc() );
+		ccd_seo_sync_yoast_title( $home_id, ccd_seo_home_title() );
 
 		$post = get_post( $home_id );
 		if ( $post instanceof WP_Post && is_string( $post->post_content ) ) {
@@ -289,7 +439,13 @@ function ccd_seo_boost_apply() {
 				2937,
 				'Bia Libonati no LinkedIn'
 			);
-			if ( $content !== $post->post_content ) {
+			$content = preg_replace(
+				'/<img\b(?![^>]*\balt=)([^>]*\bBia-2-2\.jpg[^>]*)>/i',
+				'<img alt="Beatriz Libonati, autora do blog Convivendo com Diabetes"$1>',
+				$content,
+				1
+			);
+			if ( is_string( $content ) && $content !== $post->post_content ) {
 				wp_update_post(
 					array(
 						'ID'           => $home_id,
@@ -304,8 +460,10 @@ function ccd_seo_boost_apply() {
 	update_post_meta( 2937, '_wp_attachment_image_alt', 'Bia Libonati no LinkedIn' );
 
 	ccd_seo_fix_category_title_template();
+	ccd_seo_sync_category_term_descriptions();
 	ccd_seo_sync_category_term_seo();
 	ccd_seo_sync_key_page_metadescs();
+	ccd_seo_sync_key_post_metadescs();
 
 	update_option( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION, false );
 
@@ -358,12 +516,16 @@ add_filter( 'wpseo_metadesc', 'ccd_seo_filter_term_metadesc', 20 );
 add_filter( 'wpseo_opengraph_desc', 'ccd_seo_filter_term_metadesc', 20 );
 
 /**
- * Runtime: metas de /blog/ e /contato/ (cobre shortcode vazando no snippet).
+ * Runtime: metas de páginas-chave e posts estratégicos.
  *
  * @param string $desc Meta description.
  * @return string
  */
 function ccd_seo_filter_key_page_metadesc( $desc ) {
+	if ( is_front_page() ) {
+		return ccd_seo_home_metadesc();
+	}
+
 	$map = ccd_seo_page_metadescs();
 
 	if ( is_home() && ! is_front_page() && isset( $map['blog'] ) ) {
@@ -372,11 +534,16 @@ function ccd_seo_filter_key_page_metadesc( $desc ) {
 
 	if ( is_page() ) {
 		$page = get_queried_object();
-		if ( $page instanceof WP_Post ) {
-			$slug = $page->post_name;
-			if ( isset( $map[ $slug ] ) ) {
-				return $map[ $slug ];
-			}
+		if ( $page instanceof WP_Post && isset( $map[ $page->post_name ] ) ) {
+			return $map[ $page->post_name ];
+		}
+	}
+
+	if ( is_singular( 'post' ) ) {
+		$post = get_queried_object();
+		$posts = ccd_seo_post_metadescs();
+		if ( $post instanceof WP_Post && isset( $posts[ $post->post_name ] ) ) {
+			return $posts[ $post->post_name ];
 		}
 	}
 
@@ -385,6 +552,47 @@ function ccd_seo_filter_key_page_metadesc( $desc ) {
 
 add_filter( 'wpseo_metadesc', 'ccd_seo_filter_key_page_metadesc', 25 );
 add_filter( 'wpseo_opengraph_desc', 'ccd_seo_filter_key_page_metadesc', 25 );
+
+/**
+ * Runtime: title da home otimizado para busca.
+ *
+ * @param string $title Title.
+ * @return string
+ */
+function ccd_seo_filter_home_title( $title ) {
+	if ( is_front_page() ) {
+		return ccd_seo_home_title();
+	}
+	return $title;
+}
+
+add_filter( 'wpseo_title', 'ccd_seo_filter_home_title', 25 );
+add_filter( 'wpseo_opengraph_title', 'ccd_seo_filter_home_title', 25 );
+
+/**
+ * Intro útil no topo dos arquivos de categoria (enriquece hubs finos).
+ */
+add_action(
+	'mesmerize_after_inner_page_header_content',
+	static function () {
+		if ( ! is_category() ) {
+			return;
+		}
+		$term = get_queried_object();
+		if ( ! ( $term instanceof WP_Term ) ) {
+			return;
+		}
+		$desc = ccd_seo_term_metadesc( $term );
+		if ( $desc === '' ) {
+			return;
+		}
+		printf(
+			'<div class="ccd-category-intro"><p>%s</p></div>',
+			esc_html( $desc )
+		);
+	},
+	9
+);
 
 /**
  * Breadcrumbs Yoast abaixo do hero (exceto home).
@@ -460,6 +668,15 @@ add_action(
 .ccd-related-posts a:focus {
 	text-decoration: underline;
 }
+.ccd-category-intro {
+	max-width: 1100px;
+	margin: 0 auto 1rem;
+	padding: 0 1.25rem;
+	color: #3d4f5c;
+	font-size: 1.05rem;
+	line-height: 1.5;
+}
+.ccd-category-intro p { margin: 0; }
 CSS
 		);
 	},

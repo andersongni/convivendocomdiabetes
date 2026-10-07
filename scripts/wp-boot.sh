@@ -190,6 +190,14 @@ if [ -d /var/www/html/wp-content/uploads ]; then
   fi
   chown www-data:www-data /var/www/html/wp-content/uploads 2>/dev/null || true
   chmod 775 /var/www/html/wp-content/uploads 2>/dev/null || true
+  # Cache do proxy de Gravatar (ccd-console-cleanup) — precisa ser gravavel pelo Apache.
+  if [ ! -d /var/www/html/wp-content/uploads/ccd-avatars ]; then
+    mkdir -p /var/www/html/wp-content/uploads/ccd-avatars 2>/dev/null || true
+  fi
+  if [ -d /var/www/html/wp-content/uploads/ccd-avatars ]; then
+    chown -R www-data:www-data /var/www/html/wp-content/uploads/ccd-avatars 2>/dev/null || true
+    chmod 775 /var/www/html/wp-content/uploads/ccd-avatars 2>/dev/null || true
+  fi
 fi
 
 # Libera espaço no MySQL se tabelas legadas do WP Statistics ainda existirem

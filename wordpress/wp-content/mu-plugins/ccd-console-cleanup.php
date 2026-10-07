@@ -100,21 +100,29 @@ function ccd_serve_proxied_avatar($hash, $size, $default, $rating)
 {
 	$uploads   = wp_upload_dir();
 	$cache_dir = trailingslashit($uploads['basedir']) . 'ccd-avatars';
-	if (!wp_mkdir_p($cache_dir)) {
-		ccd_stream_fallback_avatar($size);
-	}
+	$ttl       = DAY_IN_SECONDS;
 
-	$index_file = $cache_dir . '/index.php';
-	if (!file_exists($index_file)) {
-		file_put_contents($index_file, "<?php\n// Silence is golden.\n", LOCK_EX);
+	if (wp_mkdir_p($cache_dir)) {
+		// Garante escrita pelo Apache (volume pode ter ficado root:root via SSH).
+		if (!is_writable($cache_dir)) {
+			@chmod($cache_dir, 0775);
+		}
+		$index_file = $cache_dir . '/index.php';
+		if (!file_exists($index_file)) {
+			@file_put_contents($index_file, "<?php\n// Silence is golden.\n", LOCK_EX);
+		}
 	}
 
 	$cache_key  = $hash . '-' . $size . '-' . md5($default . '|' . $rating);
 	$cache_file = $cache_dir . '/' . $cache_key . '.bin';
 	$meta_file  = $cache_file . '.json';
-	$ttl        = DAY_IN_SECONDS;
 
-	if (is_readable($cache_file) && is_readable($meta_file) && (filemtime($cache_file) + $ttl) > time()) {
+	if (
+		is_readable($cache_file)
+		&& is_readable($meta_file)
+		&& filesize($cache_file) > 0
+		&& (filemtime($cache_file) + $ttl) > time()
+	) {
 		$meta = json_decode((string) file_get_contents($meta_file), true);
 		$type = is_array($meta) && !empty($meta['content_type']) ? $meta['content_type'] : 'image/jpeg';
 		ccd_stream_avatar_file($cache_file, $type, $ttl);
@@ -152,14 +160,17 @@ function ccd_serve_proxied_avatar($hash, $size, $default, $rating)
 		ccd_stream_fallback_avatar($size);
 	}
 
-	file_put_contents($cache_file, $body, LOCK_EX);
-	file_put_contents(
-		$meta_file,
-		wp_json_encode(array('content_type' => $type)),
-		LOCK_EX
-	);
+	// Cache best-effort: se o volume nao for gravavel, ainda assim serve o body.
+	if (is_dir($cache_dir) && is_writable($cache_dir)) {
+		@file_put_contents($cache_file, $body, LOCK_EX);
+		@file_put_contents(
+			$meta_file,
+			wp_json_encode(array('content_type' => $type)),
+			LOCK_EX
+		);
+	}
 
-	ccd_stream_avatar_file($cache_file, $type, $ttl);
+	ccd_stream_avatar_bytes($body, $type, $ttl);
 }
 
 /**
@@ -187,6 +198,30 @@ function ccd_stream_fallback_avatar($size)
 }
 
 /**
+ * Envia bytes de avatar com headers de cache.
+ *
+ * @param string $body Image bytes.
+ * @param string $type Content-Type.
+ * @param int    $ttl  Cache TTL in seconds.
+ */
+function ccd_stream_avatar_bytes($body, $type, $ttl)
+{
+	if (!is_string($body) || $body === '') {
+		ccd_stream_fallback_avatar(96);
+	}
+
+	status_header(200);
+	header('Content-Type: ' . $type);
+	header('Content-Length: ' . (string) strlen($body));
+	header('Cache-Control: public, max-age=' . (int) $ttl);
+	header('Expires: ' . gmdate('D, d M Y H:i:s', time() + (int) $ttl) . ' GMT');
+	header('X-Content-Type-Options: nosniff');
+	header('X-Robots-Tag: noindex');
+	echo $body;
+	exit;
+}
+
+/**
  * Envia o arquivo de avatar com headers de cache.
  *
  * @param string $file Absolute path.
@@ -195,13 +230,15 @@ function ccd_stream_fallback_avatar($size)
  */
 function ccd_stream_avatar_file($file, $type, $ttl)
 {
-	status_header(200);
-	header('Content-Type: ' . $type);
-	header('Content-Length: ' . (string) filesize($file));
-	header('Cache-Control: public, max-age=' . (int) $ttl);
-	header('Expires: ' . gmdate('D, d M Y H:i:s', time() + (int) $ttl) . ' GMT');
-	header('X-Content-Type-Options: nosniff');
-	header('X-Robots-Tag: noindex');
-	readfile($file);
-	exit;
+	$size = is_readable($file) ? filesize($file) : false;
+	if ($size === false || (int) $size <= 0) {
+		ccd_stream_fallback_avatar(96);
+	}
+
+	$body = file_get_contents($file);
+	if ($body === false || $body === '') {
+		ccd_stream_fallback_avatar(96);
+	}
+
+	ccd_stream_avatar_bytes($body, $type, $ttl);
 }

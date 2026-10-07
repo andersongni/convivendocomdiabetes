@@ -145,12 +145,14 @@ try {
 		},
 		@{
 			description = 'CCD cache HTML anonymous GET'
-			expression  = '(http.request.method eq "GET") and (http.host eq "convivendocomdiabetes.com" or http.host eq "www.convivendocomdiabetes.com")'
+			# origin_cache_control=false: ignora max-age=0/Expires do WP (senao fica DYNAMIC).
+			expression  = '(http.request.method eq "GET") and (http.host eq "convivendocomdiabetes.com" or http.host eq "www.convivendocomdiabetes.com") and not starts_with(http.request.uri.path, "/wp-admin") and not starts_with(http.request.uri.path, "/wp-json")'
 			action      = 'set_cache_settings'
 			action_parameters = @{
-				cache       = $true
-				edge_ttl    = @{ mode = 'override_origin'; default = 3600 }
-				browser_ttl = @{ mode = 'respect_origin' }
+				cache                = $true
+				origin_cache_control = $false
+				edge_ttl             = @{ mode = 'override_origin'; default = 3600 }
+				browser_ttl          = @{ mode = 'override_origin'; default = 0 }
 			}
 			enabled = $true
 		}

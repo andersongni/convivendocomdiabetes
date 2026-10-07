@@ -4,6 +4,7 @@ import {
   mysql,
   preserve,
   project,
+  redis,
   service,
   volume,
 } from "railway/iac";
@@ -17,6 +18,9 @@ export default defineRailway(() => {
       "chmod 777 /var/lib/mysql; docker-entrypoint.sh mysqld --innodb-use-native-aio=0 --disable-log-bin --performance_schema=0 --innodb-buffer-pool-size=256M",
   };
   MySQL.networking = { privateNetworkEndpoint: "mysql" };
+
+  // Object cache WordPress (Redis Object Cache plugin + drop-in via wp-boot).
+  const Redis = redis("Redis", { region: "sfo" });
 
   const wpUploads5g = volume("wp-uploads-5g", {
     alerts: { usage: { "100": {}, "80": {}, "95": {} } },
@@ -66,11 +70,17 @@ export default defineRailway(() => {
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
       // Search Console meta token — ver docs/SEO.md
       CCD_GOOGLE_SITE_VERIFICATION: preserve(),
+      // Redis object cache — ver docs/PERFORMANCE.md
+      WP_REDIS_HOST: Redis.env.REDISHOST,
+      WP_REDIS_PORT: Redis.env.REDISPORT,
+      WP_REDIS_PASSWORD: Redis.env.REDIS_PASSWORD,
+      WP_REDIS_USERNAME: Redis.env.REDISUSER,
+      WP_REDIS_PREFIX: "ccd_",
       // Opcional: CCD_A11Y_DISABLE=1 desliga tipografia/hero a11y em producao
     },
   });
 
   return project("convivendocomdiabetes", {
-    resources: [convivendocomdiabetes, MySQL, wpUploads5g, mysqlVolume_zsT],
+    resources: [convivendocomdiabetes, MySQL, Redis, wpUploads5g, mysqlVolume_zsT],
   });
 });

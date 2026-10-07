@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('CCD_PAGE_CACHE_TTL')) {
-	define('CCD_PAGE_CACHE_TTL', 600);
+	define('CCD_PAGE_CACHE_TTL', 3600);
 }
 
 /**

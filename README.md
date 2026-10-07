@@ -4,7 +4,8 @@ Site WordPress do [Convivendo com Diabetes](https://convivendocomdiabetes.com), 
 
 Produção: [https://convivendocomdiabetes.com](https://convivendocomdiabetes.com) (`www` → 301 para o apex).
 
-SEO: ver [docs/SEO.md](./docs/SEO.md) (Yoast, sitemaps, E-E-A-T, Search Console / CWV).
+SEO: ver [docs/SEO.md](./docs/SEO.md) (Yoast, sitemaps, E-E-A-T, Search Console / CWV).  
+Performance: ver [docs/PERFORMANCE.md](./docs/PERFORMANCE.md) (Redis, page cache, Cloudflare proxy).
 
 ## Stack
 

@@ -64,6 +64,7 @@ add_filter(
 				$tag = $m[0];
 				if ( $n === 1 ) {
 					$tag = preg_replace( '/\sloading=(["\'])[^"\']*\1/i', '', $tag );
+					$tag = preg_replace( '/\sfetchpriority=(["\'])[^"\']*\1/i', '', $tag );
 					$tag = preg_replace( '/<img\b/i', '<img loading="eager" fetchpriority="high"', $tag, 1 );
 					return $tag;
 				}

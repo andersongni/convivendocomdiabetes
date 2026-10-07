@@ -77,6 +77,30 @@ function ccd_recaptcha_should_enqueue() {
 	return is_singular() && comments_open();
 }
 
+/**
+ * Loader lazy: api.js so sobe apos idle/interacao (nao bloqueia LCP).
+ */
+function ccd_recaptcha_lazy_loader_js() {
+	return 'window.ccdOnRecaptchaSuccess=window.ccdOnRecaptchaSuccess||function(){};'
+		. 'window.ccdOnRecaptchaExpired=window.ccdOnRecaptchaExpired||function(){};'
+		. 'window.ccdOnRecaptchaError=window.ccdOnRecaptchaError||function(){};'
+		. 'window.ccdRecaptchaRenderAll=window.ccdRecaptchaRenderAll||function(){'
+		. 'if(!window.grecaptcha||!grecaptcha.render)return;'
+		. 'document.querySelectorAll(".g-recaptcha:not([data-ccd-rendered])").forEach(function(el){'
+		. 'var k=el.getAttribute("data-sitekey");if(!k)return;'
+		. 'try{grecaptcha.render(el,{sitekey:k,callback:window.ccdOnRecaptchaSuccess,'
+		. '"expired-callback":window.ccdOnRecaptchaExpired,"error-callback":window.ccdOnRecaptchaError});'
+		. 'el.setAttribute("data-ccd-rendered","1");}catch(e){}});};'
+		. '(function(){var loaded=false;function load(){if(loaded)return;loaded=true;'
+		. 'var s=document.createElement("script");s.src="https://www.google.com/recaptcha/api.js?onload=ccdRecaptchaRenderAll&render=explicit&hl=pt-BR";'
+		. 's.async=true;document.head.appendChild(s);}'
+		. '["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){'
+		. 'window.addEventListener(ev,load,{once:true,passive:true});});'
+		. 'if("requestIdleCallback" in window){requestIdleCallback(load,{timeout:4000});}'
+		. 'else{setTimeout(load,3500);}'
+		. '})();';
+}
+
 add_action(
 	'wp_enqueue_scripts',
 	static function () {
@@ -84,28 +108,9 @@ add_action(
 			return;
 		}
 
-		wp_enqueue_script(
-			'google-recaptcha',
-			'https://www.google.com/recaptcha/api.js?onload=ccdRecaptchaRenderAll&render=explicit&hl=pt-BR',
-			array(),
-			null,
-			true
-		);
-		// Stubs + render explicito (varios widgets: comentario, popup, shortcode).
-		wp_add_inline_script(
-			'google-recaptcha',
-			'window.ccdOnRecaptchaSuccess=window.ccdOnRecaptchaSuccess||function(){};'
-			. 'window.ccdOnRecaptchaExpired=window.ccdOnRecaptchaExpired||function(){};'
-			. 'window.ccdOnRecaptchaError=window.ccdOnRecaptchaError||function(){};'
-			. 'window.ccdRecaptchaRenderAll=window.ccdRecaptchaRenderAll||function(){'
-			. 'if(!window.grecaptcha||!grecaptcha.render)return;'
-			. 'document.querySelectorAll(".g-recaptcha:not([data-ccd-rendered])").forEach(function(el){'
-			. 'var k=el.getAttribute("data-sitekey");if(!k)return;'
-			. 'try{grecaptcha.render(el,{sitekey:k,callback:window.ccdOnRecaptchaSuccess,'
-			. '"expired-callback":window.ccdOnRecaptchaExpired,"error-callback":window.ccdOnRecaptchaError});'
-			. 'el.setAttribute("data-ccd-rendered","1");}catch(e){}});};',
-			'before'
-		);
+		wp_register_script( 'ccd-recaptcha-lazy', false, array(), '1.0.0', true );
+		wp_enqueue_script( 'ccd-recaptcha-lazy' );
+		wp_add_inline_script( 'ccd-recaptcha-lazy', ccd_recaptcha_lazy_loader_js(), 'after' );
 	}
 );
 

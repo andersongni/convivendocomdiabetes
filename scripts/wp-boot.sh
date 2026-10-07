@@ -55,6 +55,14 @@ if [ -n "${WP_REDIS_HOST:-}" ] && [ -f "$REDIS_DROPIN_SRC" ]; then
   wp config set WP_REDIS_HOST "${WP_REDIS_HOST}" --type=constant --allow-root --path=/var/www/html
   wp config set WP_REDIS_PORT "${WP_REDIS_PORT:-6379}" --raw --type=constant --allow-root --path=/var/www/html
   wp config set WP_REDIS_PREFIX "${WP_REDIS_PREFIX:-ccd_}" --type=constant --allow-root --path=/var/www/html
+  if [ -n "${WP_REDIS_PASSWORD:-}" ]; then
+    wp config set WP_REDIS_PASSWORD "${WP_REDIS_PASSWORD}" --type=constant --allow-root --path=/var/www/html
+  fi
+  if [ -n "${WP_REDIS_USERNAME:-}" ]; then
+    wp config set WP_REDIS_USERNAME "${WP_REDIS_USERNAME}" --type=constant --allow-root --path=/var/www/html
+  fi
+  # Evita falha dura se Redis estiver momentaneamente indisponivel no boot.
+  wp config set WP_REDIS_GRACEFUL true --raw --type=constant --allow-root --path=/var/www/html
 else
   rm -f "$REDIS_DROPIN_DST"
   wp config set WP_REDIS_DISABLED true --raw --type=constant --allow-root --path=/var/www/html

@@ -53,7 +53,7 @@ if (!is_readable($file)) {
 }
 
 $mtime = filemtime($file);
-$ttl   = defined('CCD_PAGE_CACHE_TTL') ? (int) CCD_PAGE_CACHE_TTL : 600;
+$ttl   = defined('CCD_PAGE_CACHE_TTL') ? (int) CCD_PAGE_CACHE_TTL : 3600;
 if ($mtime === false || (time() - $mtime) > $ttl) {
 	return;
 }

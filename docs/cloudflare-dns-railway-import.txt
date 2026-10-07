@@ -3,17 +3,23 @@
 ;; Purpose:    Import Cloudflare DNS → Railway (custom domains)
 ;; Generated:  2026-10-07
 ;;
+;;; CUTOVER EM 2 FASES:
+;;; A) DNS only (grey cloud) — Railway valida dominio e emite SSL.
+;;; B) Depois do site OK em HTTPS no apex: Proxy ON (orange) nos CNAMEs
+;;;    e Cache Rules — ver docs/PERFORMANCE.md.
+;;;
 ;;; BEFORE IMPORT (Cloudflare → DNS → Records):
-;;; 1) Delete the existing A record for @ / convivendocomdiabetes.com (186.234.81.26)
+;;; 1) Delete the existing A record for @ / convivendocomdiabetes.com
 ;;; 2) Delete the existing CNAME for www → convivendocomdiabetes.com
 ;;; 3) DNS → Import and Export → Import DNS records → this file
-;;; 4) Leave "Proxy imported DNS records" OFF (records already set to DNS-only below)
+;;; 4) Na fase A: "Proxy imported DNS records" OFF (DNS-only abaixo)
 ;;;
 ;;; Canonical site target after cutover: https://convivendocomdiabetes.com
 ;;; www responde no Railway e o app faz 301 → apex (Apache + mu-plugin).
 ;;;
 
-;; CNAME Records (Railway traffic — DNS only / grey cloud)
+;; CNAME Records (Railway traffic)
+;; Fase A: cf_tags=cf-proxied:false  |  Fase B: ligar Proxy no dashboard
 convivendocomdiabetes.com.	1	IN	CNAME	2nwibhf4.up.railway.app. ; cf_tags=cf-proxied:false
 www.convivendocomdiabetes.com.	1	IN	CNAME	06vb1egv.up.railway.app. ; cf_tags=cf-proxied:false
 

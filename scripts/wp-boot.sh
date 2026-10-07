@@ -35,8 +35,17 @@ wp config set DISALLOW_FILE_EDIT true --raw --type=constant --allow-root --path=
 wp config set EMPTY_TRASH_DAYS 7 --raw --type=constant --allow-root --path=/var/www/html
 wp config set WP_CACHE true --raw --type=constant --allow-root --path=/var/www/html
 wp config set CCD_PAGE_CACHE_TTL 3600 --raw --type=constant --allow-root --path=/var/www/html
-# HTTP externo liberado: Site Health, updates, Drive OAuth, SMTP, etc.
+# HTTP externo liberado: Site Health, Drive OAuth, SMTP, etc.
 wp config set WP_HTTP_BLOCK_EXTERNAL false --raw --type=constant --allow-root --path=/var/www/html
+
+# Producao Railway: nada de update in-place (promove via git + Dockerfile).
+# Localhost (Compose) nao define RAILWAY_* — admin/wp-cli podem atualizar e depois puxar para o host.
+if [ -n "${RAILWAY_ENVIRONMENT:-}" ] || [ -n "${RAILWAY_ENVIRONMENT_ID:-}" ]; then
+  wp config set WP_ENVIRONMENT_TYPE 'production' --type=constant --allow-root --path=/var/www/html
+  wp config set DISALLOW_FILE_MODS true --raw --type=constant --allow-root --path=/var/www/html
+  wp config set AUTOMATIC_UPDATER_DISABLED true --raw --type=constant --allow-root --path=/var/www/html
+  echo "[wp] Updates in-place desligados (Railway) — use docs/UPDATES.md"
+fi
 
 # Redis object cache (opcional — defina WP_REDIS_HOST no Railway / Compose)
 REDIS_DROPIN_SRC="/var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php"

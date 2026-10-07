@@ -125,6 +125,20 @@ if [ "${ok}" != "1" ]; then
   exit 1
 fi
 
+echo "[ci] /ccdready (readiness MySQL)..."
+code=$(curl -sS -o /tmp/ci-ready.body -w '%{http_code}' --max-time 10 \
+  "${BASE}/ccdready" || echo 000)
+body=$(tr -d '\r' </tmp/ci-ready.body | head -c 64)
+echo "[ci] /ccdready => ${code} body=${body}"
+test "${code}" = "200"
+echo "${body}" | grep -qi 'ok'
+loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 5 \
+  "${BASE}/ccdready" || true)
+if [ -n "${loc}" ]; then
+  echo "[ci] FAIL: /ccdready redirecionou para ${loc}"
+  exit 1
+fi
+
 echo "[ci] www Host → 301 apex (Apache/.htaccess)..."
 headers=$(curl -sS -D - -o /dev/null --max-time 10 \
   -H "Host: www.convivendocomdiabetes.com" "${BASE}/")

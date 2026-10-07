@@ -71,7 +71,11 @@ function ccd_canonical_host_redirect()
 	}
 
 	$uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-	if ($uri === '/ccdhealth' || str_starts_with($uri, '/ccdhealth?')) {
+	if (
+		$uri === '/ccdhealth' || str_starts_with($uri, '/ccdhealth?')
+		|| $uri === '/ccdready' || str_starts_with($uri, '/ccdready?')
+		|| $uri === '/ccdready.php' || str_starts_with($uri, '/ccdready.php?')
+	) {
 		return;
 	}
 

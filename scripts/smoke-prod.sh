@@ -9,7 +9,7 @@ APEX_BASE="${APEX_BASE%/}"
 WWW_BASE="${WWW_BASE:-https://www.convivendocomdiabetes.com}"
 WWW_BASE="${WWW_BASE%/}"
 
-echo "==> Healthcheck ${APEX_BASE}/ccdhealth"
+echo "==> Liveness ${APEX_BASE}/ccdhealth"
 code=$(curl -sS -o /tmp/ccd-smoke-health.body -w '%{http_code}' --max-time 25 \
   "${APEX_BASE}/ccdhealth")
 body=$(tr -d '\r' </tmp/ccd-smoke-health.body | head -c 64)
@@ -17,11 +17,25 @@ echo "GET /ccdhealth => ${code} body=${body}"
 test "${code}" = "200"
 echo "${body}" | grep -qi 'ok'
 
-# Railway healthcheck nao segue 301 — /ccdhealth no apex nao pode redirecionar.
+# Railway healthcheck nao segue 301 — probes no apex nao podem redirecionar.
 loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 15 \
   "${APEX_BASE}/ccdhealth" || true)
 if [ -n "${loc}" ]; then
   echo "FAIL: /ccdhealth redirecionou para ${loc}"
+  exit 1
+fi
+
+echo "==> Readiness ${APEX_BASE}/ccdready"
+code=$(curl -sS -o /tmp/ccd-smoke-ready.body -w '%{http_code}' --max-time 25 \
+  "${APEX_BASE}/ccdready")
+body=$(tr -d '\r' </tmp/ccd-smoke-ready.body | head -c 64)
+echo "GET /ccdready => ${code} body=${body}"
+test "${code}" = "200"
+echo "${body}" | grep -qi 'ok'
+loc=$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 15 \
+  "${APEX_BASE}/ccdready" || true)
+if [ -n "${loc}" ]; then
+  echo "FAIL: /ccdready redirecionou para ${loc}"
   exit 1
 fi
 

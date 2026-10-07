@@ -78,7 +78,7 @@ docker compose down
 3. Smoke de produção (cron 6h / manual / `repository_dispatch`): apex + 301 de `www`.
 4. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
 
-Healthcheck: `GET /ccdhealth` → 200 text/plain. Produção canônica: `https://convivendocomdiabetes.com`.
+Healthcheck readiness: `GET /ccdready` (MySQL). Liveness: `GET /ccdhealth`. Blue/green: [docs/BLUE_GREEN.md](./docs/BLUE_GREEN.md). Produção: `https://convivendocomdiabetes.com`.
 
 Alterações de infra Railway via CLI:
 

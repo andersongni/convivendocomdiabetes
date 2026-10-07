@@ -21,6 +21,7 @@ RUN a2dismod mpm_event 2>/dev/null || true \
 COPY --from=wpcli /usr/local/bin/wp /usr/local/bin/wp
 COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache-prod.ini
 COPY docker/apache-performance.conf /etc/apache2/conf-available/performance.conf
+COPY docker/ccdready.php /tmp/ccdready.php
 
 # Core oficial (temas twenty* + WP atual) + conteudo do site
 COPY wordpress/wp-content/ /tmp/site-wp-content/
@@ -54,10 +55,11 @@ RUN set -eux; \
   sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   rm -f /var/www/html/wp-config.php; \
-  # Healthcheck canonico /ccdhealth: Alias em apache-performance.conf →
-  # wp-content/ccd-health-ok.txt. Arquivo na docroot e fallback se Alias falhar.
+  # Liveness /ccdhealth (estatico) + readiness /ccdready (DB; sem ponto no path).
   printf 'ok\n' > /var/www/html/ccdhealth; \
   test -f /var/www/html/wp-content/ccd-health-ok.txt || printf 'ok\n' > /var/www/html/wp-content/ccd-health-ok.txt; \
+  sed 's/\r$//' /tmp/ccdready.php > /var/www/html/ccdready.php; \
+  rm -f /tmp/ccdready.php; \
   chown -R www-data:www-data /var/www/html
 
 ENV PORT=80

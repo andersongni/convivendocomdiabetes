@@ -44,10 +44,17 @@ export default defineRailway(() => {
       dockerfilePath: "Dockerfile",
     },
     deploy: {
-      // Canonico: /ccdhealth — Alias Apache → ccd-health-ok.txt (+ fallback mu-plugin).
+      // Readiness: /ccdready valida MySQL. Se falhar, o deploy novo nao recebe
+      // trafego (previous continua). Liveness estatico: /ccdhealth.
       // Railway so aceita [a-zA-Z0-9/_] (sem ponto) e nao segue 301.
-      healthcheckPath: "/ccdhealth",
+      healthcheckPath: "/ccdready",
       healthcheckTimeout: 300,
+      // Blue/green nativo Railway: overlap + drain apos o novo ficar healthy.
+      // Com volume de uploads ainda ha remount breve — ver docs/BLUE_GREEN.md.
+      overlapSeconds: 90,
+      drainingSeconds: 40,
+      restartPolicyType: "ALWAYS",
+      restartPolicyMaxRetries: 10,
     },
     replicas: { sfo: 1 },
     volumeMounts: {

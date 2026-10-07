@@ -9,9 +9,13 @@ RewriteEngine On
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteBase /
 
+# Readiness blue/green (Railway healthcheck path sem ponto).
+RewriteRule ^ccdready$ /ccdready.php [L]
+
 # Canonico apex: www → 301 (precisa estar no .htaccess; RewriteEngine aqui
 # sobrescreve regras do conf global apache-performance.conf).
 RewriteCond %{REQUEST_URI} !^/ccdhealth$ [NC]
+RewriteCond %{REQUEST_URI} !^/ccdready(?:\.php)?$ [NC]
 RewriteCond %{QUERY_STRING} !(^|&)action=ccd_clear_cache(&|$) [NC]
 RewriteCond %{HTTP_HOST} ^www\.convivendocomdiabetes\.com(?::\d+)?$ [NC]
 RewriteRule ^ https://convivendocomdiabetes.com%{REQUEST_URI} [R=301,L,QSA]

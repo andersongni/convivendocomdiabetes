@@ -18,10 +18,13 @@ O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait fo
 |-------|----------------|
 | PHP lint | `mu-plugins` + `ccd-backup` |
 | Build | Dockerfile de produção |
-| `/ccdhealth` | Alias Apache, sem DB, sem 301 |
+| `/ccdhealth` | Liveness estático, sem DB, sem 301 |
+| `/ccdready` | Readiness MySQL (gate blue/green no Railway) |
 | MySQL+Redis integration | `wp-boot` + `/login` + www→apex 301 + Redis auth + degradacao sem senha |
 
 Script local da integração: `scripts/ci-integration-mysql.sh` (precisa da imagem `convivendocomdiabetes:ci`).
+
+Blue/green / overlap: [BLUE_GREEN.md](./BLUE_GREEN.md).
 
 **Regressao coberta:** Redis com `requirepass` sem `WP_REDIS_PASSWORD` **nao** pode derrubar `/ccdhealth` (boot degrada sem object-cache).
 
@@ -30,6 +33,7 @@ Script local da integração: `scripts/ci-integration-mysql.sh` (precisa da imag
 Alvos:
 
 - `https://convivendocomdiabetes.com/ccdhealth` → 200 `ok`
+- `https://convivendocomdiabetes.com/ccdready` → 200 `ok` (MySQL)
 - Home e `/login` no apex → 200
 - `https://www.convivendocomdiabetes.com/` → **301** para o apex
 

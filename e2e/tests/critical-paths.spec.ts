@@ -19,8 +19,7 @@ test.describe('CCD critical paths', () => {
     expect(res?.status()).toBe(200);
     expect(page.url()).toMatch(/\/diabetes\/?$/);
     expect(page.url()).not.toMatch(/diabetes-tipo-2/);
-    const intro = page.locator('.ccd-category-intro');
-    await expect(intro).toHaveCount(0);
+    await expect(page.locator('.header-wrapper .ccd-category-intro, .header-wrapper .ccd-hub-pillars')).toHaveCount(0);
     await expect(page.locator('.hero-title, h1').first()).toBeVisible();
   });
 

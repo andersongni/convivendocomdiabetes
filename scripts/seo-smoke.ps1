@@ -154,7 +154,19 @@ foreach ($pillar in @('alimentacao-e-diabetes-tipo-2','sensor-de-glicose-como-fu
 $hubHtmlPath = "$env:TEMP\ccd-seo-smoke-hub.html"
 curl.exe -sS -o $hubHtmlPath --max-time 30 "$BaseUrl/diabetes/" | Out-Null
 $hubHtml = if (Test-Path $hubHtmlPath) { Get-Content $hubHtmlPath -Raw } else { "" }
-Check "hub /diabetes/ pilares" ($hubHtml -match 'ccd-hub-pillars' -or $hubHtml -match 'Pilares para começar') "nav pilares"
+$heroChunk = ""
+if ($hubHtml -match '(?s)header-wrapper.*?header-separator') {
+  $heroChunk = $Matches[0]
+}
+Check "categoria hero limpo" (
+  $heroChunk -notmatch 'ccd-hub-pillars' -and
+  $heroChunk -notmatch 'ccd-category-intro' -and
+  $heroChunk -notmatch 'Pilares para come'
+) "sem pilares no banner"
+Check "hub /diabetes/ pilares fora do hero" (
+  ($hubHtml -match 'ccd-hub-pillars' -or $hubHtml -match 'Pilares para come') -and
+  $heroChunk -notmatch 'ccd-hub-pillars'
+) "nav pilares no conteudo"
 
 Write-Host ""
 if ($fail -gt 0) {

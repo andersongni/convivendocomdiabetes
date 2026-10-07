@@ -16,3 +16,5 @@ require_once $root . '/wordpress/wp-content/mu-plugins/ccd-a11y.php';
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-seo-boost.php';
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-login-url.php';
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-category-urls.php';
+require_once $root . '/wordpress/wp-content/mu-plugins/seo-editorial/content.php';
+require_once $root . '/wordpress/wp-content/mu-plugins/ccd-seo-editorial.php';

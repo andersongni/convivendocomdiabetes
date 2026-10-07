@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_EDITORIAL_VERSION = '1';
+const CCD_SEO_EDITORIAL_VERSION = '2';
 
 require_once __DIR__ . '/seo-editorial/content.php';
 
@@ -137,38 +137,68 @@ function ccd_seo_editorial_upsert_post( $slug, array $data, $create_if_missing =
 }
 
 /**
- * Enriquece description HTML dos hubs com links curatoriais.
+ * Mantém description dos hubs em texto curto (sem HTML no termo — evita vazamento no hero).
  *
  * @return void
  */
 function ccd_seo_editorial_sync_hub_descriptions() {
-	$labels = ccd_seo_editorial_link_labels();
-	foreach ( ccd_seo_editorial_hub_slugs() as $cat_slug => $post_slugs ) {
+	if ( ! function_exists( 'ccd_seo_category_descriptions' ) ) {
+		return;
+	}
+	$map = ccd_seo_category_descriptions();
+	foreach ( array_keys( ccd_seo_editorial_hub_slugs() ) as $cat_slug ) {
 		$term = get_term_by( 'slug', $cat_slug, 'category' );
-		if ( ! ( $term instanceof WP_Term ) ) {
+		if ( ! ( $term instanceof WP_Term ) || ! isset( $map[ $cat_slug ] ) ) {
 			continue;
 		}
-		$intro = '';
-		if ( function_exists( 'ccd_seo_category_descriptions' ) ) {
-			$map = ccd_seo_category_descriptions();
-			if ( isset( $map[ $cat_slug ] ) ) {
-				$intro = '<p>' . esc_html( $map[ $cat_slug ] ) . '</p>';
-			}
-		}
-		$list = '<p><strong>Comece por estes pilares:</strong></p><ul>';
-		foreach ( $post_slugs as $ps ) {
-			$lab  = isset( $labels[ $ps ] ) ? $labels[ $ps ] : $ps;
-			$list .= '<li><a href="' . esc_url( home_url( '/' . $ps . '/' ) ) . '">' . esc_html( $lab ) . '</a></li>';
-		}
-		$list .= '</ul>';
+		$plain = wp_strip_all_tags( (string) $map[ $cat_slug ] );
 		wp_update_term(
 			(int) $term->term_id,
 			'category',
 			array(
-				'description' => $intro . $list,
+				'description' => $plain,
 			)
 		);
 	}
+}
+
+/**
+ * Marcadores que não podem aparecer dentro do hero de arquivo.
+ *
+ * @return string[]
+ */
+function ccd_seo_editorial_hero_forbidden_markers() {
+	return array(
+		'ccd-hub-pillars',
+		'ccd-category-intro',
+		'Pilares para começar',
+	);
+}
+
+/**
+ * Markup dos pilares do hub (somente fora do hero).
+ *
+ * @param string $cat_slug Slug da categoria.
+ * @return string
+ */
+function ccd_seo_editorial_hub_pillars_html( $cat_slug ) {
+	$hubs = ccd_seo_editorial_hub_slugs();
+	if ( ! isset( $hubs[ $cat_slug ] ) ) {
+		return '';
+	}
+	$labels = ccd_seo_editorial_link_labels();
+	$html   = '<nav class="ccd-hub-pillars" aria-label="Pilares recomendados">';
+	$html  .= '<p><strong>Pilares para começar:</strong></p><ul>';
+	foreach ( $hubs[ $cat_slug ] as $slug ) {
+		$lab   = isset( $labels[ $slug ] ) ? $labels[ $slug ] : $slug;
+		$html .= sprintf(
+			'<li><a href="%s">%s</a></li>',
+			esc_url( home_url( '/' . $slug . '/' ) ),
+			esc_html( $lab )
+		);
+	}
+	$html .= '</ul></nav>';
+	return $html;
 }
 
 /**
@@ -199,36 +229,34 @@ function ccd_seo_editorial_apply() {
 add_action( 'init', 'ccd_seo_editorial_apply', 30 );
 
 /**
- * Intro + links curatoriais no arquivo de categoria (além da description do termo).
+ * Pilares no início do loop de conteúdo — nunca dentro do hero.
+ *
+ * @param WP_Query $query Query.
+ * @return void
  */
-add_action(
-	'mesmerize_after_inner_page_header_content',
-	static function () {
-		if ( ! is_category() ) {
-			return;
-		}
-		$term = get_queried_object();
-		if ( ! ( $term instanceof WP_Term ) ) {
-			return;
-		}
-		$hubs = ccd_seo_editorial_hub_slugs();
-		if ( ! isset( $hubs[ $term->slug ] ) ) {
-			return;
-		}
-		$labels = ccd_seo_editorial_link_labels();
-		echo '<nav class="ccd-hub-pillars" aria-label="Pilares recomendados"><p><strong>Pilares para começar:</strong></p><ul>';
-		foreach ( $hubs[ $term->slug ] as $slug ) {
-			$lab = isset( $labels[ $slug ] ) ? $labels[ $slug ] : $slug;
-			printf(
-				'<li><a href="%s">%s</a></li>',
-				esc_url( home_url( '/' . $slug . '/' ) ),
-				esc_html( $lab )
-			);
-		}
-		echo '</ul></nav>';
-	},
-	10
-);
+function ccd_seo_editorial_print_hub_pillars_in_loop( $query ) {
+	if ( is_admin() || ! ( $query instanceof WP_Query ) || ! $query->is_main_query() ) {
+		return;
+	}
+	if ( ! is_category() ) {
+		return;
+	}
+	static $done = false;
+	if ( $done ) {
+		return;
+	}
+	$term = get_queried_object();
+	if ( ! ( $term instanceof WP_Term ) ) {
+		return;
+	}
+	$html = ccd_seo_editorial_hub_pillars_html( $term->slug );
+	if ( $html === '' ) {
+		return;
+	}
+	$done = true;
+	echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- já escapado no builder.
+}
+add_action( 'loop_start', 'ccd_seo_editorial_print_hub_pillars_in_loop', 5 );
 
 add_action(
 	'wp_enqueue_scripts',
@@ -242,10 +270,16 @@ add_action(
 		wp_add_inline_style(
 			$handle,
 			<<<'CSS'
+/* Nunca renderizar pilares/listas editoriais dentro do hero Mesmerize. */
+.header .ccd-hub-pillars,
+.header .ccd-editorial-links,
+.header .ccd-category-intro {
+	display: none !important;
+}
 .ccd-hub-pillars,
 .ccd-editorial-links {
 	max-width: 1100px;
-	margin: 0.5rem auto 1.25rem;
+	margin: 1rem auto 1.5rem;
 	padding: 0 1.25rem;
 	color: #2b3a42;
 }

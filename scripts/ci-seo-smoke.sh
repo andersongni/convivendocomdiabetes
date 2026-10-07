@@ -91,12 +91,26 @@ if printf '%s\n' "${cat_title}" | grep -qiE 'diabetes' \
 else
   bad "categoria title" "title=${cat_title}"
 fi
-if grep -q 'ccd-category-intro' "${TMP}/diabetes.html"; then
-  bad "categoria hero sem intro" "ccd-category-intro presente"
-elif awk '/header-wrapper/,/header-separator/' "${TMP}/diabetes.html" | grep -qF 'Conteúdos sobre diabetes tipo'; then
-  bad "categoria hero sem intro" "meta no banner"
+# Hero da categoria: so titulo (sem pilares/listas que inflam a faixa azul).
+# Bloco Mesmerize: .header-wrapper … até .header-separator.
+hero_chunk="$(awk '/header-wrapper/,/header-separator/' "${TMP}/diabetes.html" || true)"
+if printf '%s\n' "${hero_chunk}" | grep -qiE 'ccd-hub-pillars|ccd-category-intro|Pilares para come[cç]ar'; then
+  bad "categoria hero limpo" "pilares/intro dentro do hero"
+elif printf '%s\n' "${hero_chunk}" | grep -qF 'Conteúdos sobre diabetes tipo'; then
+  bad "categoria hero limpo" "meta longa no banner"
 else
-  ok "categoria hero sem intro"
+  ok "categoria hero limpo"
+fi
+if printf '%s\n' "${hero_chunk}" | grep -qiE 'class=["'\''][^"'\'']*hero-title'; then
+  ok "categoria hero-title"
+else
+  bad "categoria hero-title" "ausente no hero"
+fi
+# Altura util padronizada (ccd-a11y: 11.5rem no .inner-header-description).
+if printf '%s\n' "${hero_chunk}" | grep -qE 'inner-header-description'; then
+  ok "categoria inner-header-description"
+else
+  bad "categoria inner-header-description" "markup ausente no hero"
 fi
 
 cat_base_hdr="$(curl -sSI --max-time 20 "${BASE}/category/diabetes/" || true)"
@@ -147,10 +161,15 @@ for pillar in alimentacao-e-diabetes-tipo-2 sensor-de-glicose-como-funciona o-qu
   fi
 done
 
-if grep -qE 'ccd-hub-pillars|Pilares para começar|Pilares para comecar' "${TMP}/diabetes.html"; then
-  ok "hub /diabetes/ pilares"
+if grep -qE 'ccd-hub-pillars|Pilares para come[cç]ar' "${TMP}/diabetes.html"; then
+  # Deve existir na pagina, mas fora do hero (conteudo / loop).
+  if printf '%s\n' "${hero_chunk}" | grep -qiE 'ccd-hub-pillars|Pilares para come[cç]ar'; then
+    bad "hub /diabetes/ pilares fora do hero" "ainda no banner"
+  else
+    ok "hub /diabetes/ pilares fora do hero"
+  fi
 else
-  bad "hub /diabetes/ pilares"
+  bad "hub /diabetes/ pilares fora do hero" "pilares ausentes na pagina"
 fi
 
 if [ "${fail}" -gt 0 ]; then

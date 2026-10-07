@@ -40,6 +40,36 @@ if (!function_exists('esc_url')) {
 		return (string) $url;
 	}
 }
+if (!function_exists('home_url')) {
+	function home_url($path = '') {
+		$path = (string) $path;
+		if ($path !== '' && $path[0] !== '/') {
+			$path = '/' . $path;
+		}
+		return 'https://convivendocomdiabetes.com' . $path;
+	}
+}
+if (!function_exists('get_option')) {
+	function get_option($option, $default = false) {
+		unset($option);
+		return $default;
+	}
+}
+if (!function_exists('is_admin')) {
+	function is_admin() {
+		return false;
+	}
+}
+if (!function_exists('wp_doing_ajax')) {
+	function wp_doing_ajax() {
+		return false;
+	}
+}
+if (!function_exists('wp_doing_cron')) {
+	function wp_doing_cron() {
+		return false;
+	}
+}
 if (!function_exists('sanitize_title')) {
 	function sanitize_title($title) {
 		$title = strtolower((string) $title);

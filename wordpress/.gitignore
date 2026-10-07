@@ -12,6 +12,8 @@ wp-content/*
 
 # ignore these plugins
 wp-content/plugins/hello.php
+# Backup/migracao: usar CCD Backup — nao versionar AI1WM
+wp-content/plugins/all-in-one-wp-migration/
 
 # ignore specific themes
 wp-content/themes/twenty*/

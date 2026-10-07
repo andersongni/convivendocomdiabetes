@@ -68,6 +68,7 @@ wordpress/wp-content/debug.log
 
 # Logs e temporarios
 logs/
+scripts/_tmp-*
 *.log
 *.tmp
 *.temp

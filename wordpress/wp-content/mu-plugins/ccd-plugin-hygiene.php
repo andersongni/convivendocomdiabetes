@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_PLUGIN_HYGIENE_VERSION = '1';
+const CCD_PLUGIN_HYGIENE_VERSION = '2';
 
 /**
  * Plugins que nao devem permanecer ativos (mesmo se o diretorio existir).
@@ -40,6 +40,7 @@ function ccd_plugin_hygiene_retired_slugs() {
 		'wp-maintenance-mode',
 		'glue-for-yoast-seo-amp',
 		'sidebar-manager',
+		'all-in-one-wp-migration',
 	);
 }
 

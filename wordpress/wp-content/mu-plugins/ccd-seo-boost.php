@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_BOOST_VERSION = '3';
+const CCD_SEO_BOOST_VERSION = '4';
 
 /**
  * @return string
@@ -570,31 +570,6 @@ add_filter( 'wpseo_title', 'ccd_seo_filter_home_title', 25 );
 add_filter( 'wpseo_opengraph_title', 'ccd_seo_filter_home_title', 25 );
 
 /**
- * Intro útil no topo dos arquivos de categoria (enriquece hubs finos).
- */
-add_action(
-	'mesmerize_after_inner_page_header_content',
-	static function () {
-		if ( ! is_category() ) {
-			return;
-		}
-		$term = get_queried_object();
-		if ( ! ( $term instanceof WP_Term ) ) {
-			return;
-		}
-		$desc = ccd_seo_term_metadesc( $term );
-		if ( $desc === '' ) {
-			return;
-		}
-		printf(
-			'<div class="ccd-category-intro"><p>%s</p></div>',
-			esc_html( $desc )
-		);
-	},
-	9
-);
-
-/**
  * Breadcrumbs Yoast abaixo do hero (exceto home).
  */
 add_action(
@@ -668,15 +643,6 @@ add_action(
 .ccd-related-posts a:focus {
 	text-decoration: underline;
 }
-.ccd-category-intro {
-	max-width: 1100px;
-	margin: 0 auto 1rem;
-	padding: 0 1.25rem;
-	color: #3d4f5c;
-	font-size: 1.05rem;
-	line-height: 1.5;
-}
-.ccd-category-intro p { margin: 0; }
 CSS
 		);
 	},

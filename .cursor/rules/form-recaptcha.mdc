@@ -1,0 +1,41 @@
+---
+description: Validacao reCAPTCHA em formularios CCD (POST e REST)
+globs: wordpress/wp-content/mu-plugins/**/*.php
+alwaysApply: false
+---
+
+# reCAPTCHA em formularios
+
+## Bug classico a evitar
+
+Nunca trate submitted assim:
+
+```php
+$submitted = is_array( $listener->submitted ) ? $listener->submitted : array();
+$token = $submitted['g-recaptcha-response'] ?? '';
+```
+
+Plugins modernos (Noptin, etc.) enviam via REST e passam `WP_REST_Request` (ArrayAccess). `is_array()` falha → token vazio/ignorado → cadastro sem captcha.
+
+## API obrigatoria
+
+Use os helpers em `ccd-comment-recaptcha.php`:
+
+- `ccd_request_value( $source, $key, $default )` — le POST, array, ArrayAccess ou objeto com `get_submitted()`
+- `ccd_recaptcha_token_from( $source )` — token sanitizado
+- `ccd_recaptcha_require( $source, $allow_moderator_bypass )` — true se OK / bypass
+
+```php
+// Listener Noptin / REST:
+if ( ! ccd_recaptcha_require( $listener ) ) { /* erro */ }
+
+// Form classico (comentario, login):
+if ( ! ccd_recaptcha_require( null ) ) { /* erro */ }
+```
+
+## Checklist para formulario novo com captcha
+
+1. Widget no markup + `ccd_recaptcha_is_configured()`
+2. Validacao **server-side** com `ccd_recaptcha_require()` (nunca so JS)
+3. Testar o mesmo path que o front usa: POST **e** REST/AJAX se existir
+4. UX opcional: bloquear submit no cliente, mas o servidor decide

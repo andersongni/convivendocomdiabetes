@@ -44,11 +44,9 @@ RUN set -eux; \
   # Nao copiar temas twenty* inativos (Site Health / superficie de ataque).
   # Ativo: empowerwp (filho) + mesmerize (pai), ja em site-wp-content.
   rm -rf /var/www/html/wp-content/themes/twenty*; \
-  # Drop-in Redis Object Cache (plugin redis-cache)
-  if [ -f /var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php ]; then \
-    cp -a /var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php \
-      /var/www/html/wp-content/object-cache.php; \
-  fi; \
+  # Redis drop-in so e instalado em runtime (wp-boot) se WP_REDIS_HOST existir.
+  # Nao copiar na imagem: sem Redis no Railway o drop-in derruba o boot (502).
+  rm -f /var/www/html/wp-content/object-cache.php; \
   a2enconf performance; \
   sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \

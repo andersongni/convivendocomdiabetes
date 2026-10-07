@@ -131,31 +131,80 @@ function ccd_recaptcha_render_field()
 }
 
 add_filter('preprocess_comment', static function ($commentdata) {
-	if (ccd_recaptcha_user_bypasses()) {
+	if ( ccd_recaptcha_require( null, true ) ) {
 		return $commentdata;
 	}
 
-	if (!ccd_recaptcha_is_configured()) {
-		return $commentdata;
-	}
-
-	$token = isset($_POST['g-recaptcha-response'])
-		? sanitize_text_field(wp_unslash($_POST['g-recaptcha-response']))
-		: '';
-
-	if ($token === '' || !ccd_recaptcha_verify($token)) {
-		wp_die(
-			esc_html__('Falha na verificacao reCAPTCHA. Marque "Nao sou um robo" e tente novamente.', 'default'),
-			esc_html__('Erro no comentario', 'default'),
-			array(
-				'response'  => 403,
-				'back_link' => true,
-			)
-		);
-	}
-
-	return $commentdata;
+	wp_die(
+		esc_html__('Falha na verificacao reCAPTCHA. Marque "Nao sou um robo" e tente novamente.', 'default'),
+		esc_html__('Erro no comentario', 'default'),
+		array(
+			'response'  => 403,
+			'back_link' => true,
+		)
+	);
 });
+
+/**
+ * Le um campo de request de forma uniforme (POST, array, ArrayAccess, WP_REST_Request).
+ *
+ * Nao use `is_array( $submitted )` para decidir se ha dados: plugins (ex.: Noptin)
+ * passam WP_REST_Request no mesmo fluxo e o captcha seria ignorado.
+ *
+ * @param mixed  $source Objeto com get_submitted(), array/ArrayAccess, ou null (= $_POST).
+ * @param string $key    Nome do campo.
+ * @param mixed  $default Valor padrao.
+ * @return mixed
+ */
+function ccd_request_value( $source, $key, $default = '' ) {
+	if ( is_object( $source ) && method_exists( $source, 'get_submitted' ) ) {
+		return $source->get_submitted( $key, $default );
+	}
+
+	if ( is_array( $source ) || $source instanceof ArrayAccess ) {
+		return isset( $source[ $key ] ) ? $source[ $key ] : $default;
+	}
+
+	if ( null === $source || false === $source ) {
+		return isset( $_POST[ $key ] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			? wp_unslash( $_POST[ $key ] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.NonceVerification.Missing
+			: $default;
+	}
+
+	return $default;
+}
+
+/**
+ * Token reCAPTCHA v2 do request atual (ou de um bag de submitted).
+ *
+ * @param mixed $source null = $_POST; senao listener/array/REST request.
+ * @return string
+ */
+function ccd_recaptcha_token_from( $source = null ) {
+	$token = ccd_request_value( $source, 'g-recaptcha-response', '' );
+	if ( is_array( $token ) ) {
+		$token = reset( $token );
+	}
+	return sanitize_text_field( (string) $token );
+}
+
+/**
+ * Exige captcha valido. Retorna true se OK; false se falhou (e nao ha bypass).
+ *
+ * @param mixed $source null = $_POST; senao listener/array/REST request.
+ * @param bool  $allow_moderator_bypass Se moderadores de comentario podem pular.
+ * @return bool
+ */
+function ccd_recaptcha_require( $source = null, $allow_moderator_bypass = false ) {
+	if ( $allow_moderator_bypass && ccd_recaptcha_user_bypasses() ) {
+		return true;
+	}
+	if ( ! ccd_recaptcha_is_configured() ) {
+		return true;
+	}
+	$token = ccd_recaptcha_token_from( $source );
+	return $token !== '' && ccd_recaptcha_verify( $token );
+}
 
 /**
  * Valida o token no Google.

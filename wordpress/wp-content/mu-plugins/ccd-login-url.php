@@ -502,18 +502,13 @@ add_filter(
 		if (!ccd_login_needs_captcha()) {
 			return $user;
 		}
-		if (!function_exists('ccd_recaptcha_verify')) {
-			return new WP_Error(
-				'ccd_login_captcha',
-				__('<strong>Erro:</strong> confirme o captcha para continuar.', 'default')
-			);
-		}
-
-		$token = isset($_POST['g-recaptcha-response'])
-			? sanitize_text_field(wp_unslash($_POST['g-recaptcha-response']))
-			: '';
-
-		if ($token === '' || !ccd_recaptcha_verify($token)) {
+		// Captcha obrigatorio nestas tentativas: sem chaves ou token invalido = bloqueia.
+		if (
+			! function_exists( 'ccd_recaptcha_is_configured' )
+			|| ! function_exists( 'ccd_recaptcha_require' )
+			|| ! ccd_recaptcha_is_configured()
+			|| ! ccd_recaptcha_require( null )
+		) {
 			ccd_login_mark_captcha_required();
 			return new WP_Error(
 				'ccd_login_captcha',

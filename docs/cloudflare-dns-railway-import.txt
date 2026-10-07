@@ -1,0 +1,21 @@
+;;
+;; Domain:     convivendocomdiabetes.com.
+;; Purpose:    Import Cloudflare DNS → Railway (custom domains)
+;; Generated:  2026-10-07
+;;
+;;; BEFORE IMPORT (Cloudflare → DNS → Records):
+;;; 1) Delete the existing A record for @ / convivendocomdiabetes.com (186.234.81.26)
+;;; 2) Delete the existing CNAME for www → convivendocomdiabetes.com
+;;; 3) DNS → Import and Export → Import DNS records → this file
+;;; 4) Leave "Proxy imported DNS records" OFF (records already set to DNS-only below)
+;;;
+;;; Canonical site target after cutover: https://www.convivendocomdiabetes.com
+;;;
+
+;; CNAME Records (Railway traffic — DNS only / grey cloud)
+convivendocomdiabetes.com.	1	IN	CNAME	2nwibhf4.up.railway.app. ; cf_tags=cf-proxied:false
+www.convivendocomdiabetes.com.	1	IN	CNAME	06vb1egv.up.railway.app. ; cf_tags=cf-proxied:false
+
+;; TXT Records (Railway ownership verification)
+_railway-verify.convivendocomdiabetes.com.	1	IN	TXT	"railway-verify=dd2d48cb4403dffcfec653711be850dd9ae80e7fedb0847b17180f1b38b677ea"
+_railway-verify.www.convivendocomdiabetes.com.	1	IN	TXT	"railway-verify=10c4fa72238eb07ef7b5935523e812bff6096a78820aef39b480da92ee73e39f"

@@ -215,27 +215,20 @@ add_action(
 add_action(
 	'noptin_form_errors',
 	static function ( $listener ) {
-		if ( ! is_object( $listener ) || empty( $listener->error ) || ! is_wp_error( $listener->error ) ) {
+		if ( ! is_object( $listener ) || ! isset( $listener->error ) || ! is_wp_error( $listener->error ) ) {
 			return;
 		}
-		if ( ! function_exists( 'ccd_recaptcha_is_configured' ) || ! ccd_recaptcha_is_configured() ) {
+		if ( ! function_exists( 'ccd_recaptcha_require' ) || ! function_exists( 'ccd_request_value' ) ) {
 			return;
 		}
 
-		$submitted = isset( $listener->submitted ) && is_array( $listener->submitted )
-			? $listener->submitted
-			: array();
-		$source    = isset( $submitted['source'] ) ? (int) $submitted['source'] : 0;
-		$form_id   = isset( $submitted['noptin_form_id'] ) ? (int) $submitted['noptin_form_id'] : 0;
+		$source  = (int) ccd_request_value( $listener, 'source', 0 );
+		$form_id = (int) ccd_request_value( $listener, 'noptin_form_id', 0 );
 		if ( $source !== CCD_NOPTIN_FORM_ID && $form_id !== CCD_NOPTIN_FORM_ID ) {
 			return;
 		}
 
-		$token = isset( $submitted['g-recaptcha-response'] )
-			? sanitize_text_field( (string) $submitted['g-recaptcha-response'] )
-			: '';
-
-		if ( $token === '' || ! ccd_recaptcha_verify( $token ) ) {
+		if ( ! ccd_recaptcha_require( $listener ) ) {
 			$listener->error->add(
 				'recaptcha',
 				'Confirme o captcha "Nao sou um robo" e tente novamente.',
@@ -481,9 +474,55 @@ article .noptin-popup-close {
 CSS;
 
 	// Sem depender do handle do Noptin (pode nao existir em todas as paginas).
-	wp_register_style('ccd-noptin-form', false, array(), '1.3.2');
+	wp_register_style('ccd-noptin-form', false, array(), '1.3.3');
 	wp_enqueue_style('ccd-noptin-form');
 	wp_add_inline_style('ccd-noptin-form', $css);
+
+	if ( ! function_exists( 'ccd_recaptcha_is_configured' ) || ! ccd_recaptcha_is_configured() ) {
+		return;
+	}
+
+	$js = <<<'JS'
+(function () {
+	function tokenFrom(form) {
+		var ta = form.querySelector('textarea[name="g-recaptcha-response"]');
+		if (ta && ta.value) return ta.value;
+		var inp = form.querySelector('input[name="g-recaptcha-response"]');
+		return inp && inp.value ? inp.value : '';
+	}
+	function showCaptchaError(form) {
+		var wrap = form.querySelector('.ccd-noptin-recaptcha-wrap');
+		if (!wrap) return;
+		wrap.classList.add('is-invalid');
+		var notice = form.querySelector('.noptin-form-notice, .noptin-response');
+		if (notice) {
+			notice.innerHTML = '<div class="noptin-alert noptin-error noptin-alert-recaptcha" role="alert">Confirme o captcha "Nao sou um robo" e tente novamente.</div>';
+		}
+	}
+	document.addEventListener('submit', function (e) {
+		var form = e.target;
+		if (!form || !form.classList || !form.classList.contains('noptin-optin-form')) return;
+		if (!form.querySelector('.ccd-noptin-recaptcha-wrap .g-recaptcha')) return;
+		if (tokenFrom(form)) return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		showCaptchaError(form);
+	}, true);
+	document.addEventListener('click', function (e) {
+		var btn = e.target && e.target.closest ? e.target.closest('.noptin-form-submit, input.noptin-form-submit') : null;
+		if (!btn) return;
+		var form = btn.closest('form.noptin-optin-form');
+		if (!form || !form.querySelector('.ccd-noptin-recaptcha-wrap .g-recaptcha')) return;
+		if (tokenFrom(form)) return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		showCaptchaError(form);
+	}, true);
+})();
+JS;
+	wp_register_script( 'ccd-noptin-recaptcha', false, array(), '1.3.3', true );
+	wp_enqueue_script( 'ccd-noptin-recaptcha' );
+	wp_add_inline_script( 'ccd-noptin-recaptcha', $js );
 }, 20);
 
 /**

@@ -38,11 +38,17 @@ wp config set CCD_PAGE_CACHE_TTL 3600 --raw --type=constant --allow-root --path=
 # HTTP externo liberado: Site Health, updates, Drive OAuth, SMTP, etc.
 wp config set WP_HTTP_BLOCK_EXTERNAL false --raw --type=constant --allow-root --path=/var/www/html
 
-# Redis object cache (opcional — defina WP_REDIS_HOST no Railway)
-if [ -n "${WP_REDIS_HOST:-}" ]; then
+# Redis object cache (opcional — defina WP_REDIS_HOST no Railway / Compose)
+REDIS_DROPIN_SRC="/var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php"
+REDIS_DROPIN_DST="/var/www/html/wp-content/object-cache.php"
+if [ -n "${WP_REDIS_HOST:-}" ] && [ -f "$REDIS_DROPIN_SRC" ]; then
+  cp -a "$REDIS_DROPIN_SRC" "$REDIS_DROPIN_DST"
   wp config set WP_REDIS_HOST "${WP_REDIS_HOST}" --type=constant --allow-root --path=/var/www/html
   wp config set WP_REDIS_PORT "${WP_REDIS_PORT:-6379}" --raw --type=constant --allow-root --path=/var/www/html
   wp config set WP_REDIS_PREFIX "${WP_REDIS_PREFIX:-ccd_}" --type=constant --allow-root --path=/var/www/html
+else
+  rm -f "$REDIS_DROPIN_DST"
+  wp config set WP_REDIS_DISABLED true --raw --type=constant --allow-root --path=/var/www/html
 fi
 
 if [ -n "${CCD_RECAPTCHA_SITE_KEY:-}" ]; then
@@ -154,6 +160,7 @@ if [ -n "${WP_HOME:-}" ]; then
     wp search-replace "http://www.convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "https://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "http://convivendocomdiabetes.com" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
+    wp search-replace "https://convivendocomdiabetes-production.up.railway.app" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp search-replace "http://localhost:8080" "${WP_HOME}" --all-tables --skip-columns=guid --allow-root --path=/var/www/html || true
     wp option update ccd_url_rewrite_for "${WP_HOME}" --allow-root --path=/var/www/html || true
   else

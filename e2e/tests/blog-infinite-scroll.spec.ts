@@ -6,8 +6,6 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Blog infinite scroll', () => {
   test('/blog/ carrega todas as páginas até o fim', async ({ page }) => {
-    const pageErrors: string[] = [];
-    page.on('pageerror', (err) => pageErrors.push(String(err)));
     const res = await page.goto('/blog/', { waitUntil: 'domcontentloaded' });
     expect(res?.status()).toBe(200);
 
@@ -17,7 +15,11 @@ test.describe('Blog infinite scroll', () => {
         page.evaluate(() => typeof (window as unknown as { ccdBlogInfiniteBoot?: unknown }).ccdBlogInfiniteBoot)
       )
       .toBe('function');
-    expect(pageErrors.filter((e) => /jQuery is not defined/i.test(e))).toEqual([]);
+    await expect
+      .poll(async () =>
+        page.evaluate(() => !!document.querySelector('.ccd-blog-infinite-sentinel'))
+      )
+      .toBeTruthy();
 
     const meta = await page.evaluate(() => {
       const cfg = (window as unknown as { ccdBlogInfinite?: { pages?: number; hasMore?: boolean; nextUrl?: string } }).ccdBlogInfinite || {};

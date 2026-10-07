@@ -249,6 +249,29 @@ add_action(
 );
 
 /**
+ * URL do avatar Bia-2-2 (jpg se existir; senao png).
+ * Railway e localhost podem divergir apos PNG→JPG.
+ *
+ * @return string
+ */
+function ccd_noptin_bia_avatar_url() {
+	$upload = wp_upload_dir( null, false );
+	$basedir = ! empty( $upload['basedir'] ) ? trailingslashit( (string) $upload['basedir'] ) : '';
+	$baseurl = ! empty( $upload['baseurl'] ) ? trailingslashit( (string) $upload['baseurl'] ) : content_url( 'uploads/' );
+	$baseurl = set_url_scheme( $baseurl, 'https' );
+	$rel     = '2022/07/Bia-2-2';
+
+	if ( $basedir !== '' && is_file( $basedir . $rel . '.jpg' ) ) {
+		return $baseurl . $rel . '.jpg';
+	}
+	if ( $basedir !== '' && is_file( $basedir . $rel . '.png' ) ) {
+		return $baseurl . $rel . '.png';
+	}
+
+	return $baseurl . $rel . '.jpg';
+}
+
+/**
  * Avatar do form: usa arquivo local em vez do dominio de producao.
  */
 add_filter('noptin_form_image', static function ($image) {
@@ -257,7 +280,7 @@ add_filter('noptin_form_image', static function ($image) {
 	}
 
 	if ( strpos( $image, 'uploads/2022/07/Bia-2-2.' ) !== false ) {
-		return content_url( 'uploads/2022/07/Bia-2-2.jpg' );
+		return ccd_noptin_bia_avatar_url();
 	}
 
 	return $image;
@@ -465,10 +488,10 @@ CSS;
 
 /**
  * Alinha o form 2859: popup no 1o acesso + imagem/altura locais.
- * Versao 6: nao forcar popup a cada pagina para admin logado.
+ * Versao 7: avatar Bia-2-2 com fallback jpg/png (Railway vs local).
  */
 add_action( 'init', static function () {
-	if ( get_option( 'ccd_noptin_form_2859_fixed' ) === '6' ) {
+	if ( get_option( 'ccd_noptin_form_2859_fixed' ) === '7' ) {
 		return;
 	}
 
@@ -477,7 +500,7 @@ add_action( 'init', static function () {
 		return;
 	}
 
-	$state['image']      = content_url( 'uploads/2022/07/Bia-2-2.jpg' );
+	$state['image']      = ccd_noptin_bia_avatar_url();
 	$state['formHeight'] = '0px';
 	$state['formRadius'] = '23px';
 	$state['formWidth']  = isset( $state['formWidth'] ) && $state['formWidth'] !== ''
@@ -506,7 +529,7 @@ add_action( 'init', static function () {
 	$noptin_opts['always_show_to_admin'] = false;
 	update_option( 'noptin_options', $noptin_opts, false );
 
-	update_option( 'ccd_noptin_form_2859_fixed', '6', false );
+	update_option( 'ccd_noptin_form_2859_fixed', '7', false );
 
 	wp_cache_delete('noptin_popup_forms', 'noptin');
 

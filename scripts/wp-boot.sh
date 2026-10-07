@@ -35,8 +35,15 @@ wp config set DISALLOW_FILE_EDIT true --raw --type=constant --allow-root --path=
 wp config set EMPTY_TRASH_DAYS 7 --raw --type=constant --allow-root --path=/var/www/html
 wp config set WP_CACHE true --raw --type=constant --allow-root --path=/var/www/html
 wp config set CCD_PAGE_CACHE_TTL 3600 --raw --type=constant --allow-root --path=/var/www/html
-wp config set WP_HTTP_BLOCK_EXTERNAL true --raw --type=constant --allow-root --path=/var/www/html
-wp config set WP_ACCESSIBLE_HOSTS 'api.wordpress.org,*.wordpress.org,secure.gravatar.com,*.gravatar.com,www.google.com,*.google.com' --type=constant --allow-root --path=/var/www/html
+# HTTP externo liberado: Site Health, updates, Drive OAuth, SMTP, etc.
+wp config set WP_HTTP_BLOCK_EXTERNAL false --raw --type=constant --allow-root --path=/var/www/html
+
+# Redis object cache (opcional — defina WP_REDIS_HOST no Railway)
+if [ -n "${WP_REDIS_HOST:-}" ]; then
+  wp config set WP_REDIS_HOST "${WP_REDIS_HOST}" --type=constant --allow-root --path=/var/www/html
+  wp config set WP_REDIS_PORT "${WP_REDIS_PORT:-6379}" --raw --type=constant --allow-root --path=/var/www/html
+  wp config set WP_REDIS_PREFIX "${WP_REDIS_PREFIX:-ccd_}" --type=constant --allow-root --path=/var/www/html
+fi
 
 if [ -n "${CCD_RECAPTCHA_SITE_KEY:-}" ]; then
   wp config set CCD_RECAPTCHA_SITE_KEY "${CCD_RECAPTCHA_SITE_KEY}" --type=constant --allow-root --path=/var/www/html
@@ -113,7 +120,7 @@ if [ -n "$CURRENT_THEME" ] && [ -f "/var/www/html/wp-content/themes/${CURRENT_TH
   echo "[wp] Mantendo tema ativo: ${CURRENT_THEME}"
 else
   THEME_OK=0
-  for theme in empowerwp twentytwentyfive; do
+  for theme in empowerwp mesmerize; do
     if [ -d "/var/www/html/wp-content/themes/${theme}" ]; then
       echo "[wp] Tema atual invalido — tentando ${theme}"
       if wp theme activate "${theme}" --allow-root --path=/var/www/html; then

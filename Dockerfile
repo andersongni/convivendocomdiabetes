@@ -1,6 +1,15 @@
-FROM wordpress:cli-php8.2 AS wpcli
+FROM wordpress:cli-php8.3 AS wpcli
 
-FROM wordpress:php8.2-apache
+FROM wordpress:php8.3-apache
+
+# Redis extension (cache de objeto quando WP_REDIS_HOST estiver definido)
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends $PHPIZE_DEPS; \
+  pecl install redis; \
+  docker-php-ext-enable redis; \
+  apt-get purge -y --auto-remove $PHPIZE_DEPS; \
+  rm -rf /var/lib/apt/lists/*
 
 # Railway/Debian: MPM único + ServerName (AH00558) + performance
 RUN a2dismod mpm_event 2>/dev/null || true \
@@ -32,11 +41,14 @@ RUN set -eux; \
     /var/www/html/wp-content/cache; \
   rm -f /var/www/html/wp-content/wp-cache-config.php \
     /var/www/html/wp-content/plugins/*.zip; \
-  for theme in twentytwentyfive twentytwentyfour twentytwentythree twentytwentytwo twentytwentyone twentytwenty; do \
-    if [ -d "/usr/src/wordpress/wp-content/themes/$theme" ] && [ ! -d "/var/www/html/wp-content/themes/$theme" ]; then \
-      cp -a "/usr/src/wordpress/wp-content/themes/$theme" /var/www/html/wp-content/themes/; \
-    fi; \
-  done; \
+  # Nao copiar temas twenty* inativos (Site Health / superficie de ataque).
+  # Ativo: empowerwp (filho) + mesmerize (pai), ja em site-wp-content.
+  rm -rf /var/www/html/wp-content/themes/twenty*; \
+  # Drop-in Redis Object Cache (plugin redis-cache)
+  if [ -f /var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php ]; then \
+    cp -a /var/www/html/wp-content/plugins/redis-cache/includes/object-cache.php \
+      /var/www/html/wp-content/object-cache.php; \
+  fi; \
   a2enconf performance; \
   sed -i 's/\r$//' /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \
   chmod +x /usr/local/bin/prod-entrypoint.sh /usr/local/bin/wp-boot.sh /usr/local/bin/bind-apache-ports.sh; \

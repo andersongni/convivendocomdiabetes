@@ -23,11 +23,26 @@ services:
       retries: 60
       start_period: 60s
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   wordpress:
-    image: wordpress:php8.2-apache
+    build:
+      context: .
+      dockerfile: docker/wordpress-local.Dockerfile
+    image: ccd-wordpress:php8.3-redis
     restart: unless-stopped
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8080:80"
@@ -44,6 +59,8 @@ services:
       CCD_RECAPTCHA_SECRET_KEY: ${CCD_RECAPTCHA_SECRET_KEY:-}
       CCD_BACKUP_CLIENT_ID: ${CCD_BACKUP_CLIENT_ID:-}
       CCD_BACKUP_CLIENT_SECRET: ${CCD_BACKUP_CLIENT_SECRET:-}
+      WP_REDIS_HOST: redis
+      WP_REDIS_PORT: "6379"
       # 1 = re-copia plugins/themes do host no boot (ou use scripts/sync-local-wp-content.ps1)
       SYNC_WP_CONTENT: ${SYNC_WP_CONTENT:-0}
       HOST_WP_CONTENT: /host-wp-content

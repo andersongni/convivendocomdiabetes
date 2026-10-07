@@ -145,13 +145,17 @@ test "${code}" = "200"
 tr -d '\r' </tmp/ci-health-www.body | grep -qi 'ok'
 
 echo "[ci] Redis object-cache ativado (auth OK)..."
+# Nota: com pipefail, `docker logs | grep -q` falha por SIGPIPE quando o match
+# vem cedo no stream — por isso lemos os logs para variavel antes do grep.
 ok=0
-for i in $(seq 1 30); do
-  if docker exec "${WP_NAME}" test -f /var/www/html/wp-content/object-cache.php 2>/dev/null \
-    && docker logs "${WP_NAME}" 2>&1 | grep -q 'Redis OK'; then
-    echo "[ci] object-cache.php + Redis OK"
-    ok=1
-    break
+for i in $(seq 1 45); do
+  if docker exec "${WP_NAME}" test -f /var/www/html/wp-content/object-cache.php 2>/dev/null; then
+    logs="$(docker logs "${WP_NAME}" 2>&1 || true)"
+    if printf '%s\n' "${logs}" | grep -q 'Redis OK'; then
+      echo "[ci] object-cache.php + Redis OK"
+      ok=1
+      break
+    fi
   fi
   sleep 2
 done

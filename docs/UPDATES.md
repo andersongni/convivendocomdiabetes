@@ -17,26 +17,29 @@ Fluxo correto: **atualizar no localhost → gravar no git → push → rebuild I
 
 ## Plugins e temas
 
-### Opção A — editar no host (preferida)
+### Opção A — WP Admin no localhost (automático)
 
-1. Baixe/substitua pastas em `wordpress/wp-content/plugins/` ou `themes/`.
-2. Sincronize para o volume Docker:
+1. Atualize em `http://localhost:8080/wp-admin` (plugins, temas ou core).
+2. O mu-plugin `ccd-local-update-persist` grava sozinho no bind do host (`wordpress/…`) via `scripts/ccd-persist-to-host.sh`.
+3. Aparece um aviso verde no admin se deu certo.
+4. `git status` → commit + push `main` → Railway.
+
+Requer `docker compose up -d` com o bind `./wordpress:/host-wordpress` **sem** `:ro` (já é o padrão no `docker-compose.yml`).
+
+### Opção B — editar pastas no host
+
+1. Substitua arquivos em `wordpress/wp-content/plugins/` ou `themes/`.
+2. Sincronize para o volume:
    ```powershell
    .\scripts\sync-local-wp-content.ps1
    ```
-3. Teste em `http://localhost:8080`.
-4. `git add` + commit + push `main` → Railway rebuilda com `COPY wordpress/wp-content/`.
+3. Teste, commit e push.
 
-### Opção B — atualizar no WP Admin / wp-cli do container
+### Opção C — pull manual (se o automático falhar)
 
-1. Atualize no admin local (ou `docker compose exec wordpress wp plugin update --all --allow-root`).
-2. **Puxe** o volume de volta para o git:
-   ```powershell
-   .\scripts\pull-wp-content-from-container.ps1
-   ```
-3. Revise o diff, teste, commit e push.
-
-Sem o passo 2, o próximo sync do host **reverte** as atualizações.
+```powershell
+.\scripts\pull-wp-content-from-container.ps1
+```
 
 ## Core do WordPress
 

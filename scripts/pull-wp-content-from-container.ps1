@@ -1,5 +1,6 @@
 # Copia plugins/themes/mu-plugins/languages do volume Docker → ./wordpress/wp-content (host/git).
-# Use depois de atualizar via WP Admin ou wp-cli no container local.
+# Normalmente desnecessario: o mu-plugin ccd-local-update-persist ja faz isso apos update no admin.
+# Use se o automatico falhar, ou apos wp-cli no container.
 # Depois: git status / commit / push → Railway rebuild.
 
 $ErrorActionPreference = "Stop"

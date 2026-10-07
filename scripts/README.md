@@ -7,7 +7,8 @@
 | `wp-boot.sh` | Boot WP (config, tema, URLs, permissões de uploads) |
 | `local-entrypoint.sh` / `sync-wp-content.sh` | Local rápido: copia plugins/themes do host → volume Linux |
 | `sync-local-wp-content.ps1` | Força o re-sync local após editar plugins/temas no host |
-| `pull-wp-content-from-container.ps1` | Volume Docker → host/git (depois de update no admin/wp-cli) |
+| `pull-wp-content-from-container.ps1` | Volume Docker → host/git (manual; automático via mu-plugin) |
+| `ccd-persist-to-host.sh` | Usado pelo container apos update no WP Admin |
 | [docs/UPDATES.md](../docs/UPDATES.md) | Política: atualizar local e promover via git/IaC |
 | `optimize-uploads.py` | Comprime/redimensiona imagens em `wp-content/uploads` (Pillow) |
 | `seo-smoke.ps1` | Smoke SEO (robots/sitemap/meta/alts) local ou Railway — ver [docs/SEO.md](../docs/SEO.md) |

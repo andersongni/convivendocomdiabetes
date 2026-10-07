@@ -64,7 +64,9 @@ services:
       WP_REDIS_PORT: "6379"
       # 1 = re-copia plugins/themes do host no boot (ou use scripts/sync-local-wp-content.ps1)
       SYNC_WP_CONTENT: ${SYNC_WP_CONTENT:-0}
-      HOST_WP_CONTENT: /host-wp-content
+      # Bind gravavel: updates no admin persistem no git via ccd-persist-to-host.sh
+      HOST_WORDPRESS: /host-wordpress
+      HOST_WP_CONTENT: /host-wordpress/wp-content
     entrypoint: ["bash", "/usr/local/bin/local-entrypoint.sh"]
     command: ["apache2-foreground"]
     volumes:
@@ -72,10 +74,11 @@ services:
       - ./wordpress/.htaccess:/var/www/html/.htaccess:ro
       - ./scripts/local-entrypoint.sh:/usr/local/bin/local-entrypoint.sh:ro
       - ./scripts/sync-wp-content.sh:/usr/local/bin/sync-wp-content.sh:ro
+      - ./scripts/ccd-persist-to-host.sh:/usr/local/bin/ccd-persist-to-host.sh:ro
       - ./docker/opcache-local.ini:/usr/local/etc/php/conf.d/opcache-local.ini:ro
       - ./docker/apache-performance.conf:/etc/apache2/conf-available/performance.conf:ro
-      # Host (lento no Windows) so para sync; PHP le do volume Linux abaixo
-      - ./wordpress/wp-content:/host-wp-content:ro
+      # Host RW: sync host↔volume + persist apos update no WP Admin
+      - ./wordpress:/host-wordpress
       - wp_content:/var/www/html/wp-content
       # Uploads continuam no host (poucos PHP; midia grande)
       - ./wordpress/wp-content/uploads:/var/www/html/wp-content/uploads

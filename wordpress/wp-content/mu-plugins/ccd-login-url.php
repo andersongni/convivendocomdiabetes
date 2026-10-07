@@ -679,83 +679,15 @@ JS;
 	5
 );
 
-const CCD_LOGIN_FAIL_LIMIT = 3;
-const CCD_LOGIN_FAIL_TTL   = HOUR_IN_SECONDS;
-
 /**
- * Chave de transient por IP para falhas de login.
- *
- * @return string
- */
-function ccd_login_fail_key()
-{
-	$ip = isset($_SERVER['REMOTE_ADDR']) ? (string) wp_unslash($_SERVER['REMOTE_ADDR']) : '0';
-	return 'ccd_login_fails_' . md5($ip);
-}
-
-/**
- * @return int
- */
-function ccd_login_fail_count()
-{
-	return (int) get_transient(ccd_login_fail_key());
-}
-
-/**
- * Chave de “captcha obrigatório” (persiste até login ok).
- *
- * @return string
- */
-function ccd_login_captcha_required_key()
-{
-	return 'ccd_login_captcha_req_' . md5(ccd_login_fail_key());
-}
-
-/**
- * Captcha obrigatório após N falhas (se reCAPTCHA estiver configurado).
+ * reCAPTCHA obrigatório em toda tentativa de login (quando as chaves existem).
  *
  * @return bool
  */
 function ccd_login_needs_captcha()
 {
-	if (!function_exists('ccd_recaptcha_is_configured') || !ccd_recaptcha_is_configured()) {
-		return false;
-	}
-	if (get_transient(ccd_login_captcha_required_key())) {
-		return true;
-	}
-	return ccd_login_fail_count() >= CCD_LOGIN_FAIL_LIMIT;
+	return function_exists('ccd_recaptcha_is_configured') && ccd_recaptcha_is_configured();
 }
-
-/**
- * Marca captcha como obrigatório para este cliente.
- */
-function ccd_login_mark_captcha_required()
-{
-	set_transient(ccd_login_captcha_required_key(), 1, CCD_LOGIN_FAIL_TTL);
-}
-
-add_action(
-	'wp_login_failed',
-	static function () {
-		$key   = ccd_login_fail_key();
-		$count = ccd_login_fail_count() + 1;
-		set_transient($key, $count, CCD_LOGIN_FAIL_TTL);
-		if ($count >= CCD_LOGIN_FAIL_LIMIT) {
-			ccd_login_mark_captcha_required();
-		}
-	},
-	10
-);
-
-add_action(
-	'wp_login',
-	static function () {
-		delete_transient(ccd_login_fail_key());
-		delete_transient(ccd_login_captcha_required_key());
-	},
-	10
-);
 
 add_action(
 	'login_enqueue_scripts',
@@ -765,7 +697,7 @@ add_action(
 		}
 		wp_enqueue_script(
 			'google-recaptcha',
-			'https://www.google.com/recaptcha/api.js',
+			'https://www.google.com/recaptcha/api.js?hl=pt-BR',
 			array(),
 			null,
 			true
@@ -792,7 +724,7 @@ add_action(
 );
 
 /**
- * Exige reCAPTCHA após o limite de falhas.
+ * Exige reCAPTCHA em todo login (server-side).
  * Prioridade alta: filtros padrão do WP (prio 20) sobrescrevem WP_Error anterior
  * quando a senha está correta — por isso validamos depois da autenticação.
  *
@@ -811,14 +743,10 @@ add_filter(
 		if (!ccd_login_needs_captcha()) {
 			return $user;
 		}
-		// Captcha obrigatorio nestas tentativas: sem chaves ou token invalido = bloqueia.
 		if (
-			! function_exists( 'ccd_recaptcha_is_configured' )
-			|| ! function_exists( 'ccd_recaptcha_require' )
-			|| ! ccd_recaptcha_is_configured()
+			! function_exists( 'ccd_recaptcha_require' )
 			|| ! ccd_recaptcha_require( null )
 		) {
-			ccd_login_mark_captcha_required();
 			return new WP_Error(
 				'ccd_login_captcha',
 				__('<strong>Erro:</strong> confirme o captcha para continuar.', 'default')

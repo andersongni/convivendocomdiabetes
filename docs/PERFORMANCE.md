@@ -27,7 +27,7 @@ O script:
 1. Proxy ON (apex + www)
 2. SSL Full Strict, Brotli, Early Hints, HTTP/3, Auto Minify
 3. Cache Rules: bypass admin/login/cookies; estáticos 30d; HTML GET 1h  
-   (HTML usa `origin_cache_control=false` para não ficar `DYNAMIC` por causa do `max-age=0` do WP)
+   (`edge_ttl: override_origin` ignora `max-age=0` do WP; `origin_cache_control` é Enterprise-only)
 
 Permissões do token: **Zone.DNS Edit**, **Zone Settings Edit**, **Zone → Cache Rules / Rulesets Edit**.
 

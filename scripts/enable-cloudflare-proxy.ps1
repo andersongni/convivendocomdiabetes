@@ -105,75 +105,70 @@ foreach ($name in @($Domain, "www.$Domain")) {
 	Write-Host "Proxy ON: $name"
 }
 
-# Cache Rules via entrypoint http_request_cache_settings
+# Cache Rules — PUT no entrypoint da phase (doc oficial).
+# Nao usar origin_cache_control (Enterprise-only → 400 no plano Free/Pro).
+# edge_ttl.mode=override_origin ja ignora Cache-Control do origin.
 Write-Host ''
 Write-Host 'Configurando Cache Rules...'
 try {
+	# JSON literal: ConvertTo-Json do PS5 manda booleans/ints estranhos as vezes.
+	$rulesJson = @'
+{
+  "rules": [
+    {
+      "description": "CCD bypass admin/login/cookies",
+      "expression": "(starts_with(http.request.uri.path, \"/wp-admin\")) or (http.request.uri.path eq \"/login\") or (starts_with(http.request.uri.path, \"/wp-login.php\")) or (http.request.uri.path eq \"/ccdhealth\") or (http.cookie contains \"wordpress_logged_in\")",
+      "action": "set_cache_settings",
+      "enabled": true,
+      "action_parameters": {
+        "cache": false
+      }
+    },
+    {
+      "description": "CCD cache static wp-content/includes",
+      "expression": "(starts_with(http.request.uri.path, \"/wp-content/\")) or (starts_with(http.request.uri.path, \"/wp-includes/\"))",
+      "action": "set_cache_settings",
+      "enabled": true,
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": { "mode": "override_origin", "default": 2592000 },
+        "browser_ttl": { "mode": "override_origin", "default": 2592000 }
+      }
+    },
+    {
+      "description": "CCD cache HTML anonymous GET",
+      "expression": "(http.request.method eq \"GET\") and (http.host eq \"convivendocomdiabetes.com\" or http.host eq \"www.convivendocomdiabetes.com\")",
+      "action": "set_cache_settings",
+      "enabled": true,
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": { "mode": "override_origin", "default": 3600 },
+        "browser_ttl": { "mode": "respect_origin" }
+      }
+    }
+  ]
+}
+'@
+
+	$uri = "https://api.cloudflare.com/client/v4/zones/$ZoneId/rulesets/phases/http_request_cache_settings/entrypoint"
 	try {
-		$phases = Invoke-Cf GET "/zones/$ZoneId/rulesets/phases/http_request_cache_settings/entrypoint"
-		$rulesetId = $phases.result.id
+		$resp = Invoke-RestMethod -Method PUT -Uri $uri -Headers $headers -Body $rulesJson -ContentType 'application/json'
 	} catch {
-		$created = Invoke-Cf POST "/zones/$ZoneId/rulesets" @{
-			name  = 'CCD cache settings'
-			kind  = 'zone'
-			phase = 'http_request_cache_settings'
-			rules = @()
-		}
-		$rulesetId = $created.result.id
+		$msg = $_.ErrorDetails.Message
+		if (-not $msg) { $msg = $_.Exception.Message }
+		throw "CF PUT entrypoint cache_settings => $msg"
 	}
-
-	$rules = @(
-		@{
-			description = 'CCD bypass admin/login/cookies'
-			expression  = '(http.request.uri.path contains "/wp-admin") or (http.request.uri.path eq "/login") or (http.request.uri.path contains "/wp-login.php") or (http.request.uri.path eq "/ccdhealth") or (http.cookie contains "wordpress_logged_in")'
-			action      = 'set_cache_settings'
-			action_parameters = @{
-				cache = $false
-			}
-			enabled = $true
-		},
-		@{
-			description = 'CCD cache static wp-content/includes'
-			expression  = '(http.request.uri.path contains "/wp-content/") or (http.request.uri.path contains "/wp-includes/")'
-			action      = 'set_cache_settings'
-			action_parameters = @{
-				cache       = $true
-				edge_ttl    = @{ mode = 'override_origin'; default = 2592000 }
-				browser_ttl = @{ mode = 'override_origin'; default = 2592000 }
-			}
-			enabled = $true
-		},
-		@{
-			description = 'CCD cache HTML anonymous GET'
-			# origin_cache_control=false: ignora max-age=0/Expires do WP (senao fica DYNAMIC).
-			expression  = '(http.request.method eq "GET") and (http.host eq "convivendocomdiabetes.com" or http.host eq "www.convivendocomdiabetes.com") and not starts_with(http.request.uri.path, "/wp-admin") and not starts_with(http.request.uri.path, "/wp-json")'
-			action      = 'set_cache_settings'
-			action_parameters = @{
-				cache                = $true
-				origin_cache_control = $false
-				edge_ttl             = @{ mode = 'override_origin'; default = 3600 }
-				browser_ttl          = @{ mode = 'override_origin'; default = 0 }
-			}
-			enabled = $true
-		}
-	)
-
-	Invoke-Cf PUT "/zones/$ZoneId/rulesets/$rulesetId" @{
-		rules = $rules
-	} | Out-Null
+	if (-not $resp.success) {
+		throw ("CF Cache Rules error: " + ($resp.errors | ConvertTo-Json -Compress))
+	}
 	Write-Host 'OK  Cache Rules (bypass admin, static 30d, HTML 1h)'
 } catch {
 	Write-Warning @"
-Cache Rules falhou (token sem permissao Rulesets/Cache Rules):
+Cache Rules falhou:
 $($_.Exception.Message)
 
-Edite o token em Cloudflare → Account API tokens → Permissions:
-  - Zone → DNS → Edit
-  - Zone → Zone Settings → Edit
-  - Zone → Cache Rules → Edit
-  - Zone → Zone → Read
-Zone Resources: Include → Specific zone → convivendocomdiabetes.com
-Depois rode este script de novo.
+Permissoes do token: DNS Write, Zone Settings Write, Cache Settings Write, Zone Read.
+Se for 400: payload invalido (ja corrigido no script — rode git pull e tente de novo).
 "@
 }
 

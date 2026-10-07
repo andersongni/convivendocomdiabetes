@@ -7,24 +7,27 @@ alwaysApply: true
 
 ## Escopo de trabalho
 
-1. **Desenvolver e validar só no localhost** (`docker compose`, `http://localhost:8080`).
-2. **Promover para Railway** via código no repo + IaC (`.railway/railway.ts`, Terraform em `terraform/` quando aplicável) e push na `main`.
-3. **Estrutura de banco**: mudanças de schema vão em migrations versionadas em `db/` (não editar produção “na mão”; não depender de dump completo para DDL).
-4. **Produção pública**: `https://convivendocomdiabetes.com` (serviço Railway). `www.convivendocomdiabetes.com` redireciona (301) para o apex.
+1. **Desenvolver e validar no localhost** (`docker compose`, `http://localhost:8080`).
+2. **Promover para staging** via push na branch `staging` (environment Railway `staging`).
+3. **Promover para produção** via merge/`push` na `main` (environment Railway `production`) + IaC quando aplicável.
+4. **Estrutura de banco**: mudanças de schema vão em migrations versionadas em `db/` (não editar produção “na mão”; não depender de dump completo para DDL).
+5. **Produção pública**: `https://convivendocomdiabetes.com` (serviço Railway). `www.convivendocomdiabetes.com` redireciona (301) para o apex.
 
 ## Alvos válidos
 
 | Ambiente | URL / acesso | Uso |
 |----------|----------------|-----|
 | Local | `http://localhost:8080` | Desenvolvimento e QA |
+| Staging (Railway) | `https://convivendocomdiabetes-staging.up.railway.app` | Pré-produção (branch `staging`) |
 | Produção (Railway) | `https://convivendocomdiabetes.com` | Site público + wp-admin (`/login`) |
 
-Não usar `*.up.railway.app` como URL canônica (domínio de serviço removido). `WP_HOME` / `WP_SITEURL` em produção = `https://convivendocomdiabetes.com`.
+Não usar `*.up.railway.app` como URL canônica de **produção**. Staging usa o domínio Railway de propósito. `WP_HOME` / `WP_SITEURL` em produção = `https://convivendocomdiabetes.com`.
 
 ## Fluxo esperado
 
 ```
-localhost (código + migrations) → commit/push → Railway (IaC/Dockerfile/boot aplica) → apex
+localhost → push staging → CI → Railway staging
+         → PR/merge main → CI → Railway production (apex)
 ```
 
 ## O que promove vs o que não promove

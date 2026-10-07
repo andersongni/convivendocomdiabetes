@@ -3,12 +3,13 @@
 ## Fluxo
 
 ```
-push/PR → GitHub Actions CI (lint → build → /ccdhealth → MySQL integration)
-                ↓ (só main + CI verde)
-         Railway deploy (checkSuites / Wait for CI)
+push staging → CI → Railway staging (checkSuites)
+push/PR main → CI → Railway production (checkSuites)
                 ↓
          Smoke production (agenda / manual / repository_dispatch)
 ```
+
+Detalhes do environment staging: [STAGING.md](./STAGING.md).
 
 O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait for CI do Railway esperaria o smoke, e o smoke esperaria o deploy → deadlock.
 

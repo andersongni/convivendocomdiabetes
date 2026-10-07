@@ -10,9 +10,11 @@ import {
 
 export default defineRailway(() => {
   const MySQL = mysql("MySQL", { region: "sfo" });
+  // Volume novo (staging): chmod + entrypoint inicializam datadir.
+  // Volume ja populado (production): entrypoint detecta e sobe o mysqld.
   MySQL.deploy = {
     startCommand:
-      "mysqld --innodb-use-native-aio=0 --disable-log-bin --performance_schema=0 --innodb-buffer-pool-size=256M",
+      "chmod 777 /var/lib/mysql; docker-entrypoint.sh mysqld --innodb-use-native-aio=0 --disable-log-bin --performance_schema=0 --innodb-buffer-pool-size=256M",
   };
   MySQL.networking = { privateNetworkEndpoint: "mysql" };
 

@@ -70,14 +70,15 @@ Parar:
 docker compose down
 ```
 
-## Produção (Railway)
+## Staging e produção (Railway)
 
-1. Push na branch `main` → GitHub Actions (CI: lint PHP + build + `/ccdhealth` + integração MySQL) → Railway deploy (Wait for CI).
-2. Smoke de produção (cron 6h / manual / `repository_dispatch`): apex + 301 de `www` — ver [docs/CI.md](./docs/CI.md).
-3. MySQL gerenciado + volume de uploads persistente.
-4. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
+1. Push na branch `staging` → CI → Railway **staging** (`https://convivendocomdiabetes-staging.up.railway.app`) — ver [docs/STAGING.md](./docs/STAGING.md).
+2. Merge/`push` na `main` → CI → Railway **production** (Wait for CI).
+3. Smoke de produção (cron 6h / manual / `repository_dispatch`): apex + 301 de `www` — ver [docs/CI.md](./docs/CI.md).
+4. MySQL + volume de uploads **por environment** (staging tem volumes próprios).
+5. Variáveis: dashboard Railway / Terraform / `.railway/railway.ts` — catálogo em `.env.railway.example` (não usar `.env` local).
 
-Healthcheck: `GET /ccdhealth` → 200 text/plain (ver `.railway/railway.ts`). Deploy espera o CI do GitHub (`checkSuites` / Wait for CI). Canônico: `https://convivendocomdiabetes.com`.
+Healthcheck: `GET /ccdhealth` → 200 text/plain. Produção canônica: `https://convivendocomdiabetes.com`.
 
 Alterações de infra Railway via CLI:
 

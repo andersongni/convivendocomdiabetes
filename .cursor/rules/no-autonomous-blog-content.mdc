@@ -1,0 +1,25 @@
+---
+description: Nunca escrever conteúdo de blog de forma autônoma
+alwaysApply: true
+---
+
+# Conteúdo de blog — sem autonomia
+
+O agente **não** cria, reescreve, traduz, amplia nem publica conteúdo editorial do blog (posts, páginas de artigo, drafts, seeds de posts, copy de artigos) por iniciativa própria.
+
+## Proibido sem pedido explícito
+
+- Redigir ou editar título, subtítulo, corpo, excerpt, meta description ou FAQ de posts
+- Gerar drafts, outlines ou “sugestões de artigo” e já gravá-las em arquivos/DB
+- Popular seeds/fixtures/migrations com texto editorial de blog
+- Usar WP-CLI, admin, API REST ou SQL para criar/atualizar posts de conteúdo
+
+## Permitido sem pedido de conteúdo
+
+- Código, temas, plugins, SEO técnico, performance, a11y, CI, infra
+- Estrutura/templates de blog (layout, loops, paginação) sem inventar texto editorial
+- Corrigir bugs em código que *exibe* posts, sem alterar o texto dos posts
+
+## Quando o usuário pedir conteúdo
+
+Só escrever ou alterar conteúdo de blog se o pedido for **explícito** nesta mensagem (ex.: “escreva o post sobre X”, “revise o artigo Y”). Se a tarefa for ambígua, perguntar antes — não assumir.

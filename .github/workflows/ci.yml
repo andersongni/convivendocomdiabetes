@@ -120,9 +120,10 @@ jobs:
             exit 1
           fi
 
-      - name: Integration MySQL+Redis+SEO+UX+E2E
+      - name: Integration MySQL+Redis+SEO+UX+private-cache+E2E
         run: |
           set -euo pipefail
           chmod +x scripts/ci-integration-mysql.sh scripts/ci-seed-content.sh \
-            scripts/ci-seo-stampede-smoke.sh scripts/ci-seo-smoke.sh scripts/ci-ux-smoke.sh
+            scripts/ci-seo-stampede-smoke.sh scripts/ci-seo-smoke.sh scripts/ci-ux-smoke.sh \
+            scripts/ci-private-cache-smoke.sh
           ./scripts/ci-integration-mysql.sh

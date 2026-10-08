@@ -298,7 +298,8 @@ chmod +x \
   "${SCRIPT_DIR}/ci-seed-content.sh" \
   "${SCRIPT_DIR}/ci-seo-stampede-smoke.sh" \
   "${SCRIPT_DIR}/ci-seo-smoke.sh" \
-  "${SCRIPT_DIR}/ci-ux-smoke.sh"
+  "${SCRIPT_DIR}/ci-ux-smoke.sh" \
+  "${SCRIPT_DIR}/ci-private-cache-smoke.sh"
 
 echo "[ci] Seed conteudo (old-slug + paginas SEO)..."
 "${SCRIPT_DIR}/ci-seed-content.sh"
@@ -311,6 +312,9 @@ echo "[ci] SEO smoke..."
 
 echo "[ci] UX smoke..."
 "${SCRIPT_DIR}/ci-ux-smoke.sh"
+
+echo "[ci] Private/page-cache smoke (sem vazamento Privado:)..."
+"${SCRIPT_DIR}/ci-private-cache-smoke.sh"
 
 if [ "${CCD_CI_SKIP_E2E:-}" != "1" ] && command -v npm >/dev/null 2>&1; then
   echo "[ci] Playwright E2E..."

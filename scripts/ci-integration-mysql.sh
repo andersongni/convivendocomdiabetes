@@ -239,31 +239,35 @@ for path in "/${CI_CAT_SLUG}/" "/category/${CI_CAT_SLUG}/"; do
     break
   fi
 done
-if [ -z "${cat_html}" ]; then
+if [ -z "${cat_html}" ] || [ ! -s /tmp/ci-cat-hero.html ]; then
   echo "[ci] FAIL: arquivo de categoria ${CI_CAT_SLUG} nao respondeu 200 com hero"
   exit 1
 fi
 echo "[ci] categoria hero via ${cat_url}"
 
-if printf '%s\n' "${cat_html}" | grep -q 'ccd-category-intro'; then
+if grep -q 'ccd-category-intro' /tmp/ci-cat-hero.html; then
   echo "[ci] FAIL: hero de categoria renderizou .ccd-category-intro (mensagem indevida)"
-  printf '%s\n' "${cat_html}" | grep -n 'ccd-category-intro' | head -n 5 || true
+  grep -n 'ccd-category-intro' /tmp/ci-cat-hero.html | head -n 5 || true
   exit 1
 fi
 
-# Trecho do banner: entre header-wrapper e header-separator.
-hero_chunk="$(printf '%s\n' "${cat_html}" | awk '/header-wrapper/,/header-separator/')"
-if printf '%s\n' "${hero_chunk}" | grep -qF "${CI_CAT_MARKER}"; then
-  echo "[ci] FAIL: meta/descricao da categoria vazou no hero"
-  printf '%s\n' "${hero_chunk}" | grep -nF "${CI_CAT_MARKER}" | head -n 5 || true
+# Hero HTML real (evita falso positivo de "header-wrapper" no <style> + SIGPIPE do pipefail).
+hero_chunk="$(perl -0777 -ne 'print $1 if /(<div[^>]*header-wrapper[\s\S]*?)<div[^>]*header-separator/i' /tmp/ci-cat-hero.html || true)"
+if [ -z "${hero_chunk}" ]; then
+  echo "[ci] FAIL: markup do hero (header-wrapper) ausente"
   exit 1
 fi
-if ! printf '%s\n' "${hero_chunk}" | grep -qi 'hero-title'; then
+if grep -qF "${CI_CAT_MARKER}" <<< "${hero_chunk}"; then
+  echo "[ci] FAIL: meta/descricao da categoria vazou no hero"
+  grep -nF "${CI_CAT_MARKER}" <<< "${hero_chunk}" | head -n 5 || true
+  exit 1
+fi
+if ! grep -qi 'hero-title' <<< "${hero_chunk}"; then
   echo "[ci] FAIL: hero de categoria sem .hero-title"
   exit 1
 fi
-# So o titulo no banner — sem paragrafo extra de descricao apos o h1.
-if printf '%s\n' "${hero_chunk}" | grep -qiE '<h1[^>]*class="[^"]*hero-title[^"]*"[^>]*>.*</h1>[[:space:]]*<p'; then
+# So o titulo no banner — sem paragrafo extra de descricao apos o titulo (h1 ou p a11y).
+if grep -qiE 'class="[^"]*hero-title[^"]*"[^>]*>[^<]*</(h1|p)>[[:space:]]*<p[ >]' <<< "${hero_chunk}"; then
   echo "[ci] FAIL: hero de categoria tem <p> logo apos o titulo (intro indevida)"
   exit 1
 fi

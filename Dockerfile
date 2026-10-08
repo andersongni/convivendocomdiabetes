@@ -26,6 +26,7 @@ COPY docker/ccdready.php /tmp/ccdready.php
 # Core oficial (temas twenty* + WP atual) + conteudo do site
 COPY wordpress/wp-content/ /tmp/site-wp-content/
 COPY wordpress/.htaccess /tmp/site-htaccess
+COPY wordpress/google3f717244fc46e406.html /tmp/google-site-verification.html
 COPY db/schema.sql /opt/schema.sql
 COPY scripts/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
 COPY scripts/wp-boot.sh /usr/local/bin/wp-boot.sh
@@ -36,6 +37,8 @@ RUN set -eux; \
   rm -rf /var/www/html/wp-content; \
   mv /tmp/site-wp-content /var/www/html/wp-content; \
   cp -a /tmp/site-htaccess /var/www/html/.htaccess; \
+  cp -a /tmp/google-site-verification.html /var/www/html/google3f717244fc46e406.html; \
+  rm -f /tmp/google-site-verification.html; \
   rm -f /tmp/site-htaccess; \
   mkdir -p /var/www/html/wp-content/uploads; \
   # Remove artefatos locais / cache que nao devem ir para producao

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CCD Admin Brand
  * Description: Identidade visual CCD no wp-admin (leve, tokens + CSS externo).
- * Version: 2.0.0
+ * Version: 2.3.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 const CCD_ADMIN_BRAND_ASSETS = 'mu-plugins/assets/admin';
 
 /** Bump ao alterar CSS/comportamento (cache bust fallback). */
-const CCD_ADMIN_BRAND_VER = '2.1.0';
+const CCD_ADMIN_BRAND_VER = '2.3.0';
 
 /**
  * URL de um asset em assets/admin/.
@@ -61,6 +61,12 @@ function ccd_admin_brand_register_styles() {
 		ccd_admin_brand_asset_url( 'ccd-admin-bar-front.css' ),
 		array( $tokens ),
 		ccd_admin_brand_asset_ver( 'ccd-admin-bar-front.css' )
+	);
+	wp_register_style(
+		'ccd-admin-menu-flyout',
+		ccd_admin_brand_asset_url( 'ccd-admin-menu-flyout.css' ),
+		array( 'ccd-admin-brand' ),
+		ccd_admin_brand_asset_ver( 'ccd-admin-menu-flyout.css' )
 	);
 }
 
@@ -138,10 +144,11 @@ add_action(
 		ccd_admin_brand_register_styles();
 		wp_enqueue_style( 'ccd-admin-tokens' );
 		wp_enqueue_style( 'ccd-admin-brand' );
+		wp_enqueue_style( 'ccd-admin-menu-flyout' );
 		wp_enqueue_script(
 			'ccd-admin-menu-flyout',
 			ccd_admin_brand_asset_url( 'ccd-admin-menu-flyout.js' ),
-			array( 'jquery' ),
+			array( 'jquery', 'common' ),
 			ccd_admin_brand_asset_ver( 'ccd-admin-menu-flyout.js' ),
 			true
 		);

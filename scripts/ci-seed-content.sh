@@ -129,10 +129,10 @@ echo "[ci-seed] sync SEO boost/editorial via WP-CLI (nunca via GET /)..."
 "${WP[@]}" option delete ccd_category_urls >/dev/null 2>&1 || true
 "${WP[@]}" eval '
 if ( function_exists( "ccd_seo_boost_apply" ) ) {
-  ccd_seo_boost_apply();
+  ccd_seo_boost_apply( true );
 }
 if ( function_exists( "ccd_seo_editorial_apply" ) ) {
-  ccd_seo_editorial_apply();
+  ccd_seo_editorial_apply( true );
 }
 ' >/dev/null
 "${WP[@]}" rewrite structure '/%postname%/' --hard >/dev/null 2>&1 || true

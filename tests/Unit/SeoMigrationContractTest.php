@@ -97,6 +97,26 @@ final class SeoMigrationContractTest extends TestCase {
 		$this->assertSame(0, $GLOBALS['ccd_test']['update_post_calls']);
 	}
 
+	public function testEditorialApplyForceWorksWithoutAdmin(): void {
+		$GLOBALS['ccd_test']['is_admin'] = false;
+		$GLOBALS['ccd_test']['doing_cron'] = false;
+
+		ccd_seo_editorial_apply(true);
+
+		$this->assertSame(CCD_SEO_EDITORIAL_VERSION, get_option('ccd_seo_editorial'));
+		$this->assertSame('ccd_seo_editorial', $GLOBALS['ccd_test']['update_option_log'][0]);
+	}
+
+	public function testBoostApplyForceWorksWithoutAdmin(): void {
+		$GLOBALS['ccd_test']['is_admin'] = false;
+		$GLOBALS['ccd_test']['doing_cron'] = false;
+
+		ccd_seo_boost_apply(true);
+
+		$this->assertSame(CCD_SEO_BOOST_VERSION, get_option('ccd_seo_boost'));
+		$this->assertSame('ccd_seo_boost', $GLOBALS['ccd_test']['update_option_log'][0]);
+	}
+
 	public function testEditorialApplyNoopWhenRedisCacheDriftsBehindMysql(): void {
 		$GLOBALS['ccd_test']['is_admin'] = true;
 		// Object cache (get_option) atrasado; MySQL já na versão atual.

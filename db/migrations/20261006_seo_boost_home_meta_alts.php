@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once WP_CONTENT_DIR . '/mu-plugins/ccd-seo-boost.php';
 delete_option( 'ccd_seo_boost' );
-ccd_seo_boost_apply();
+ccd_seo_boost_apply( true );
 
 $home_id = (int) get_option( 'page_on_front' );
 echo 'OK: ccd_seo_boost=' . (string) get_option( 'ccd_seo_boost' ) . "\n";

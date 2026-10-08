@@ -136,36 +136,47 @@ hammer() {
 }
 
 echo "[ci-stampede] reset flags de migracao..."
-"${WP[@]}" option delete ccd_seo_editorial >/dev/null 2>&1 || true
-"${WP[@]}" option delete ccd_seo_boost >/dev/null 2>&1 || true
-"${WP[@]}" transient delete ccd_seo_editorial_migrating >/dev/null 2>&1 || true
-"${WP[@]}" transient delete ccd_seo_boost_migrating >/dev/null 2>&1 || true
+"${WP[@]}" eval '
+delete_option( "ccd_seo_editorial" );
+delete_option( "ccd_seo_boost" );
+delete_transient( "ccd_seo_editorial_migrating" );
+delete_transient( "ccd_seo_boost_migrating" );
+if ( function_exists( "wp_cache_flush" ) ) {
+  wp_cache_flush();
+}
+' >/dev/null
+
+# Confirma reset SEM migrar (WP-CLI ja nao auto-migra no init).
+reset_vals="$("${WP[@]}" eval 'echo (string) get_option( "ccd_seo_editorial", "" ), "|", (string) get_option( "ccd_seo_boost", "" );')"
+if [ "${reset_vals}" != "|" ]; then
+  echo "[ci-stampede] FAIL: reset incompleto (editorial|boost='${reset_vals}')"
+  exit 1
+fi
+echo "[ci-stampede] flags resetadas"
 
 # Front com flags ausentes — nao pode migrar nem travar.
 hammer "front-before-migrate"
 
-ed="$("${WP[@]}" option get ccd_seo_editorial 2>/dev/null || true)"
-bo="$("${WP[@]}" option get ccd_seo_boost 2>/dev/null || true)"
-if [ -n "${ed}" ] || [ -n "${bo}" ]; then
-  echo "[ci-stampede] FAIL: front claimou migracao (editorial='${ed}' boost='${bo}')"
+after_front="$("${WP[@]}" eval 'echo (string) get_option( "ccd_seo_editorial", "" ), "|", (string) get_option( "ccd_seo_boost", "" );')"
+if [ "${after_front}" != "|" ]; then
+  echo "[ci-stampede] FAIL: front claimou migracao (editorial|boost='${after_front}')"
   exit 1
 fi
 echo "[ci-stampede] front nao claimou options (OK)"
 
-echo "[ci-stampede] migracao via WP-CLI..."
-"${WP[@]}" eval '
+echo "[ci-stampede] migracao explicita via WP-CLI (force=true)..."
+cli_vals="$("${WP[@]}" eval '
 if ( function_exists( "ccd_seo_boost_apply" ) ) {
-  ccd_seo_boost_apply();
+  ccd_seo_boost_apply( true );
 }
 if ( function_exists( "ccd_seo_editorial_apply" ) ) {
-  ccd_seo_editorial_apply();
+  ccd_seo_editorial_apply( true );
 }
-echo "boost=", (string) get_option( "ccd_seo_boost" ), " editorial=", (string) get_option( "ccd_seo_editorial" ), "\n";
-'
-
-ed="$("${WP[@]}" option get ccd_seo_editorial)"
-bo="$("${WP[@]}" option get ccd_seo_boost)"
-echo "[ci-stampede] apos CLI: editorial=${ed} boost=${bo}"
+echo (string) get_option( "ccd_seo_boost", "" ), "|", (string) get_option( "ccd_seo_editorial", "" );
+')"
+echo "[ci-stampede] apos CLI force: boost|editorial=${cli_vals}"
+bo="${cli_vals%%|*}"
+ed="${cli_vals#*|}"
 test -n "${ed}"
 test -n "${bo}"
 

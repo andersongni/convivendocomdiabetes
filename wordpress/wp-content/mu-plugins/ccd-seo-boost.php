@@ -420,7 +420,13 @@ function ccd_seo_sync_category_term_descriptions() {
 	}
 }
 
-function ccd_seo_boost_apply() {
+/**
+ * Migração SEO boost. WP-CLI não auto-migra no init — use $force=true.
+ *
+ * @param bool $force true para chamada explícita (eval / migration file).
+ * @return void
+ */
+function ccd_seo_boost_apply( $force = false ) {
 	if ( function_exists( 'ccd_migration_option_matches' )
 		? ccd_migration_option_matches( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION )
 		: get_option( 'ccd_seo_boost' ) === CCD_SEO_BOOST_VERSION ) {
@@ -429,7 +435,8 @@ function ccd_seo_boost_apply() {
 	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 		return;
 	}
-	$allow = ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() || is_admin();
+	// Auto: só admin/cron. Front e WP-CLI implícito nunca.
+	$allow = (bool) $force || wp_doing_cron() || is_admin();
 	if ( ! $allow ) {
 		return;
 	}
@@ -494,7 +501,13 @@ function ccd_seo_boost_apply() {
 	}
 }
 
-add_action( 'init', 'ccd_seo_boost_apply', 6 );
+add_action(
+	'init',
+	static function () {
+		ccd_seo_boost_apply( false );
+	},
+	6
+);
 
 /**
  * Runtime: titles de categoria/tag nunca ficam vazios ou com title de post.

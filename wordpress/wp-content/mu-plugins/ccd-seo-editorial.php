@@ -312,10 +312,12 @@ function ccd_seo_editorial_slug_was_trashed( $slug ) {
 
 /**
  * Migração editorial pesada: nunca no front público (causa stampede/timeout).
+ * WP-CLI não auto-migra no init (todo `wp *` dispararia) — use $force=true.
  *
+ * @param bool $force true para chamada explícita (eval / migration file).
  * @return void
  */
-function ccd_seo_editorial_apply() {
+function ccd_seo_editorial_apply( $force = false ) {
 	if ( function_exists( 'ccd_migration_option_matches' )
 		? ccd_migration_option_matches( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION )
 		: get_option( 'ccd_seo_editorial' ) === CCD_SEO_EDITORIAL_VERSION ) {
@@ -324,8 +326,8 @@ function ccd_seo_editorial_apply() {
 	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 		return;
 	}
-	// Só WP-CLI / cron / admin — front-end nunca bloqueia PHP workers.
-	$allow = ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() || is_admin();
+	// Auto: só admin/cron. Front e WP-CLI implícito nunca.
+	$allow = (bool) $force || wp_doing_cron() || is_admin();
 	if ( ! $allow ) {
 		return;
 	}
@@ -354,7 +356,13 @@ function ccd_seo_editorial_apply() {
 		ccd_page_cache_purge_all();
 	}
 }
-add_action( 'init', 'ccd_seo_editorial_apply', 30 );
+add_action(
+	'init',
+	static function () {
+		ccd_seo_editorial_apply( false );
+	},
+	30
+);
 
 /**
  * Garante que nada editorial seja impresso no hero (hook Mesmerize).

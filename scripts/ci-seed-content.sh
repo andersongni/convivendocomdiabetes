@@ -34,6 +34,23 @@ do
   fi
 done
 
+# /blog/ como arquivo de posts (infinite scroll + body.blog).
+BLOG_ID="$("${WP[@]}" post list --post_type=page --name=blog --field=ID 2>/dev/null | head -n1 || true)"
+if [ -n "${BLOG_ID}" ]; then
+  "${WP[@]}" option update show_on_front page >/dev/null
+  # Home: se nao houver front page, usa a mesma blog (arquivo ainda funciona).
+  FRONT_ID="$("${WP[@]}" option get page_on_front 2>/dev/null || true)"
+  if [ -z "${FRONT_ID}" ] || [ "${FRONT_ID}" = "0" ]; then
+    HOME_ID="$("${WP[@]}" post list --post_type=page --name=home --field=ID 2>/dev/null | head -n1 || true)"
+    if [ -z "${HOME_ID}" ]; then
+      HOME_ID="$("${WP[@]}" post create --post_type=page --post_status=publish --post_name=home --post_title=Home --porcelain)"
+    fi
+    "${WP[@]}" option update page_on_front "${HOME_ID}" >/dev/null
+  fi
+  "${WP[@]}" option update page_for_posts "${BLOG_ID}" >/dev/null
+fi
+"${WP[@]}" option update posts_per_page 3 >/dev/null
+
 echo "[ci-seed] categoria diabetes + post com slug antigo conflitante..."
 if ! "${WP[@]}" term get category diabetes --by=slug --field=term_id >/dev/null 2>&1; then
   "${WP[@]}" term create category 'Diabetes' \
@@ -88,6 +105,21 @@ do
     "${WP[@]}" comment list --post_id="${pid}" --format=count 2>/dev/null | grep -qE '^[1-9]' \
       || "${WP[@]}" comment create --comment_post_ID="${pid}" --comment_content='Comentario CI hipo' --comment_author=CI --porcelain >/dev/null 2>&1 \
       || true
+  fi
+done
+
+# Posts extras para /blog/ ter 2+ paginas (posts_per_page=3).
+echo "[ci-seed] posts extras para infinite scroll..."
+for i in 1 2 3 4 5; do
+  slug="ci-blog-extra-${i}"
+  if ! "${WP[@]}" post list --post_type=post --name="${slug}" --field=ID 2>/dev/null | grep -qE '^[0-9]+$'; then
+    "${WP[@]}" post create \
+      --post_type=post \
+      --post_status=publish \
+      --post_name="${slug}" \
+      --post_title="CI blog extra ${i}" \
+      --post_content="<p>Post extra ${i} para scroll infinito.</p>" \
+      --porcelain >/dev/null
   fi
 done
 

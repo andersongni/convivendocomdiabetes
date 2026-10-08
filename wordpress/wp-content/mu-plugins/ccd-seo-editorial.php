@@ -109,7 +109,12 @@ function ccd_seo_editorial_upsert_post( $slug, array $data, $create_if_missing =
 	);
 
 	if ( ! empty( $existing[0] ) ) {
-		$payload['ID'] = (int) $existing[0];
+		$post_id = (int) $existing[0];
+		// Já migrado nesta versão: só garante Yoast se necessário e sai sem wp_update_post.
+		if ( (string) get_post_meta( $post_id, '_ccd_seo_editorial', true ) === CCD_SEO_EDITORIAL_VERSION ) {
+			return $post_id;
+		}
+		$payload['ID'] = $post_id;
 		$post_id       = wp_update_post( $payload, true );
 	} elseif ( $create_if_missing ) {
 		$payload['post_date']     = $now_local;
@@ -275,15 +280,28 @@ function ccd_seo_editorial_hub_pillars_html( $cat_slug ) {
 }
 
 /**
+ * Migração editorial pesada: nunca no front público (causa stampede/timeout).
+ *
  * @return void
  */
 function ccd_seo_editorial_apply() {
 	if ( get_option( 'ccd_seo_editorial' ) === CCD_SEO_EDITORIAL_VERSION ) {
 		return;
 	}
-	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || wp_doing_cron() ) {
+	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 		return;
 	}
+	// Só WP-CLI / cron / admin — front-end nunca bloqueia PHP workers.
+	$allow = ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() || is_admin();
+	if ( ! $allow ) {
+		return;
+	}
+	if ( get_transient( 'ccd_seo_editorial_migrating' ) ) {
+		return;
+	}
+	set_transient( 'ccd_seo_editorial_migrating', 1, 10 * MINUTE_IN_SECONDS );
+	// Claim da versão primeiro: evita stampede se o trabalho for lento/falhar.
+	update_option( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION, false );
 
 	foreach ( ccd_seo_editorial_updates() as $slug => $data ) {
 		ccd_seo_editorial_upsert_post( $slug, $data, false );
@@ -293,7 +311,7 @@ function ccd_seo_editorial_apply() {
 	}
 	ccd_seo_editorial_sync_hub_descriptions();
 
-	update_option( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION, false );
+	delete_transient( 'ccd_seo_editorial_migrating' );
 
 	if ( function_exists( 'ccd_page_cache_purge_all' ) ) {
 		ccd_page_cache_purge_all();

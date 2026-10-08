@@ -424,6 +424,19 @@ function ccd_seo_boost_apply() {
 	if ( get_option( 'ccd_seo_boost' ) === CCD_SEO_BOOST_VERSION ) {
 		return;
 	}
+	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+		return;
+	}
+	$allow = ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() || is_admin();
+	if ( ! $allow ) {
+		return;
+	}
+	if ( get_transient( 'ccd_seo_boost_migrating' ) ) {
+		return;
+	}
+	set_transient( 'ccd_seo_boost_migrating', 1, 10 * MINUTE_IN_SECONDS );
+	// Claim da versão primeiro: evita stampede se o trabalho for lento/falhar.
+	update_option( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION, false );
 
 	$home_id = (int) get_option( 'page_on_front' );
 	if ( $home_id > 0 ) {
@@ -468,7 +481,7 @@ function ccd_seo_boost_apply() {
 	ccd_seo_sync_key_page_metadescs();
 	ccd_seo_sync_key_post_metadescs();
 
-	update_option( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION, false );
+	delete_transient( 'ccd_seo_boost_migrating' );
 
 	if ( function_exists( 'ccd_page_cache_purge_all' ) ) {
 		ccd_page_cache_purge_all();

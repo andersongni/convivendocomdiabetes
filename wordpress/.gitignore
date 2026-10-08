@@ -9,6 +9,8 @@ wp-content/*
 !wp-content/themes/
 !wp-content/advanced-cache.php
 !wp-content/ccd-health-ok.txt
+!wp-content/ccd-http-error.php
+!wp-content/ccd-http-error-404-template.php
 
 # ignore these plugins
 wp-content/plugins/hello.php

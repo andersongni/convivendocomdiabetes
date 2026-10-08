@@ -13,6 +13,10 @@ declare(strict_types=1);
  *   transients: array<string, mixed>,
  *   post_meta: array<string, mixed>,
  *   is_admin: bool,
+ *   is_user_logged_in: bool,
+ *   is_feed: bool,
+ *   is_search: bool,
+ *   is_404: bool,
  *   doing_cron: bool,
  *   doing_ajax: bool,
  *   update_post_calls: int,
@@ -21,15 +25,19 @@ declare(strict_types=1);
  * }
  */
 $GLOBALS['ccd_test'] = array(
-	'options'           => array(),
-	'transients'        => array(),
-	'post_meta'         => array(),
-	'is_admin'          => false,
-	'doing_cron'        => false,
-	'doing_ajax'        => false,
-	'update_post_calls' => 0,
-	'update_option_log' => array(),
-	'update_term_calls' => 0,
+	'options'            => array(),
+	'transients'         => array(),
+	'post_meta'          => array(),
+	'is_admin'           => false,
+	'is_user_logged_in'  => false,
+	'is_feed'            => false,
+	'is_search'          => false,
+	'is_404'             => false,
+	'doing_cron'         => false,
+	'doing_ajax'         => false,
+	'update_post_calls'  => 0,
+	'update_option_log'  => array(),
+	'update_term_calls'  => 0,
 );
 
 /**
@@ -41,6 +49,10 @@ function ccd_test_reset_state(): void {
 		'transients'        => array(),
 		'post_meta'         => array(),
 		'is_admin'          => false,
+		'is_user_logged_in' => false,
+		'is_feed'           => false,
+		'is_search'         => false,
+		'is_404'            => false,
 		'doing_cron'        => false,
 		'doing_ajax'        => false,
 		'update_post_calls' => 0,
@@ -157,6 +169,31 @@ if (!function_exists('delete_transient')) {
 if (!function_exists('is_admin')) {
 	function is_admin() {
 		return !empty($GLOBALS['ccd_test']['is_admin']);
+	}
+}
+if (!function_exists('is_user_logged_in')) {
+	function is_user_logged_in() {
+		return !empty($GLOBALS['ccd_test']['is_user_logged_in']);
+	}
+}
+if (!function_exists('is_feed')) {
+	function is_feed() {
+		return !empty($GLOBALS['ccd_test']['is_feed']);
+	}
+}
+if (!function_exists('is_search')) {
+	function is_search() {
+		return !empty($GLOBALS['ccd_test']['is_search']);
+	}
+}
+if (!function_exists('is_404')) {
+	function is_404() {
+		return !empty($GLOBALS['ccd_test']['is_404']);
+	}
+}
+if (!function_exists('untrailingslashit')) {
+	function untrailingslashit($value) {
+		return rtrim((string) $value, '/\\');
 	}
 }
 if (!function_exists('wp_doing_ajax')) {

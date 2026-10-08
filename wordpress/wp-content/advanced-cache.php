@@ -64,7 +64,11 @@ if ($html === false) {
 }
 
 // Não servir HTML gravado com visão de usuário logado (posts private/draft).
-if (preg_match('/\b(?:Privado|Protegido|Private|Protected):\s/u', $html)) {
+$private_lib = WP_CONTENT_DIR . '/mu-plugins/ccd-page-cache-lib.php';
+if (is_readable($private_lib)) {
+	require_once $private_lib;
+}
+if (function_exists('ccd_page_cache_html_looks_private') && ccd_page_cache_html_looks_private($html)) {
 	@unlink($file);
 	return;
 }

@@ -8,6 +8,8 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 
+require_once __DIR__ . '/ccd-page-cache-lib.php';
+
 if (!defined('CCD_PAGE_CACHE_TTL')) {
 	define('CCD_PAGE_CACHE_TTL', 3600);
 }
@@ -75,7 +77,7 @@ add_action(
 					return $html;
 				}
 				// Nunca gravar HTML de sessão que vê posts private/draft (badge "Privado:" / "Protegido:").
-				if (preg_match('/\b(?:Privado|Protegido|Private|Protected):\s/u', $html)) {
+				if (ccd_page_cache_html_looks_private($html)) {
 					return $html;
 				}
 				$lib = WP_CONTENT_DIR . '/mu-plugins/ccd-env-urls-lib.php';

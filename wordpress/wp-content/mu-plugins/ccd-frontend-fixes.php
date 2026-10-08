@@ -86,16 +86,16 @@ add_filter(
 add_action(
 	'send_headers',
 	static function () {
-		if ( is_admin() || headers_sent() ) {
+		if ( headers_sent() ) {
 			return;
 		}
-		if ( is_user_logged_in() ) {
-			header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0', true );
+		if ( ! function_exists( 'ccd_html_cache_control_value' ) ) {
+			require_once __DIR__ . '/ccd-page-cache-lib.php';
+		}
+		$cc = ccd_html_cache_control_value( is_admin(), is_user_logged_in() );
+		if ( $cc === null ) {
 			return;
 		}
-		$cc = defined( 'CCD_PERF_HTML_CACHE' )
-			? CCD_PERF_HTML_CACHE
-			: 'public, max-age=0, s-maxage=3600, must-revalidate';
 		header( 'Cache-Control: ' . $cc, true );
 	},
 	0

@@ -22,6 +22,31 @@ wp config create \
   --allow-root \
   --path=/var/www/html
 
+# Salts ESTAVEIS via env (Railway). Sem isso, cada deploy regenera AUTH/NONCE_*
+# e invalida cookies + nonces do wp-admin ("Este link expirou" ao excluir/salvar).
+ccd_wp_set_salt() {
+  local const_name="$1"
+  local env_name="$2"
+  local val="${!env_name:-}"
+  if [ -z "${val}" ]; then
+    return 0
+  fi
+  wp config set "${const_name}" "${val}" --type=constant --allow-root --path=/var/www/html
+}
+ccd_wp_set_salt AUTH_KEY WORDPRESS_AUTH_KEY
+ccd_wp_set_salt SECURE_AUTH_KEY WORDPRESS_SECURE_AUTH_KEY
+ccd_wp_set_salt LOGGED_IN_KEY WORDPRESS_LOGGED_IN_KEY
+ccd_wp_set_salt NONCE_KEY WORDPRESS_NONCE_KEY
+ccd_wp_set_salt AUTH_SALT WORDPRESS_AUTH_SALT
+ccd_wp_set_salt SECURE_AUTH_SALT WORDPRESS_SECURE_AUTH_SALT
+ccd_wp_set_salt LOGGED_IN_SALT WORDPRESS_LOGGED_IN_SALT
+ccd_wp_set_salt NONCE_SALT WORDPRESS_NONCE_SALT
+if [ -n "${WORDPRESS_AUTH_KEY:-}" ] && [ -n "${WORDPRESS_NONCE_SALT:-}" ]; then
+  echo "[wp] Salts de autenticacao aplicados a partir das env vars (estaveis entre deploys)"
+else
+  echo "[wp] AVISO: WORDPRESS_*_KEY/SALT ausentes — salts regeneram a cada boot (sessoes/nonces quebram apos deploy)"
+fi
+
 wp config set COOKIE_DOMAIN false --raw --type=constant --allow-root --path=/var/www/html
 wp config set ADMIN_COOKIE_PATH '/' --type=constant --allow-root --path=/var/www/html
 wp config set COOKIEPATH '/' --type=constant --allow-root --path=/var/www/html

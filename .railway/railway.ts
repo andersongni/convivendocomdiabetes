@@ -73,6 +73,15 @@ export default defineRailway(() => {
       WP_TITLE: preserve(),
       WP_HOME: "https://convivendocomdiabetes.com",
       WP_SITEURL: "https://convivendocomdiabetes.com",
+      // Salts estaveis — sem isso cada deploy invalida nonces ("Este link expirou").
+      WORDPRESS_AUTH_KEY: preserve(),
+      WORDPRESS_SECURE_AUTH_KEY: preserve(),
+      WORDPRESS_LOGGED_IN_KEY: preserve(),
+      WORDPRESS_NONCE_KEY: preserve(),
+      WORDPRESS_AUTH_SALT: preserve(),
+      WORDPRESS_SECURE_AUTH_SALT: preserve(),
+      WORDPRESS_LOGGED_IN_SALT: preserve(),
+      WORDPRESS_NONCE_SALT: preserve(),
       CCD_RECAPTCHA_SITE_KEY: preserve(),
       CCD_RECAPTCHA_SECRET_KEY: preserve(),
       // Search Console meta token — ver docs/SEO.md

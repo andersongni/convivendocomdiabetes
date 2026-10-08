@@ -12,7 +12,7 @@ Produção canônica: `https://convivendocomdiabetes.com`
 | Meta/focus/alts no acervo + posts novos | `ccd-seo-content.php` |
 | Meta da home + páginas-chave + posts top + titles/descs de categorias + breadcrumbs + related | `ccd-seo-boost.php` |
 | Categorias em `/slug/` sem 301 para posts | `ccd-category-urls.php` |
-| Pilares YMYL + posts novos + interlinking de hubs (lista dinâmica por categoria, só em `#page-content`, nunca no hero) | `ccd-seo-editorial.php` + CSS em `ccd-a11y.php` |
+| Hub editorial YMYL (intro da categoria + leitura recomendada/guias curatoriais, só em `#page-content`, nunca no hero; sem repetir a grade) | `ccd-seo-editorial.php` + CSS em `ccd-a11y.php` |
 | E-E-A-T (disclaimer, autor, datas, Organization/Person) | `ccd-eeat.php` |
 | Lazy-load scoped / prev-next / paginação crawlável | `ccd-frontend-fixes`, `ccd-a11y`, `ccd-blog-infinite-scroll` |
 | Smoke de medição (local/URL) | `scripts/seo-smoke.ps1` |
@@ -39,6 +39,7 @@ CCD_GOOGLE_SITE_VERIFICATION=cole_aqui_o_token
 6. Confirme a propriedade no GSC.
 7. Em **Sitemaps**, envie:  
    `https://convivendocomdiabetes.com/sitemap_index.xml`
+8. Se aparecer **“Não foi possível ler o sitemap”**: espere o deploy com `ccd-sitemap-fix` (XML sem stylesheet + sitemaps fora do page cache), abra o URL do sitemap no browser (deve ser XML puro), depois em GSC → Sitemaps → **ícone de atualizar** / reenviar. No Cloudflare: Security → Bots → **Allow Verified Bots** (ou desligar Bot Fight Mode se estiver bloqueando o Google).
 
 ### 2) Bing Webmaster (opcional, recomendado)
 

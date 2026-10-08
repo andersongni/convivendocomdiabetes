@@ -97,6 +97,36 @@ add_action(
 	0
 );
 
+/**
+ * XML mais limpo para o Google Search Console ("Não foi possível ler o sitemap"):
+ * remove xml-stylesheet (só cosmética no browser) e reforça Content-Type.
+ */
+add_filter(
+	'wpseo_stylesheet_url',
+	static function () {
+		return '';
+	}
+);
+
+add_filter(
+	'wpseo_sitemap_http_headers',
+	static function ( $headers ) {
+		if ( ! is_array( $headers ) ) {
+			return $headers;
+		}
+		$out = array();
+		foreach ( $headers as $header => $status ) {
+			if ( is_string( $header ) && stripos( $header, 'Content-Type:' ) === 0 ) {
+				continue;
+			}
+			$out[ $header ] = $status;
+		}
+		// application/xml costuma ser mais previsível para o GSC do que text/xml.
+		$out['Content-Type: application/xml; charset=UTF-8'] = '';
+		return $out;
+	}
+);
+
 add_filter(
 	'robots_txt',
 	static function ( $output, $public ) {

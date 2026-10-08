@@ -45,6 +45,10 @@ $path = rtrim($path, '/');
 if ($path === '/login' || $path === '/wp-login.php') {
 	return;
 }
+// Sitemaps/XML: nunca pelo page cache (Content-Type HTML quebraria o GSC).
+if ($path !== '' && (substr($path, -4) === '.xml' || substr($path, -4) === '.xsl' || strpos($path, 'sitemap') !== false)) {
+	return;
+}
 $key  = md5($host . '|' . $uri);
 $file = WP_CONTENT_DIR . '/cache/ccd-page/' . $key . '.html';
 

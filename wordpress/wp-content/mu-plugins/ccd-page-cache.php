@@ -41,6 +41,10 @@ function ccd_page_cache_file() {
 	if ($path === '/login' || $path === '/wp-login.php') {
 		return null;
 	}
+	// Sitemaps/XML fora do HTML cache (GSC exige text/xml limpo).
+	if ($path !== '' && (substr($path, -4) === '.xml' || substr($path, -4) === '.xsl' || strpos($path, 'sitemap') !== false)) {
+		return null;
+	}
 	return ccd_page_cache_dir() . '/' . md5($host . '|' . $uri) . '.html';
 }
 

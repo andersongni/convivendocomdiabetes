@@ -13,6 +13,7 @@ require_once __DIR__ . '/stubs/wp-stubs.php';
 
 $root = dirname(__DIR__);
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-a11y.php';
+require_once $root . '/wordpress/wp-content/mu-plugins/ccd-migration-option.php';
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-seo-boost.php';
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-login-url.php';
 require_once $root . '/wordpress/wp-content/mu-plugins/ccd-category-urls.php';

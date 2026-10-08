@@ -96,4 +96,20 @@ final class SeoMigrationContractTest extends TestCase {
 		$this->assertArrayNotHasKey('ccd_seo_editorial', $GLOBALS['ccd_test']['options']);
 		$this->assertSame(0, $GLOBALS['ccd_test']['update_post_calls']);
 	}
+
+	public function testEditorialApplyNoopWhenRedisCacheDriftsBehindMysql(): void {
+		$GLOBALS['ccd_test']['is_admin'] = true;
+		// Object cache (get_option) atrasado; MySQL já na versão atual.
+		$GLOBALS['ccd_test']['options']['ccd_seo_editorial'] = '1';
+		$GLOBALS['wpdb']->db_options = array(
+			'ccd_seo_editorial' => CCD_SEO_EDITORIAL_VERSION,
+		);
+
+		ccd_seo_editorial_apply();
+
+		$this->assertSame(0, $GLOBALS['ccd_test']['update_post_calls']);
+		$this->assertSame(array(), $GLOBALS['ccd_test']['update_option_log']);
+		// Cache corrigido para o valor do MySQL.
+		$this->assertSame(CCD_SEO_EDITORIAL_VERSION, get_option('ccd_seo_editorial'));
+	}
 }

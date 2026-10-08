@@ -47,6 +47,9 @@ function ccd_test_reset_state(): void {
 		'update_option_log' => array(),
 		'update_term_calls' => 0,
 	);
+	if (isset($GLOBALS['wpdb']) && is_object($GLOBALS['wpdb']) && property_exists($GLOBALS['wpdb'], 'db_options')) {
+		$GLOBALS['wpdb']->db_options = array();
+	}
 	if (defined('WP_CLI') && WP_CLI) {
 		// Constante nao pode ser unset; testes usam is_admin/cron.
 	}
@@ -103,6 +106,22 @@ if (!function_exists('get_option')) {
 			return $GLOBALS['ccd_test']['options'][$option];
 		}
 		return $default;
+	}
+}
+if (!function_exists('wp_cache_delete')) {
+	function wp_cache_delete($key, $group = '') {
+		unset($key, $group);
+		return true;
+	}
+}
+if (!function_exists('wp_cache_set')) {
+	function wp_cache_set($key, $data, $group = '', $expire = 0) {
+		unset($group, $expire);
+		// Em testes, prime_cache alinha o “object cache” com get_option.
+		if (isset($GLOBALS['ccd_test']['options'])) {
+			$GLOBALS['ccd_test']['options'][(string) $key] = $data;
+		}
+		return true;
 	}
 }
 if (!function_exists('update_option')) {
@@ -368,9 +387,13 @@ if (!isset($GLOBALS['wpdb'])) {
 	$GLOBALS['wpdb'] = new class {
 		public $terms = 'wp_terms';
 		public $term_taxonomy = 'wp_term_taxonomy';
+		public $posts = 'wp_posts';
+		public $options = 'wp_options';
 		public $prefix = 'wp_';
 		/** @var list<string> */
 		public $category_slugs = array('diabetes', 'receitas');
+		/** @var array<string, string> option_name => value (simula MySQL para drift de cache). */
+		public $db_options = array();
 
 		public function get_col($query) {
 			unset($query);
@@ -378,8 +401,16 @@ if (!isset($GLOBALS['wpdb'])) {
 		}
 
 		public function get_var($query) {
-			unset($query);
+			$query = (string) $query;
+			// prepare() stub nao interpola args; testes de drift usam uma única option.
+			if (str_contains($query, 'wp_options') && count($this->db_options) === 1) {
+				return (string) reset($this->db_options);
+			}
 			return null;
+		}
+
+		public function esc_like($text) {
+			return addcslashes((string) $text, '_%\\');
 		}
 
 		public function prepare($query, ...$args) {

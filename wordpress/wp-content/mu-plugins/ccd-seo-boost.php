@@ -421,7 +421,9 @@ function ccd_seo_sync_category_term_descriptions() {
 }
 
 function ccd_seo_boost_apply() {
-	if ( get_option( 'ccd_seo_boost' ) === CCD_SEO_BOOST_VERSION ) {
+	if ( function_exists( 'ccd_migration_option_matches' )
+		? ccd_migration_option_matches( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION )
+		: get_option( 'ccd_seo_boost' ) === CCD_SEO_BOOST_VERSION ) {
 		return;
 	}
 	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
@@ -436,7 +438,11 @@ function ccd_seo_boost_apply() {
 	}
 	set_transient( 'ccd_seo_boost_migrating', 1, 10 * MINUTE_IN_SECONDS );
 	// Claim da versão primeiro: evita stampede se o trabalho for lento/falhar.
-	update_option( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION, false );
+	if ( function_exists( 'ccd_migration_option_claim' ) ) {
+		ccd_migration_option_claim( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION );
+	} else {
+		update_option( 'ccd_seo_boost', CCD_SEO_BOOST_VERSION, false );
+	}
 
 	$home_id = (int) get_option( 'page_on_front' );
 	if ( $home_id > 0 ) {

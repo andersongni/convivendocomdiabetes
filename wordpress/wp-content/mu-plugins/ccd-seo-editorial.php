@@ -117,6 +117,10 @@ function ccd_seo_editorial_upsert_post( $slug, array $data, $create_if_missing =
 		$payload['ID'] = $post_id;
 		$post_id       = wp_update_post( $payload, true );
 	} elseif ( $create_if_missing ) {
+		// Respeita lixeira: slug__trashed / slug__trashed-N (não recriar após exclusão).
+		if ( ccd_seo_editorial_slug_was_trashed( $slug ) ) {
+			return 0;
+		}
 		$payload['post_date']     = $now_local;
 		$payload['post_date_gmt'] = $now_gmt;
 		$post_id                  = wp_insert_post( $payload, true );
@@ -280,12 +284,41 @@ function ccd_seo_editorial_hub_pillars_html( $cat_slug ) {
 }
 
 /**
+ * True se já existe post na lixeira para este slug (WordPress renomeia para slug__trashed).
+ *
+ * @param string $slug Post slug.
+ * @return bool
+ */
+function ccd_seo_editorial_slug_was_trashed( $slug ) {
+	global $wpdb;
+	$slug = sanitize_title( (string) $slug );
+	if ( $slug === '' || ! isset( $wpdb ) || ! is_object( $wpdb ) || empty( $wpdb->posts ) ) {
+		return false;
+	}
+	if ( ! is_callable( array( $wpdb, 'get_var' ) ) || ! is_callable( array( $wpdb, 'prepare' ) ) ) {
+		return false;
+	}
+	$escaped = is_callable( array( $wpdb, 'esc_like' ) )
+		? $wpdb->esc_like( $slug )
+		: str_replace( array( '%', '_' ), array( '\\%', '\\_' ), $slug );
+	$found   = $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'trash' AND post_name LIKE %s LIMIT 1",
+			$escaped . '__trashed%'
+		)
+	);
+	return ! empty( $found );
+}
+
+/**
  * Migração editorial pesada: nunca no front público (causa stampede/timeout).
  *
  * @return void
  */
 function ccd_seo_editorial_apply() {
-	if ( get_option( 'ccd_seo_editorial' ) === CCD_SEO_EDITORIAL_VERSION ) {
+	if ( function_exists( 'ccd_migration_option_matches' )
+		? ccd_migration_option_matches( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION )
+		: get_option( 'ccd_seo_editorial' ) === CCD_SEO_EDITORIAL_VERSION ) {
 		return;
 	}
 	if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
@@ -301,7 +334,11 @@ function ccd_seo_editorial_apply() {
 	}
 	set_transient( 'ccd_seo_editorial_migrating', 1, 10 * MINUTE_IN_SECONDS );
 	// Claim da versão primeiro: evita stampede se o trabalho for lento/falhar.
-	update_option( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION, false );
+	if ( function_exists( 'ccd_migration_option_claim' ) ) {
+		ccd_migration_option_claim( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION );
+	} else {
+		update_option( 'ccd_seo_editorial', CCD_SEO_EDITORIAL_VERSION, false );
+	}
 
 	foreach ( ccd_seo_editorial_updates() as $slug => $data ) {
 		ccd_seo_editorial_upsert_post( $slug, $data, false );

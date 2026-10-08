@@ -17,7 +17,7 @@ O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait fo
 | Etapa | O que valida |
 |-------|----------------|
 | PHP lint | `mu-plugins` + `ccd-backup` |
-| PHPUnit | Helpers puros dos mu-plugins (`tests/Unit`, stubs em `tests/stubs`) |
+| PHPUnit | Helpers puros dos mu-plugins (`tests/Unit`, stubs em `tests/stubs`); coverage pcov no log + artifact `phpunit-coverage` |
 | Build | Dockerfile de produção |
 | `/ccdhealth` | Liveness estático, sem DB, sem 301 |
 | `/ccdready` | Readiness MySQL (gate blue/green no Railway) |
@@ -37,7 +37,10 @@ Blue/green / overlap: [BLUE_GREEN.md](./BLUE_GREEN.md).
 ```bash
 composer install
 composer test
+composer test:coverage   # texto no terminal + coverage/html + coverage/clover.xml (precisa pcov ou xdebug)
 ```
+
+No CI, o job `unit` imprime o resumo de coverage no log e sobe o artifact **phpunit-coverage** (HTML + Clover, 14 dias).
 
 ### Regressoes cobertas
 

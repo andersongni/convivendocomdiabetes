@@ -47,14 +47,29 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          coverage: none
+          coverage: pcov
           tools: composer:v2
 
-      - name: Composer install + PHPUnit
+      - name: Composer install + PHPUnit (com coverage)
         run: |
           set -euo pipefail
           composer install --no-interaction --prefer-dist --no-progress
-          vendor/bin/phpunit --colors=always
+          mkdir -p coverage
+          vendor/bin/phpunit --colors=always \
+            --coverage-text \
+            --coverage-html=coverage/html \
+            --coverage-clover=coverage/clover.xml
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-coverage
+          path: |
+            coverage/html
+            coverage/clover.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   build:
     name: Build + smoke + integration

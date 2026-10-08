@@ -17,7 +17,7 @@ O smoke de produção **não** roda no mesmo `push` do CI. Se rodasse, o Wait fo
 | Etapa | O que valida |
 |-------|----------------|
 | PHP lint | `mu-plugins` + `ccd-backup` |
-| PHPUnit | Helpers puros dos mu-plugins (`tests/Unit`, stubs em `tests/stubs`); coverage pcov no log + artifact `phpunit-coverage` |
+| PHPUnit | Contratos do **núcleo** dos mu-plugins (`tests/Unit`); coverage pcov do núcleo no log/Summary + artifact `phpunit-coverage-core` |
 | Build | Dockerfile de produção |
 | `/ccdhealth` | Liveness estático, sem DB, sem 301 |
 | `/ccdready` | Readiness MySQL (gate blue/green no Railway) |
@@ -32,15 +32,33 @@ Para pular E2E localmente: `CCD_CI_SKIP_E2E=1 ./scripts/ci-integration-mysql.sh`
 
 Blue/green / overlap: [BLUE_GREEN.md](./BLUE_GREEN.md).
 
-### PHPUnit (local)
+### O que é mu-plugin?
+
+**mu-plugin** (*must-use plugin*): PHP em `wordpress/wp-content/mu-plugins/` que o WordPress **sempre** carrega (não precisa ativar em Plugins). No CCD é onde vive a lógica versionada do site (SEO, cache, login, a11y…).
+
+### PHPUnit (local) — cobertura do núcleo
+
+O `phpunit.xml.dist` mede só o **núcleo testável** (libs/helpers/contratos), não os ~5k linhas de glue WP/HTML. Assim o % é acionável.
+
+| Arquivo / área | Papel |
+|----------------|--------|
+| `ccd-page-cache-lib.php`, `ccd-page-cache.php` | Cache HTML / Privado / Cache-Control |
+| `ccd-migration-option.php` | Claim de migração |
+| `ccd-a11y.php`, `ccd-login-url.php`, `ccd-category-urls.php` | Helpers cobertos por Unit |
+| `ccd-seo-*.php`, `seo-editorial/content.php` | Contratos de migração SEO |
+| `ccd-env-urls-lib.php` | Rewrite de URLs |
 
 ```bash
 composer install
 composer test
-composer test:coverage   # texto no terminal + coverage/html + coverage/clover.xml (precisa pcov ou xdebug)
+composer test:coverage        # nucleo → coverage/html + clover.xml (precisa pcov/xdebug)
+composer test:coverage:full   # todos mu-plugins (diagnostico; % baixo e esperado)
+composer test:mutation        # Infection so em ccd-page-cache-lib (MSI coberto >= 70)
 ```
 
-No CI, o job `unit` imprime o resumo de coverage no log e sobe o artifact **phpunit-coverage** (HTML + Clover, 14 dias).
+No CI, o job `unit` imprime o resumo no log e no **Job Summary**, e sobe o artifact **phpunit-coverage-core** (HTML + Clover, 14 dias).
+
+Mutation testing (Infection) é **opcional/local** por enquanto — não roda em todo push (custo/ruído).
 
 ### Regressoes cobertas
 
@@ -82,5 +100,6 @@ Alternativa simples: rodar **Actions → Smoke production → Run workflow** ap�
 
 ## CodeQL / Terraform
 
-- CodeQL: PRs + cron (fora do gate Wait for CI).
+- **CodeQL first-party** (`.github/workflows/codeql.yml`): PRs + cron; so first-party + `security-extended` (fora do gate Wait for CI).
+- **CodeQL** (default setup do GitHub): scan mais amplo do repo com suite `default` — nome diferente de proposito.
 - Terraform: validate em paths; apply só via `workflow_dispatch`.

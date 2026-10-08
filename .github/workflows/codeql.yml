@@ -1,6 +1,8 @@
-name: CodeQL
+name: CodeQL first-party
 
-# Sem push em main: com Wait for CI no Railway, CodeQL atrasaria todo deploy.
+# Escopo: so codigo nosso (ver .github/codeql/codeql-config.yml) + queries security-extended.
+# O workflow "CodeQL" do GitHub (default setup) cobre o repo com suite default — sao scans diferentes.
+# Sem push em main: com Wait for CI no Railway, este job atrasaria todo deploy.
 # PRs + cron semanal cobrem o scan; CI (build/smoke) e o gate do deploy.
 on:
   pull_request:
@@ -15,7 +17,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: codeql-${{ github.ref }}
+  group: codeql-first-party-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

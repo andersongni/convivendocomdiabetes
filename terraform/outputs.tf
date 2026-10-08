@@ -15,5 +15,5 @@ output "mysql_service_id" {
 }
 
 output "site_url" {
-  value = "https://${railway_service_domain.wordpress.domain}"
+  value = "https://convivendocomdiabetes.com"
 }

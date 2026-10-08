@@ -17,7 +17,6 @@ PROJECT_ID="${TF_IMPORT_PROJECT_ID:-95fcab4e-8a01-4af2-af47-23407e2f66c9}"
 WORDPRESS_ID="${TF_IMPORT_WORDPRESS_ID:-08b66ddc-0bcb-4b1e-803e-588f8820c612}"
 MYSQL_ID="${TF_IMPORT_MYSQL_ID:-86bea7c0-4ccd-4545-b937-08bd36b1527b}"
 ENV_NAME="${TF_IMPORT_ENV_NAME:-production}"
-DOMAIN="${TF_IMPORT_DOMAIN:-convivendocomdiabetes-production.up.railway.app}"
 
 terraform init -input=false
 
@@ -35,7 +34,8 @@ import_one() {
 import_one "railway_project.this" "$PROJECT_ID"
 import_one "railway_service.wordpress" "$WORDPRESS_ID"
 import_one "railway_service.mysql" "$MYSQL_ID"
-import_one "railway_service_domain.wordpress" "${WORDPRESS_ID}:${ENV_NAME}:${DOMAIN}"
+
+# Dominios custom (apex/www) ficam fora do state — ver outputs.tf / Cloudflare.
 
 while IFS=: read -r tf_name env_name; do
   [[ -z "$tf_name" ]] && continue

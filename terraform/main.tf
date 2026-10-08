@@ -51,11 +51,8 @@ resource "railway_service" "wordpress" {
   depends_on = [railway_service.mysql]
 }
 
-resource "railway_service_domain" "wordpress" {
-  subdomain      = var.service_subdomain
-  environment_id = local.env_id
-  service_id     = railway_service.wordpress.id
-}
+# Dominio publico: custom domains no Railway/Cloudflare (apex + www).
+# Nao gerenciar *.up.railway.app aqui — o ID muda/some e quebra o plan.
 
 resource "railway_variable" "wordpress_db_host" {
   name           = "WORDPRESS_DB_HOST"

@@ -32,12 +32,6 @@ variable "mysql_service_name" {
   default = "MySQL"
 }
 
-variable "service_subdomain" {
-  type        = string
-  description = "Subdominio *.up.railway.app"
-  default     = "convivendocomdiabetes-production"
-}
-
 variable "wp_admin_user" {
   type    = string
   default = "admin"

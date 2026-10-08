@@ -194,6 +194,19 @@ jobs:
         if: steps.gate.outputs.skip == 'false' && steps.state.outputs.skip != 'true'
         run: terraform init -input=false
 
+      - name: Drop stale service domain from state
+        id: prune
+        if: steps.gate.outputs.skip == 'false' && steps.state.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          if terraform state show railway_service_domain.wordpress >/dev/null 2>&1; then
+            terraform state rm railway_service_domain.wordpress
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Removido railway_service_domain.wordpress do state (recurso obsoleto)."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Terraform plan
         if: steps.gate.outputs.skip == 'false' && steps.state.outputs.skip != 'true'
         env:
@@ -228,10 +241,12 @@ jobs:
       - name: Save Terraform state to branch
         if: >
           always() &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.run_apply == 'yes' &&
           steps.gate.outputs.skip == 'false' &&
-          steps.state.outputs.skip != 'true'
+          steps.state.outputs.skip != 'true' &&
+          (
+            steps.prune.outputs.changed == 'true' ||
+            (github.event_name == 'workflow_dispatch' && inputs.run_apply == 'yes')
+          )
         working-directory: .
         run: |
           set -euo pipefail
@@ -249,6 +264,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "State sem alteracoes."
           else
-            git commit -m "chore(tfstate): apply Railway infra"
+            git commit -m "chore(tfstate): prune stale Railway domain / apply infra"
             git push origin "HEAD:$TF_STATE_BRANCH"
           fi

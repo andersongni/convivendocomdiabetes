@@ -386,11 +386,15 @@ HTML
 }
 
 /**
- * Links curatoriais por hub de categoria.
+ * Links curatoriais por hub de categoria (guias — não posts da própria grade).
  *
  * @return array<string, string[]>
  */
 function ccd_seo_editorial_hub_slugs() {
+	$receitas_guides = array(
+		'alimentacao-e-diabetes-tipo-2',
+		'jejum-intermitente-e-diabetes-e-permitido-ou-nao',
+	);
 	return array(
 		'diabetes' => array(
 			'diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico',
@@ -405,14 +409,58 @@ function ccd_seo_editorial_hub_slugs() {
 			'jejum-intermitente-e-diabetes-e-permitido-ou-nao',
 			'o-que-e-hba1c-hemoglobina-glicada',
 		),
-		'receitas' => array(
+		'receitas'          => $receitas_guides,
+		'receitas-doces'    => $receitas_guides,
+		'receitas-salgadas' => $receitas_guides,
+		'receitas-veganas'  => $receitas_guides,
+		'leites-vegetais'   => array(
 			'alimentacao-e-diabetes-tipo-2',
-			'jejum-intermitente-e-diabetes-e-permitido-ou-nao',
 		),
 		'diabetes-tipo-1-e-tipo-2' => array(
 			'diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico',
 			'o-que-e-hba1c-hemoglobina-glicada',
 			'hipoglicemia',
 		),
+		'psicologia' => array(
+			'diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico',
+			'a-logica-do-cuidado-no-tratamento-de-diabetes',
+		),
+		'blog' => array(
+			'diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico',
+			'alimentacao-e-diabetes-tipo-2',
+			'hipoglicemia',
+		),
+		'eventos-e-campanhas' => array(
+			'diabetes-tipo-2-o-que-e-e-como-e-feito-diagnostico',
+		),
+		'resenha-de-livros' => array(
+			'alimentacao-e-diabetes-tipo-2',
+			'a-logica-do-cuidado-no-tratamento-de-diabetes',
+		),
 	);
+}
+
+/**
+ * Título editorial da caixa de leitura recomendada (por slug de categoria).
+ *
+ * @param string $cat_slug Slug.
+ * @return string
+ */
+function ccd_seo_editorial_hub_heading( $cat_slug ) {
+	$cat_slug = sanitize_title( (string) $cat_slug );
+	$map      = array(
+		'diabetes'                 => 'Guias para entender a condição',
+		'diabetes-tipo-1-e-tipo-2' => 'Guias para entender a condição',
+		'alimentacao'              => 'Leitura recomendada',
+		'receitas'                 => 'Antes das receitas',
+		'receitas-doces'           => 'Antes das receitas',
+		'receitas-salgadas'        => 'Antes das receitas',
+		'receitas-veganas'         => 'Antes das receitas',
+		'leites-vegetais'          => 'Leitura recomendada',
+		'psicologia'               => 'Leitura recomendada',
+		'blog'                     => 'Leitura recomendada',
+		'eventos-e-campanhas'      => 'Leitura recomendada',
+		'resenha-de-livros'        => 'Leitura recomendada',
+	);
+	return isset( $map[ $cat_slug ] ) ? $map[ $cat_slug ] : 'Leitura recomendada';
 }

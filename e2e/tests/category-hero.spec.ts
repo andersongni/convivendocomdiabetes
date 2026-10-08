@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Regressão: hero de categoria sem listas editoriais no banner.
- * Altura absoluta do .header varia com tema/separator no CI — o contrato
- * forte e "pilares fora do hero".
+ * Regressão: hero de categoria sem listas editoriais no banner,
+ * e sem caixa de hub visual no conteúdo (removida — SEO não depende dela).
  */
 test.describe('Category archive hero', () => {
-  test('/diabetes/ hero sem pilares no banner', async ({ page }) => {
+  test('/diabetes/ hero limpo e sem hub visual', async ({ page }) => {
     const res = await page.goto('/diabetes/', { waitUntil: 'domcontentloaded' });
     expect(res?.status()).toBe(200);
 
@@ -18,26 +17,20 @@ test.describe('Category archive hero', () => {
     await expect(heroTitle).toContainText(/diabetes/i);
 
     await expect(header.locator('nav.ccd-hub-pillars, .ccd-category-intro')).toHaveCount(0);
-    await expect(header.getByText('Pilares para começar')).toHaveCount(0);
-
-    const pillarsInContent = page.locator('#page-content nav.ccd-hub-pillars');
-    const pillarsNav = page.locator('nav.ccd-hub-pillars');
-    expect(await pillarsNav.count()).toBe(await pillarsInContent.count());
-    if ((await pillarsInContent.count()) > 0) {
-      await expect(pillarsInContent.first()).toBeVisible();
-    }
+    await expect(page.locator('nav.ccd-hub-pillars')).toHaveCount(0);
+    await expect(page.getByText('Pilares para começar')).toHaveCount(0);
+    await expect(page.getByText('Guias para entender a condição')).toHaveCount(0);
 
     const inner = page.locator('.header .inner-header-description').first();
     if (await inner.count()) {
       await expect(inner).toBeVisible();
       const innerBox = await inner.boundingBox();
       expect(innerBox).toBeTruthy();
-      // Inflado com lista de pilares >> 240px; titulo sozinho fica abaixo.
       expect(innerBox!.height).toBeLessThan(280);
     }
   });
 
-  test('/receitas/ hero limpo', async ({ page }) => {
+  test('/receitas/ hero limpo e sem hub visual', async ({ page }) => {
     const res = await page.goto('/receitas/', { waitUntil: 'domcontentloaded' });
     if (res?.status() === 404) {
       test.skip();
@@ -46,6 +39,8 @@ test.describe('Category archive hero', () => {
     expect(res?.ok()).toBeTruthy();
     const header = page.locator('.header-wrapper').first();
     await expect(header.locator('nav.ccd-hub-pillars, .ccd-category-intro')).toHaveCount(0);
-    await expect(header.getByText('Pilares para começar')).toHaveCount(0);
+    await expect(page.locator('nav.ccd-hub-pillars')).toHaveCount(0);
+    await expect(page.getByText('Pilares para começar')).toHaveCount(0);
+    await expect(page.getByText('Antes das receitas')).toHaveCount(0);
   });
 });

@@ -61,7 +61,7 @@ Mutation testing (Infection) é **opcional/local** (`composer test:mutation`) �
 
 - Redis com `requirepass` sem `WP_REDIS_PASSWORD` **nao** pode derrubar `/ccdhealth` (boot degrada sem object-cache).
 - Hero de categoria **nao** pode renderizar `.ccd-category-intro` nem a meta/descricao do termo no banner (altura + mensagem indevida). O CI cria a categoria `ci-hub` com marker e falha se o texto aparecer no hero.
-- Pilares (`.ccd-hub-pillars`) **nao** podem ficar dentro de `.post-list` (masonry cobre o nav; texto azul no vão entre cards). PHPUnit (`EditorialHubTest`) + SEO smoke em `/diabetes/` e `/receitas/`.
+- Hub visual de categoria (`.ccd-hub-pillars` / “Pilares” / “Antes das receitas”) **nao** deve aparecer no HTML. PHPUnit (`EditorialHubTest`) + SEO smoke em `/diabetes/` e `/receitas/`.
 - `/diabetes/` **nao** redireciona para post com `_wp_old_slug=diabetes` (seed + SEO smoke + E2E).
 - `/category/diabetes/` → **301** limpo para `/diabetes/` (Yoast stripcategorybase).
 - Metas uteis em blog/contato/clipping/hipoglicemia; pilares editoriais; schema Organization (E-E-A-T).

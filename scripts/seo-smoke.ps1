@@ -82,6 +82,8 @@ Check "categoria hero limpo (titulo)" (
   $catHeroChunk -notmatch '<nav[^>]*ccd-hub-pillars' -and
   $catHeroChunk -notmatch 'class=["''][^"'']*ccd-category-intro' -and
   $catHeroChunk -notmatch 'Pilares para come' -and
+  $catHeroChunk -notmatch 'Leitura recomendada' -and
+  $catHeroChunk -notmatch 'Guias para entender' -and
   $catHeroChunk -notmatch 'Conte[uú]dos sobre diabetes tipo'
 ) "banner so com titulo"
 
@@ -168,23 +170,20 @@ if ($hubHtml -match '(?s)<div[^>]*header-wrapper[\s\S]*?<div[^>]*header-separato
 Check "categoria hero limpo" (
   $heroChunk -notmatch '<nav[^>]*ccd-hub-pillars' -and
   $heroChunk -notmatch 'class=["''][^"'']*ccd-category-intro' -and
-  $heroChunk -notmatch 'Pilares para come'
+  $heroChunk -notmatch 'Pilares para come' -and
+  $heroChunk -notmatch 'Leitura recomendada' -and
+  $heroChunk -notmatch 'Guias para entender'
 ) "sem pilares no banner"
 Check "css hero esconde pilares" (
   $hubHtml -match 'header-wrapper \.ccd-hub-pillars' -or
   $hubHtml -match '\.header-wrapper \.ccd-hub-pillars'
 ) "regra no HTML"
-$pillarsInContent = $hubHtml -match '(?s)id=["'']page-content["''][\s\S]*?<nav[^>]*ccd-hub-pillars'
-Check "hub /diabetes/ pilares em page-content" (
-  ($hubHtml -match '<nav[^>]*ccd-hub-pillars') -and $pillarsInContent -and
-  $heroChunk -notmatch '<nav[^>]*ccd-hub-pillars'
-) "nav so no conteudo"
-# Masonry: nav depois de .post-list = texto dos pilares vazando entre cards.
-$contentChunk = if ($hubHtml -match '(?s)id=["'']page-content["'']([\s\S]*?)(?:</main>|$)') { $Matches[1] } else { $hubHtml }
-$plIdx = $contentChunk.IndexOf('post-list')
-$navMatch = [regex]::Match($contentChunk, '<nav[^>]*ccd-hub-pillars', 'IgnoreCase')
-$pillarsBeforePostList = $navMatch.Success -and ($plIdx -lt 0 -or $navMatch.Index -lt $plIdx)
-Check "hub pilares fora do post-list" $pillarsBeforePostList "antes de .post-list"
+Check "hub visual ausente" (
+  $hubHtml -notmatch '<nav[^>]*ccd-hub-pillars' -and
+  $hubHtml -notmatch 'Pilares para come' -and
+  $hubHtml -notmatch 'Guias para entender a condi' -and
+  $hubHtml -notmatch 'Antes das receitas'
+) "sem caixa editorial na categoria"
 
 Write-Host ""
 if ($fail -gt 0) {

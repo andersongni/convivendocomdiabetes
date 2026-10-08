@@ -1,14 +1,14 @@
 <?php
 /**
  * Plugin Name: CCD SEO Editorial
- * Description: Atualiza pilares YMYL, cria posts novos e interlinking em arquivos de categoria (fora do hero).
+ * Description: Hub editorial YMYL (intro + leitura recomendada), posts novos e interlinking em categorias (fora do hero).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CCD_SEO_EDITORIAL_VERSION = '3';
+const CCD_SEO_EDITORIAL_VERSION = '5';
 
 require_once __DIR__ . '/seo-editorial/content.php';
 
@@ -178,12 +178,15 @@ function ccd_seo_editorial_hero_forbidden_markers() {
 		'ccd-hub-pillars',
 		'ccd-category-intro',
 		'Pilares para começar',
+		'Leitura recomendada',
+		'Antes das receitas',
+		'Guias para entender a condição',
+		'ccd-hub-lead',
 	);
 }
 
 /**
- * Posts-pilar para uma categoria: lista curada (se houver) + recentes da própria categoria.
- * Serve qualquer categoria nova sem configuração.
+ * Links curatoriais do hub (só guias configurados — nunca posts da própria grade).
  *
  * @param WP_Term $term Categoria.
  * @return array<int, array{url:string,title:string}>
@@ -194,58 +197,32 @@ function ccd_seo_editorial_category_pillar_items( WP_Term $term ) {
 	$labels  = ccd_seo_editorial_link_labels();
 	$curated = ccd_seo_editorial_hub_slugs();
 
-	if ( isset( $curated[ $term->slug ] ) ) {
-		foreach ( $curated[ $term->slug ] as $slug ) {
-			$found = get_posts(
-				array(
-					'name'           => $slug,
-					'post_type'      => 'post',
-					'post_status'    => 'publish',
-					'posts_per_page' => 1,
-				)
-			);
-			if ( empty( $found[0] ) ) {
-				continue;
-			}
-			$post = $found[0];
-			$id   = (int) $post->ID;
-			if ( isset( $seen[ $id ] ) ) {
-				continue;
-			}
-			$seen[ $id ] = true;
-			$title         = isset( $labels[ $slug ] ) ? $labels[ $slug ] : get_the_title( $post );
-			$items[]       = array(
-				'url'   => get_permalink( $post ),
-				'title' => $title,
-			);
-			if ( count( $items ) >= 6 ) {
-				return $items;
-			}
-		}
+	if ( ! isset( $curated[ $term->slug ] ) ) {
+		return $items;
 	}
 
-	$more = get_posts(
-		array(
-			'post_type'           => 'post',
-			'post_status'         => 'publish',
-			'posts_per_page'      => 6,
-			'cat'                 => (int) $term->term_id,
-			'post__not_in'        => array_keys( $seen ),
-			'orderby'             => 'modified',
-			'order'               => 'DESC',
-			'ignore_sticky_posts' => true,
-			'no_found_rows'       => true,
-		)
-	);
-	foreach ( $more as $post ) {
-		$id = (int) $post->ID;
+	foreach ( $curated[ $term->slug ] as $slug ) {
+		$found = get_posts(
+			array(
+				'name'           => $slug,
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'posts_per_page' => 1,
+			)
+		);
+		if ( empty( $found[0] ) ) {
+			continue;
+		}
+		$post = $found[0];
+		$id   = (int) $post->ID;
 		if ( isset( $seen[ $id ] ) ) {
 			continue;
 		}
 		$seen[ $id ] = true;
-		$items[]     = array(
+		$title         = isset( $labels[ $slug ] ) ? $labels[ $slug ] : get_the_title( $post );
+		$items[]       = array(
 			'url'   => get_permalink( $post ),
-			'title' => get_the_title( $post ),
+			'title' => $title,
 		);
 		if ( count( $items ) >= 6 ) {
 			break;
@@ -256,31 +233,34 @@ function ccd_seo_editorial_category_pillar_items( WP_Term $term ) {
 }
 
 /**
- * Markup dos pilares (somente para #page-content).
+ * Lead editorial da categoria (mapa SEO; fallback na description do termo).
  *
- * @param string $cat_slug Slug da categoria.
+ * @param WP_Term $term Categoria.
  * @return string
  */
+function ccd_seo_editorial_hub_lead( WP_Term $term ) {
+	if ( function_exists( 'ccd_seo_category_descriptions' ) ) {
+		$map = ccd_seo_category_descriptions();
+		if ( isset( $map[ $term->slug ] ) && trim( (string) $map[ $term->slug ] ) !== '' ) {
+			return trim( (string) $map[ $term->slug ] );
+		}
+	}
+	$desc = isset( $term->description ) ? trim( wp_strip_all_tags( (string) $term->description ) ) : '';
+	return $desc;
+}
+
+/**
+ * Markup do hub de categoria — desativado.
+ *
+ * SEO de arquivo não depende deste bloco (title/meta, URL limpa e posts bastam).
+ * Helpers de lead/itens permanecem para testes de contrato; nada é impresso no front.
+ *
+ * @param string $cat_slug Slug da categoria.
+ * @return string Sempre vazio.
+ */
 function ccd_seo_editorial_hub_pillars_html( $cat_slug ) {
-	$term = get_term_by( 'slug', sanitize_title( (string) $cat_slug ), 'category' );
-	if ( ! ( $term instanceof WP_Term ) ) {
-		return '';
-	}
-	$items = ccd_seo_editorial_category_pillar_items( $term );
-	if ( ! $items ) {
-		return '';
-	}
-	$html  = '<nav class="ccd-hub-pillars" aria-label="Pilares recomendados">';
-	$html .= '<p><strong>Pilares para começar:</strong></p><ul>';
-	foreach ( $items as $item ) {
-		$html .= sprintf(
-			'<li><a href="%s">%s</a></li>',
-			esc_url( (string) $item['url'] ),
-			esc_html( (string) $item['title'] )
-		);
-	}
-	$html .= '</ul></nav>';
-	return $html;
+	unset( $cat_slug );
+	return '';
 }
 
 /**
@@ -373,32 +353,12 @@ function ccd_seo_editorial_block_header_output() {
 add_action( 'mesmerize_after_inner_page_header_content', 'ccd_seo_editorial_block_header_output', 1 );
 
 /**
- * Pilares no arquivo de categoria — dentro de #page-content, fora de .post-list.
- *
- * Nunca usar loop_start: o tema abre .post-list antes do loop e o masonry
- * (position:absolute nos .post-list-item) cobre o nav, vazando texto no vão.
- * Chamar no template imediatamente antes de .post-list (ver empowerwp/index.php).
+ * Impressão do hub de categoria — no-op (bloco visual removido).
  *
  * @return void
  */
 function ccd_seo_editorial_print_hub_pillars() {
-	if ( is_admin() || ! is_category() ) {
-		return;
-	}
-	static $done = false;
-	if ( $done ) {
-		return;
-	}
-	$term = get_queried_object();
-	if ( ! ( $term instanceof WP_Term ) ) {
-		return;
-	}
-	$html = ccd_seo_editorial_hub_pillars_html( $term->slug );
-	if ( $html === '' ) {
-		return;
-	}
-	$done = true;
-	echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	// Intencionalmente vazio.
 }
 
 /**
@@ -470,6 +430,16 @@ add_action(
 	border: 1px solid #d7e3ea;
 	border-radius: 8px;
 	box-sizing: border-box;
+}
+#page-content .ccd-hub-pillars .ccd-hub-lead {
+	margin: 0 0 0.65rem;
+	line-height: 1.55;
+	color: #2b3a42;
+	font-weight: 400;
+}
+#page-content .ccd-hub-pillars .ccd-hub-heading {
+	margin: 0;
+	font-size: 1rem;
 }
 #page-content .ccd-hub-pillars ul,
 #page-content .ccd-editorial-links {

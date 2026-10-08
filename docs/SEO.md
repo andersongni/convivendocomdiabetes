@@ -12,7 +12,7 @@ Produção canônica: `https://convivendocomdiabetes.com`
 | Meta/focus/alts no acervo + posts novos | `ccd-seo-content.php` |
 | Meta da home + páginas-chave + posts top + titles/descs de categorias + breadcrumbs + related | `ccd-seo-boost.php` |
 | Categorias em `/slug/` sem 301 para posts | `ccd-category-urls.php` |
-| Hub editorial YMYL (intro da categoria + leitura recomendada/guias curatoriais, só em `#page-content`, nunca no hero; sem repetir a grade) | `ccd-seo-editorial.php` + CSS em `ccd-a11y.php` |
+| Posts YMYL / interlinking em artigos; hub visual de categoria **desativado** (SEO de arquivo não depende dele) | `ccd-seo-editorial.php` + CSS defensivo em `ccd-a11y.php` |
 | E-E-A-T (disclaimer, autor, datas, Organization/Person) | `ccd-eeat.php` |
 | Lazy-load scoped / prev-next / paginação crawlável | `ccd-frontend-fixes`, `ccd-a11y`, `ccd-blog-infinite-scroll` |
 | Smoke de medição (local/URL) | `scripts/seo-smoke.ps1` |

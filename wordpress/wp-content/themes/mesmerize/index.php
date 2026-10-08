@@ -4,12 +4,6 @@
         <div class="gridContainer <?php mesmerize_page_content_wrapper_class(); ?>">
             <div class="row">
                 <div class="col-xs-12 <?php mesmerize_posts_wrapper_class(); ?>">
-                    <?php
-                    // Fora de .post-list: masonry posiciona .post-list-item em absolute.
-                    if ( function_exists( 'ccd_seo_editorial_print_hub_pillars' ) ) {
-                        ccd_seo_editorial_print_hub_pillars();
-                    }
-                    ?>
                     <div class="post-list row" <?php mesmerize_print_blog_list_attrs(); ?>>
                         <?php
                         if (have_posts()):

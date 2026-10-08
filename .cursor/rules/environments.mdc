@@ -12,6 +12,16 @@ alwaysApply: true
 3. **Estrutura de banco**: mudanças de schema vão em migrations versionadas em `db/` (não editar produção “na mão”; não depender de dump completo para DDL).
 4. **Produção pública**: `https://convivendocomdiabetes.com` (serviço Railway). `www.convivendocomdiabetes.com` redireciona (301) para o apex.
 
+## Ordem obrigatória (localhost antes de produção)
+
+Para **qualquer** mudança de código, UX, SEO, mu-plugin, tema ou smoke:
+
+1. Aplicar / sincronizar no **localhost** (`docker compose`, sync mu-plugins se preciso: `.\scripts\sync-local-wp-content.ps1`).
+2. Verificar em `http://localhost:8080` (página afetada + regressão mínima).
+3. Só então commit/`push`/`PR` para promover à produção.
+
+Não validar só em produção. Não pedir commit/push de alteração ainda não refletida e checada no localhost, salvo pedido explícito do usuário para pular essa etapa.
+
 ## Alvos válidos
 
 | Ambiente | URL / acesso | Uso |

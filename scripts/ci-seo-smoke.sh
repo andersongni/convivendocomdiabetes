@@ -113,7 +113,7 @@ if not m:
 sys.stdout.write(m.group(0) if m else "")
 PY
 )"
-if printf '%s\n' "${hero_chunk}" | grep -qiE '<nav[^>]*ccd-hub-pillars|class=["'\''][^"'\'']*ccd-category-intro|Pilares para come[cç]ar'; then
+if printf '%s\n' "${hero_chunk}" | grep -qiE '<nav[^>]*ccd-hub-pillars|class=["'\''][^"'\'']*ccd-category-intro|Pilares para come[cç]ar|Leitura recomendada|Antes das receitas|Guias para entender'; then
   bad "categoria hero limpo" "pilares/intro dentro do hero"
 elif printf '%s\n' "${hero_chunk}" | grep -qF 'Conteúdos sobre diabetes tipo'; then
   bad "categoria hero limpo" "meta longa no banner"
@@ -186,53 +186,22 @@ if grep -qE 'header-wrapper \.ccd-hub-pillars|\.header-wrapper \.ccd-hub-pillars
 else
   bad "css hero esconde pilares" "regra ausente"
 fi
-# <nav class="ccd-hub-pillars"> so em #page-content.
-if grep -qE '<nav[^>]*ccd-hub-pillars' "${TMP}/diabetes.html"; then
-  if awk '/id=["'\''"]page-content["'\''"]/,/<\/main>/' "${TMP}/diabetes.html" | grep -qE '<nav[^>]*ccd-hub-pillars'; then
-    ok "hub pilares em page-content"
-  else
-    bad "hub pilares em page-content" "nav fora de #page-content"
-  fi
-  if printf '%s\n' "${hero_chunk}" | grep -qiE '<nav[^>]*ccd-hub-pillars|Pilares para come[cç]ar'; then
-    bad "hub pilares fora do markup do hero" "ainda no HTML do banner"
-  else
-    ok "hub pilares fora do markup do hero"
-  fi
-else
-  bad "hub pilares" "ausentes (esperado em /diabetes/)"
-fi
-
-# Masonry: pilares DENTRO de .post-list ficam sob os cards (texto azul no vão).
+# Hub visual de categoria desativado (SEO nao depende deste bloco).
 for hub_page in diabetes receitas; do
   hub_file="${TMP}/${hub_page}.html"
   if [ ! -s "${hub_file}" ]; then
-    bad "hub pilares fora do post-list (${hub_page})" "HTML ausente"
+    bad "hub visual ausente (${hub_page})" "HTML ausente"
     continue
   fi
-  nested="$(
-    python3 - "${hub_file}" <<'PY'
-import re, sys
-html = open(sys.argv[1], encoding="utf-8", errors="ignore").read()
-m = re.search(r'id=["\']page-content["\']([\s\S]*)', html, re.I)
-content = m.group(1) if m else html
-end = re.search(r'</main>', content, re.I)
-if end:
-    content = content[: end.start()]
-pl = re.search(r'<div[^>]*\bpost-list\b[^>]*>', content, re.I)
-nav = re.search(r'<nav[^>]*\bccd-hub-pillars\b[^>]*>', content, re.I)
-if nav and pl and nav.start() > pl.start():
-    print("nested")
-elif nav:
-    print("ok")
-else:
-    print("missing")
-PY
-  )"
-  case "${nested}" in
-    ok) ok "hub pilares fora do post-list (${hub_page})" ;;
-    nested) bad "hub pilares fora do post-list (${hub_page})" "nav dentro de .post-list (masonry)" ;;
-    *) bad "hub pilares fora do post-list (${hub_page})" "nav ausente" ;;
-  esac
+  if grep -qE '<nav[^>]*ccd-hub-pillars' "${hub_file}"; then
+    bad "hub visual ausente (${hub_page})" "nav.ccd-hub-pillars ainda no HTML"
+  elif grep -qF 'Pilares para começar' "${hub_file}" \
+    || grep -qF 'Antes das receitas' "${hub_file}" \
+    || grep -qF 'Guias para entender a condição' "${hub_file}"; then
+    bad "hub visual ausente (${hub_page})" "texto do hub ainda no HTML"
+  else
+    ok "hub visual ausente (${hub_page})"
+  fi
 done
 
 if [ "${fail}" -gt 0 ]; then

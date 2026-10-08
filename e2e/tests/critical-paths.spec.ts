@@ -35,4 +35,28 @@ test.describe('CCD critical paths', () => {
       expect(res?.ok()).toBeTruthy();
     }
   });
+
+  test('/contato/ WPForms com jQuery sincrono', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+    const res = await page.goto('/contato/', { waitUntil: 'domcontentloaded' });
+    expect(res?.status()).toBe(200);
+
+    // jQuery nao pode estar defer nesta pagina (WPForms e sincrono).
+    const jq = await page.evaluate(() => {
+      const el = document.getElementById('jquery-core-js') as HTMLScriptElement | null;
+      return {
+        defer: !!el?.defer,
+        hasJq: typeof (window as unknown as { jQuery?: unknown }).jQuery,
+        hasWpforms: typeof (window as unknown as { wpforms?: unknown }).wpforms,
+      };
+    });
+    expect(jq.defer).toBe(false);
+    expect(jq.hasJq).toBe('function');
+
+    await expect(page.locator('#wpforms-2765, .wpforms-form, .ccd-contact form').first()).toBeVisible();
+    await expect(page.getByText(/WPForms detectou um problema/i)).toHaveCount(0);
+    expect(pageErrors.filter((e) => /jQuery is not defined/i.test(e))).toEqual([]);
+  });
 });

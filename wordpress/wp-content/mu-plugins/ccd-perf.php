@@ -123,6 +123,43 @@ function ccd_perf_async_style_tag( $html, $handle ) {
 add_filter( 'style_loader_tag', 'ccd_perf_async_style_tag', 20, 2 );
 
 /**
+ * Paginas/plugins com scripts jQuery nao-deferred (WPForms etc.).
+ * Se deferirmos jquery-core e o plugin rodar sincrono, quebra o form
+ * (aviso admin: "WPForms detectou um problema com o JavaScript").
+ *
+ * @return bool
+ */
+function ccd_perf_needs_sync_jquery() {
+	if ( function_exists( 'is_page' ) && is_page( array( 'contato', 'fale-comigo', 'contact' ) ) ) {
+		return true;
+	}
+	if ( ! function_exists( 'wp_script_is' ) ) {
+		return false;
+	}
+	$handles = array(
+		'wpforms',
+		'wpforms-validation',
+		'wpforms-mailcheck',
+		'wpforms-punycode',
+		'wpforms-generic',
+		'wpforms-admin',
+	);
+	foreach ( $handles as $handle ) {
+		if ( wp_script_is( $handle, 'enqueued' ) || wp_script_is( $handle, 'to_do' ) ) {
+			return true;
+		}
+	}
+	$post = get_post();
+	if ( $post instanceof WP_Post ) {
+		$content = (string) $post->post_content;
+		if ( has_shortcode( $content, 'wpforms' ) || str_contains( $content, '[wpforms' ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Defer jQuery + masonry/imagesloaded (tema ja defere theme.bundle).
  *
  * @param string $tag    Script tag.
@@ -134,8 +171,13 @@ function ccd_perf_defer_script_tag( $tag, $handle, $src ) {
 	if ( is_admin() || ! is_string( $tag ) ) {
 		return $tag;
 	}
-	$defer = array( 'jquery', 'jquery-core', 'jquery-migrate', 'masonry', 'imagesloaded' );
+	$jquery_handles = array( 'jquery', 'jquery-core', 'jquery-migrate' );
+	$defer          = array_merge( $jquery_handles, array( 'masonry', 'imagesloaded' ) );
 	if ( ! in_array( $handle, $defer, true ) ) {
+		return $tag;
+	}
+	// Mantem jQuery sincrono quando WPForms (ou pagina de contato) precisa dele agora.
+	if ( in_array( $handle, $jquery_handles, true ) && ccd_perf_needs_sync_jquery() ) {
 		return $tag;
 	}
 	if ( stripos( $tag, ' defer' ) !== false || stripos( $tag, ' async' ) !== false ) {

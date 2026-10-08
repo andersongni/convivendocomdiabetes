@@ -101,28 +101,59 @@ add_action(
  * XML mais limpo para o Google Search Console ("Não foi possível ler o sitemap"):
  * remove xml-stylesheet (só cosmética no browser) e reforça Content-Type.
  *
- * O Yoast cacheia o XML em transient — sem invalidar, o filtro de stylesheet
- * não aparece no body até o cache expirar (1 dia).
+ * O índice pode ter o PI embutido em transient antigo; o Yoast emite o sitemap
+ * em pre_get_posts — por isso o strip roda em buffer antes da saída.
  */
 add_filter(
 	'wpseo_stylesheet_url',
 	static function () {
 		return '';
+	},
+	999
+);
+
+add_action(
+	'wpseo_sitemap_stylesheet_cache_1',
+	static function ( $sitemaps ) {
+		if ( is_object( $sitemaps ) && method_exists( $sitemaps, 'set_stylesheet' ) ) {
+			$sitemaps->set_stylesheet( '' );
+		}
 	}
+);
+
+add_action(
+	'pre_get_posts',
+	static function ( $query ) {
+		if ( ! ( $query instanceof WP_Query ) || ! $query->is_main_query() ) {
+			return;
+		}
+		$sitemap = get_query_var( 'sitemap' );
+		if ( $sitemap === '' || $sitemap === false || $sitemap === null ) {
+			return;
+		}
+		ob_start(
+			static function ( $html ) {
+				return preg_replace( '/<\?xml-stylesheet\b[^?]*\?>\s*/i', '', (string) $html );
+			}
+		);
+	},
+	0
 );
 
 add_action(
 	'init',
 	static function () {
-		if ( get_option( 'ccd_sitemap_gsc_clean' ) === '1' ) {
+		if ( get_option( 'ccd_sitemap_gsc_clean' ) === '2' ) {
 			return;
 		}
-		if ( class_exists( 'WPSEO_Sitemaps_Cache_Validator', false ) ) {
-			WPSEO_Sitemaps_Cache_Validator::invalidate_storage();
-		} elseif ( class_exists( 'WPSEO_Sitemaps_Cache', false ) ) {
-			WPSEO_Sitemaps_Cache::clear();
+		if ( ! class_exists( 'WPSEO_Sitemaps_Cache_Validator', false ) ) {
+			return;
 		}
-		update_option( 'ccd_sitemap_gsc_clean', '1', false );
+		WPSEO_Sitemaps_Cache_Validator::invalidate_storage();
+		if ( class_exists( 'WPSEO_Sitemaps_Cache', false ) ) {
+			WPSEO_Sitemaps_Cache::clear( array( '1' ) );
+		}
+		update_option( 'ccd_sitemap_gsc_clean', '2', false );
 	},
 	99
 );

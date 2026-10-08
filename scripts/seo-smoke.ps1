@@ -179,6 +179,12 @@ Check "hub /diabetes/ pilares em page-content" (
   ($hubHtml -match '<nav[^>]*ccd-hub-pillars') -and $pillarsInContent -and
   $heroChunk -notmatch '<nav[^>]*ccd-hub-pillars'
 ) "nav so no conteudo"
+# Masonry: nav depois de .post-list = texto dos pilares vazando entre cards.
+$contentChunk = if ($hubHtml -match '(?s)id=["'']page-content["'']([\s\S]*?)(?:</main>|$)') { $Matches[1] } else { $hubHtml }
+$plIdx = $contentChunk.IndexOf('post-list')
+$navMatch = [regex]::Match($contentChunk, '<nav[^>]*ccd-hub-pillars', 'IgnoreCase')
+$pillarsBeforePostList = $navMatch.Success -and ($plIdx -lt 0 -or $navMatch.Index -lt $plIdx)
+Check "hub pilares fora do post-list" $pillarsBeforePostList "antes de .post-list"
 
 Write-Host ""
 if ($fail -gt 0) {

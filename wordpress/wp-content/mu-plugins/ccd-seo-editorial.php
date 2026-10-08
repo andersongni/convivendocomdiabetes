@@ -373,16 +373,16 @@ function ccd_seo_editorial_block_header_output() {
 add_action( 'mesmerize_after_inner_page_header_content', 'ccd_seo_editorial_block_header_output', 1 );
 
 /**
- * Pilares no início do loop — dentro de #page-content (nunca no .header).
+ * Pilares no arquivo de categoria — dentro de #page-content, fora de .post-list.
  *
- * @param WP_Query $query Query.
+ * Nunca usar loop_start: o tema abre .post-list antes do loop e o masonry
+ * (position:absolute nos .post-list-item) cobre o nav, vazando texto no vão.
+ * Chamar no template imediatamente antes de .post-list (ver empowerwp/index.php).
+ *
  * @return void
  */
-function ccd_seo_editorial_print_hub_pillars_in_loop( $query ) {
-	if ( is_admin() || ! ( $query instanceof WP_Query ) || ! $query->is_main_query() ) {
-		return;
-	}
-	if ( ! is_category() ) {
+function ccd_seo_editorial_print_hub_pillars() {
+	if ( is_admin() || ! is_category() ) {
 		return;
 	}
 	static $done = false;
@@ -400,7 +400,35 @@ function ccd_seo_editorial_print_hub_pillars_in_loop( $query ) {
 	$done = true;
 	echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 }
-add_action( 'loop_start', 'ccd_seo_editorial_print_hub_pillars_in_loop', 5 );
+
+/**
+ * Detecta markup inválido: .ccd-hub-pillars aninhado após a abertura de .post-list.
+ * Usado em PHPUnit e smoke CI (masonry cobria os links no vão entre cards).
+ *
+ * @param string $html HTML da página (ou fragmento #page-content).
+ * @return bool true se o nesting inválido estiver presente.
+ */
+function ccd_seo_editorial_hub_pillars_nested_in_post_list( $html ) {
+	$html = (string) $html;
+	if ( $html === '' || stripos( $html, 'ccd-hub-pillars' ) === false ) {
+		return false;
+	}
+	if ( ! preg_match( '/id=["\']page-content["\']([\s\S]*)/i', $html, $m ) ) {
+		$content = $html;
+	} else {
+		$content = $m[1];
+		if ( preg_match( '/<\/main>/i', $content, $end, PREG_OFFSET_CAPTURE ) ) {
+			$content = substr( $content, 0, (int) $end[0][1] );
+		}
+	}
+	if ( ! preg_match( '/<div[^>]*\bpost-list\b[^>]*>/i', $content, $pl, PREG_OFFSET_CAPTURE ) ) {
+		return false;
+	}
+	if ( ! preg_match( '/<nav[^>]*\bccd-hub-pillars\b[^>]*>/i', $content, $nav, PREG_OFFSET_CAPTURE ) ) {
+		return false;
+	}
+	return (int) $nav[0][1] > (int) $pl[0][1];
+}
 
 add_action(
 	'wp_enqueue_scripts',

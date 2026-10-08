@@ -202,6 +202,39 @@ else
   bad "hub pilares" "ausentes (esperado em /diabetes/)"
 fi
 
+# Masonry: pilares DENTRO de .post-list ficam sob os cards (texto azul no vão).
+for hub_page in diabetes receitas; do
+  hub_file="${TMP}/${hub_page}.html"
+  if [ ! -s "${hub_file}" ]; then
+    bad "hub pilares fora do post-list (${hub_page})" "HTML ausente"
+    continue
+  fi
+  nested="$(
+    python3 - "${hub_file}" <<'PY'
+import re, sys
+html = open(sys.argv[1], encoding="utf-8", errors="ignore").read()
+m = re.search(r'id=["\']page-content["\']([\s\S]*)', html, re.I)
+content = m.group(1) if m else html
+end = re.search(r'</main>', content, re.I)
+if end:
+    content = content[: end.start()]
+pl = re.search(r'<div[^>]*\bpost-list\b[^>]*>', content, re.I)
+nav = re.search(r'<nav[^>]*\bccd-hub-pillars\b[^>]*>', content, re.I)
+if nav and pl and nav.start() > pl.start():
+    print("nested")
+elif nav:
+    print("ok")
+else:
+    print("missing")
+PY
+  )"
+  case "${nested}" in
+    ok) ok "hub pilares fora do post-list (${hub_page})" ;;
+    nested) bad "hub pilares fora do post-list (${hub_page})" "nav dentro de .post-list (masonry)" ;;
+    *) bad "hub pilares fora do post-list (${hub_page})" "nav ausente" ;;
+  esac
+done
+
 if [ "${fail}" -gt 0 ]; then
   echo "[ci-seo] Falhou: ${fail} check(s)"
   exit 1

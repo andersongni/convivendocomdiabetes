@@ -74,6 +74,10 @@ add_action(
 				if (stripos($html, '</html>') === false) {
 					return $html;
 				}
+				// Nunca gravar HTML de sessão que vê posts private/draft (badge "Privado:" / "Protegido:").
+				if (preg_match('/\b(?:Privado|Protegido|Private|Protected):\s/u', $html)) {
+					return $html;
+				}
 				$lib = WP_CONTENT_DIR . '/mu-plugins/ccd-env-urls-lib.php';
 				if (is_readable($lib)) {
 					require_once $lib;

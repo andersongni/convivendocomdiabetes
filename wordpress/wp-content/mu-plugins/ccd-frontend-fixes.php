@@ -81,12 +81,16 @@ add_filter(
 
 /**
  * HTML: browser revalida (max-age=0); CDN/Cloudflare pode usar s-maxage.
- * (Antes: no-cache puro — soft-nav + ExpiresDefault longos quebravam o menu.)
+ * Logado: nunca public/s-maxage — senão a borda cacheia loop com posts private.
  */
 add_action(
 	'send_headers',
 	static function () {
 		if ( is_admin() || headers_sent() ) {
+			return;
+		}
+		if ( is_user_logged_in() ) {
+			header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0', true );
 			return;
 		}
 		$cc = defined( 'CCD_PERF_HTML_CACHE' )

@@ -63,6 +63,12 @@ if ($html === false) {
 	return;
 }
 
+// Não servir HTML gravado com visão de usuário logado (posts private/draft).
+if (preg_match('/\b(?:Privado|Protegido|Private|Protected):\s/u', $html)) {
+	@unlink($file);
+	return;
+}
+
 $lib = WP_CONTENT_DIR . '/mu-plugins/ccd-env-urls-lib.php';
 if (is_readable($lib)) {
 	require_once $lib;

@@ -245,16 +245,16 @@ if [ -z "${cat_html}" ] || [ ! -s /tmp/ci-cat-hero.html ]; then
 fi
 echo "[ci] categoria hero via ${cat_url}"
 
-if grep -q 'ccd-category-intro' /tmp/ci-cat-hero.html; then
-  echo "[ci] FAIL: hero de categoria renderizou .ccd-category-intro (mensagem indevida)"
-  grep -n 'ccd-category-intro' /tmp/ci-cat-hero.html | head -n 5 || true
-  exit 1
-fi
-
-# Hero HTML real (evita falso positivo de "header-wrapper" no <style> + SIGPIPE do pipefail).
+# Hero HTML real (evita falso positivo de seletores no <style> + SIGPIPE do pipefail).
 hero_chunk="$(perl -0777 -ne 'print $1 if /(<div[^>]*header-wrapper[\s\S]*?)<div[^>]*header-separator/i' /tmp/ci-cat-hero.html || true)"
 if [ -z "${hero_chunk}" ]; then
   echo "[ci] FAIL: markup do hero (header-wrapper) ausente"
+  exit 1
+fi
+# Markup com a classe (nao o seletor CSS .ccd-category-intro no <style>).
+if grep -qiE '<[^>]+class="[^"]*ccd-category-intro' <<< "${hero_chunk}"; then
+  echo "[ci] FAIL: hero de categoria renderizou .ccd-category-intro (mensagem indevida)"
+  grep -niE '<[^>]+class="[^"]*ccd-category-intro' <<< "${hero_chunk}" | head -n 5 || true
   exit 1
 fi
 if grep -qF "${CI_CAT_MARKER}" <<< "${hero_chunk}"; then

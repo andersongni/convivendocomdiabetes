@@ -44,6 +44,14 @@ final class PageCacheContractTest extends TestCase {
 		$this->assertStringNotContainsString('private', $cc);
 	}
 
+	public function testCacheControlUsesPerfConstantWhenDefined(): void {
+		if ( ! defined( 'CCD_PERF_HTML_CACHE' ) ) {
+			define( 'CCD_PERF_HTML_CACHE', 'public, max-age=0, s-maxage=99, must-revalidate' );
+		}
+		$cc = ccd_html_cache_control_value( false, false );
+		$this->assertSame( (string) CCD_PERF_HTML_CACHE, $cc );
+	}
+
 	public function testCacheControlLoggedInIsPrivateNoStore(): void {
 		$cc = ccd_html_cache_control_value(false, true);
 		$this->assertIsString($cc);

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Coverage de TODOS os mu-plugins (diagnostico). Padrao do dia a dia: phpunit.xml.dist (nucleo). -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="tests/bootstrap.php"
@@ -9,14 +10,12 @@
       <directory>tests/Unit</directory>
     </testsuite>
   </testsuites>
-  <!--
-    Coverage do NUCLEO (classes em ccd-core/). Glue procedural nos mu-plugins
-    continua testado pelos Unit/smokes, mas nao entra no % (PCOV+file include
-    fica zerado). Ampliar ccd-core ao extrair mais helpers puros.
-  -->
   <source>
     <include>
-      <directory>wordpress/wp-content/mu-plugins/ccd-core</directory>
+      <directory>wordpress/wp-content/mu-plugins</directory>
     </include>
+    <exclude>
+      <directory>wordpress/wp-content/mu-plugins/assets</directory>
+    </exclude>
   </source>
 </phpunit>

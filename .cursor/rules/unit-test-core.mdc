@@ -1,0 +1,26 @@
+---
+description: Contratos PHPUnit no nucleo dos mu-plugins (libs/helpers)
+globs: wordpress/wp-content/mu-plugins/ccd-core/**/*.php,wordpress/wp-content/mu-plugins/**/*-lib.php,wordpress/wp-content/mu-plugins/ccd-migration-option.php,tests/Unit/**/*.php
+alwaysApply: false
+---
+
+# Unit tests — núcleo CCD
+
+**mu-plugin** = must-use plugin (`wp-content/mu-plugins/`), carregado sempre pelo WordPress.
+
+## Ao mudar código do núcleo
+
+Arquivos medidos em `phpunit.xml.dist` (coverage “core”) e helpers `*-lib.php`:
+
+- Incluir ou atualizar teste em `tests/Unit/` no **mesmo PR**
+- Preferir funções puras / contratos (como `PageCacheContractTest`, `SeoMigrationContractTest`)
+- Não exigir % global de todos os mu-plugins; glue WP fica nos smokes (`scripts/ci-*-smoke.sh`) / E2E
+
+## Comandos
+
+```bash
+composer test
+composer test:coverage          # nucleo (phpunit.xml.dist)
+composer test:coverage:full     # todos mu-plugins (diagnostico)
+composer test:mutation          # Infection so em ccd-page-cache-lib (opcional)
+```

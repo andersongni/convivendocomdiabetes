@@ -94,6 +94,7 @@ e2e/blob-report/
 # PHPUnit / Composer (dev)
 /vendor/
 .phpunit.cache/
+.infection.cache/
 coverage/
 
 # IDE / OS

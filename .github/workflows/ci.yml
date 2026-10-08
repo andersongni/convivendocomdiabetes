@@ -50,21 +50,32 @@ jobs:
           coverage: pcov
           tools: composer:v2
 
-      - name: Composer install + PHPUnit (com coverage)
+      - name: Composer install + PHPUnit (coverage do nucleo)
         run: |
           set -euo pipefail
           composer install --no-interaction --prefer-dist --no-progress
           mkdir -p coverage
-          vendor/bin/phpunit --colors=always \
+          # phpunit.xml.dist mede so helpers/contratos (nao todos os mu-plugins).
+          php -d pcov.directory="$PWD" vendor/bin/phpunit --colors=always \
             --coverage-text \
             --coverage-html=coverage/html \
-            --coverage-clover=coverage/clover.xml
+            --coverage-clover=coverage/clover.xml \
+            | tee coverage/phpunit.out
+          {
+            echo "## PHPUnit coverage (nucleo)"
+            echo ""
+            echo '```'
+            sed -n '/Code Coverage Report/,/^$/p' coverage/phpunit.out || true
+            echo '```'
+            echo ""
+            echo "Artifact: **phpunit-coverage-core** (HTML + Clover)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload coverage artifact
+      - name: Upload coverage artifact (nucleo)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phpunit-coverage
+          name: phpunit-coverage-core
           path: |
             coverage/html
             coverage/clover.xml

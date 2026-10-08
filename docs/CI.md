@@ -42,28 +42,26 @@ O `phpunit.xml.dist` mede só o **núcleo testável** (libs/helpers/contratos), 
 
 | Arquivo / área | Papel |
 |----------------|--------|
-| `ccd-page-cache-lib.php`, `ccd-page-cache.php` | Cache HTML / Privado / Cache-Control |
-| `ccd-migration-option.php` | Claim de migração |
-| `ccd-a11y.php`, `ccd-login-url.php`, `ccd-category-urls.php` | Helpers cobertos por Unit |
-| `ccd-seo-*.php`, `seo-editorial/content.php` | Contratos de migração SEO |
-| `ccd-env-urls-lib.php` | Rewrite de URLs |
+| `ccd-core/*` (ex.: `PageCacheGuard.php`) | **Único escopo do % de coverage** — classes puras |
+| `ccd-page-cache-lib.php` + demais mu-plugins | Testados por Unit/smokes; não entram no % (extrair para `ccd-core/` ao endurecer) |
 
 ```bash
 composer install
 composer test
 composer test:coverage        # nucleo → coverage/html + clover.xml (precisa pcov/xdebug)
 composer test:coverage:full   # todos mu-plugins (diagnostico; % baixo e esperado)
-composer test:mutation        # Infection so em ccd-page-cache-lib (MSI coberto >= 70)
+composer test:mutation        # Infection em ccd-core/PageCacheGuard (MSI coberto >= 70)
 ```
 
 No CI, o job `unit` imprime o resumo no log e no **Job Summary**, e sobe o artifact **phpunit-coverage-core** (HTML + Clover, 14 dias).
 
-Mutation testing (Infection) é **opcional/local** por enquanto — não roda em todo push (custo/ruído).
+Mutation testing (Infection) é **opcional/local** (`composer test:mutation`) — não roda em todo push (custo). Escopo: `mu-plugins/ccd-core/`.
 
 ### Regressoes cobertas
 
 - Redis com `requirepass` sem `WP_REDIS_PASSWORD` **nao** pode derrubar `/ccdhealth` (boot degrada sem object-cache).
 - Hero de categoria **nao** pode renderizar `.ccd-category-intro` nem a meta/descricao do termo no banner (altura + mensagem indevida). O CI cria a categoria `ci-hub` com marker e falha se o texto aparecer no hero.
+- Pilares (`.ccd-hub-pillars`) **nao** podem ficar dentro de `.post-list` (masonry cobre o nav; texto azul no vão entre cards). PHPUnit (`EditorialHubTest`) + SEO smoke em `/diabetes/` e `/receitas/`.
 - `/diabetes/` **nao** redireciona para post com `_wp_old_slug=diabetes` (seed + SEO smoke + E2E).
 - `/category/diabetes/` → **301** limpo para `/diabetes/` (Yoast stripcategorybase).
 - Metas uteis em blog/contato/clipping/hipoglicemia; pilares editoriais; schema Organization (E-E-A-T).

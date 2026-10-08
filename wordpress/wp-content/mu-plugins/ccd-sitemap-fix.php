@@ -100,12 +100,31 @@ add_action(
 /**
  * XML mais limpo para o Google Search Console ("Não foi possível ler o sitemap"):
  * remove xml-stylesheet (só cosmética no browser) e reforça Content-Type.
+ *
+ * O Yoast cacheia o XML em transient — sem invalidar, o filtro de stylesheet
+ * não aparece no body até o cache expirar (1 dia).
  */
 add_filter(
 	'wpseo_stylesheet_url',
 	static function () {
 		return '';
 	}
+);
+
+add_action(
+	'init',
+	static function () {
+		if ( get_option( 'ccd_sitemap_gsc_clean' ) === '1' ) {
+			return;
+		}
+		if ( class_exists( 'WPSEO_Sitemaps_Cache_Validator', false ) ) {
+			WPSEO_Sitemaps_Cache_Validator::invalidate_storage();
+		} elseif ( class_exists( 'WPSEO_Sitemaps_Cache', false ) ) {
+			WPSEO_Sitemaps_Cache::clear();
+		}
+		update_option( 'ccd_sitemap_gsc_clean', '1', false );
+	},
+	99
 );
 
 add_filter(

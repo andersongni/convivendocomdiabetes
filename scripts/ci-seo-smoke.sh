@@ -61,7 +61,8 @@ code=$(curl -sS -o "${TMP}/home.html" -w '%{http_code}' --max-time 30 "${BASE}/"
 if [ "${code}" = "200" ]; then ok "home HTTP"; else bad "home HTTP" "status=${code}"; fi
 if grep -qiE 'name=["'\'']description["'\'']' "${TMP}/home.html"; then ok "meta description"; else bad "meta description"; fi
 if grep -qiE 'rel=["'\'']canonical["'\'']' "${TMP}/home.html"; then ok "canonical"; else bad "canonical"; fi
-empty_alt=$(grep -oiE '\balt=["'\''][[:space:]]*["'\'']' "${TMP}/home.html" | wc -l | tr -d ' ')
+# grep exit 1 sem match + pipefail derruba o script; contar com || true.
+empty_alt=$(grep -coiE '\balt=["'\''][[:space:]]*["'\'']' "${TMP}/home.html" || true)
 if [ "${empty_alt}" = "0" ]; then ok "home sem alt vazio"; else bad "home sem alt vazio" "empty=${empty_alt}"; fi
 if grep -qE 'ccd-eeat-schema|"@type"[[:space:]]*:[[:space:]]*"Organization"' "${TMP}/home.html"; then
   ok "Organization schema"
@@ -91,8 +92,27 @@ if printf '%s\n' "${cat_title}" | grep -qiE 'diabetes' \
 else
   bad "categoria title" "title=${cat_title}"
 fi
-# Hero HTML real (evita falso positivo do seletor CSS .ccd-hub-pillars no <style>).
-hero_chunk="$(perl -0777 -ne 'print $1 if /(<div[^>]*header-wrapper[\s\S]*?)<div[^>]*header-separator/i' "${TMP}/diabetes.html" || true)"
+# Hero HTML real (sem depender de .header-separator — pode estar desligado no tema).
+hero_chunk="$(
+  python3 - "${TMP}/diabetes.html" <<'PY'
+import re, sys
+html = open(sys.argv[1], encoding="utf-8", errors="ignore").read()
+m = re.search(
+    r'<div[^>]*\bheader-wrapper\b[\s\S]*?<div[^>]*\bheader-separator\b',
+    html,
+    re.I,
+)
+if not m:
+    m = re.search(
+        r'<div[^>]*\bheader-wrapper\b[\s\S]{0,12000}?(?=<div[^>]+id=["\']page-content|id=["\']page-content)',
+        html,
+        re.I,
+    )
+if not m:
+    m = re.search(r'<div[^>]*\bheader-wrapper\b[\s\S]{0,8000}', html, re.I)
+sys.stdout.write(m.group(0) if m else "")
+PY
+)"
 if printf '%s\n' "${hero_chunk}" | grep -qiE '<nav[^>]*ccd-hub-pillars|class=["'\''][^"'\'']*ccd-category-intro|Pilares para come[cç]ar'; then
   bad "categoria hero limpo" "pilares/intro dentro do hero"
 elif printf '%s\n' "${hero_chunk}" | grep -qF 'Conteúdos sobre diabetes tipo'; then

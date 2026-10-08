@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload coverage artifact (nucleo)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: phpunit-coverage-core
           path: |

@@ -65,7 +65,10 @@ jobs:
             echo "## PHPUnit coverage (nucleo)"
             echo ""
             echo '```'
-            sed -n '/Code Coverage Report/,/^$/p' coverage/phpunit.out || true
+            # Job Summary e Markdown: strip ANSI (--colors=always no log do Actions).
+            sed -n '/Code Coverage Report/,/^$/p' coverage/phpunit.out \
+              | sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' \
+              || true
             echo '```'
             echo ""
             echo "Artifact: **phpunit-coverage-core** (HTML + Clover)."

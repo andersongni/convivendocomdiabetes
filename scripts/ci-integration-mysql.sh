@@ -228,33 +228,52 @@ docker exec "${WP_NAME}" wp option delete ccd_category_urls --allow-root --path=
 curl -sS -o /dev/null --max-time 15 "${BASE}/" || true
 docker exec "${WP_NAME}" wp rewrite flush --hard --allow-root --path=/var/www/html >/dev/null 2>&1 || true
 
-cat_html=""
 cat_url=""
 for path in "/${CI_CAT_SLUG}/" "/category/${CI_CAT_SLUG}/"; do
   code=$(curl -sS -L -o /tmp/ci-cat-hero.html -w '%{http_code}' --max-time 15 \
     "${BASE}${path}" || echo 000)
-  if [ "${code}" = "200" ] && grep -qi 'hero-title' /tmp/ci-cat-hero.html; then
-    cat_html="$(cat /tmp/ci-cat-hero.html)"
+  # Exige markup real (nao so seletor .hero-title no CSS).
+  if [ "${code}" = "200" ] && grep -qiE '<[^>]+class=["'\''][^"'\'']*hero-title' /tmp/ci-cat-hero.html; then
     cat_url="${path}"
     break
   fi
 done
-if [ -z "${cat_html}" ] || [ ! -s /tmp/ci-cat-hero.html ]; then
+if [ -z "${cat_url}" ] || [ ! -s /tmp/ci-cat-hero.html ]; then
   echo "[ci] FAIL: arquivo de categoria ${CI_CAT_SLUG} nao respondeu 200 com hero"
   exit 1
 fi
 echo "[ci] categoria hero via ${cat_url}"
 
-# Hero HTML real (evita falso positivo de seletores no <style> + SIGPIPE do pipefail).
-hero_chunk="$(perl -0777 -ne 'print $1 if /(<div[^>]*header-wrapper[\s\S]*?)<div[^>]*header-separator/i' /tmp/ci-cat-hero.html || true)"
+# Hero HTML: header-wrapper … separator (se existir) OU ate o #page-content.
+# Install fresco pode ter inner_header_show_separator=0 (sem .header-separator).
+hero_chunk="$(
+  python3 - /tmp/ci-cat-hero.html <<'PY'
+import re, sys
+html = open(sys.argv[1], encoding="utf-8", errors="ignore").read()
+m = re.search(
+    r'<div[^>]*\bheader-wrapper\b[\s\S]*?<div[^>]*\bheader-separator\b',
+    html,
+    re.I,
+)
+if not m:
+    m = re.search(
+        r'<div[^>]*\bheader-wrapper\b[\s\S]{0,12000}?(?=<div[^>]+id=["\']page-content|id=["\']page-content)',
+        html,
+        re.I,
+    )
+if not m:
+    m = re.search(r'<div[^>]*\bheader-wrapper\b[\s\S]{0,8000}', html, re.I)
+sys.stdout.write(m.group(0) if m else "")
+PY
+)"
 if [ -z "${hero_chunk}" ]; then
   echo "[ci] FAIL: markup do hero (header-wrapper) ausente"
   exit 1
 fi
 # Markup com a classe (nao o seletor CSS .ccd-category-intro no <style>).
-if grep -qiE '<[^>]+class="[^"]*ccd-category-intro' <<< "${hero_chunk}"; then
+if grep -qiE '<[^>]+class=["'\''][^"'\'']*ccd-category-intro' <<< "${hero_chunk}"; then
   echo "[ci] FAIL: hero de categoria renderizou .ccd-category-intro (mensagem indevida)"
-  grep -niE '<[^>]+class="[^"]*ccd-category-intro' <<< "${hero_chunk}" | head -n 5 || true
+  grep -niE '<[^>]+class=["'\''][^"'\'']*ccd-category-intro' <<< "${hero_chunk}" | head -n 5 || true
   exit 1
 fi
 if grep -qF "${CI_CAT_MARKER}" <<< "${hero_chunk}"; then
@@ -262,12 +281,12 @@ if grep -qF "${CI_CAT_MARKER}" <<< "${hero_chunk}"; then
   grep -nF "${CI_CAT_MARKER}" <<< "${hero_chunk}" | head -n 5 || true
   exit 1
 fi
-if ! grep -qi 'hero-title' <<< "${hero_chunk}"; then
+if ! grep -qiE '<[^>]+class=["'\''][^"'\'']*hero-title' <<< "${hero_chunk}"; then
   echo "[ci] FAIL: hero de categoria sem .hero-title"
   exit 1
 fi
 # So o titulo no banner — sem paragrafo extra de descricao apos o titulo (h1 ou p a11y).
-if grep -qiE 'class="[^"]*hero-title[^"]*"[^>]*>[^<]*</(h1|p)>[[:space:]]*<p[ >]' <<< "${hero_chunk}"; then
+if grep -qiE 'class=["'\''][^"'\'']*hero-title[^"'\'']*["'\''][^>]*>[^<]*</(h1|p)>[[:space:]]*<p[ >]' <<< "${hero_chunk}"; then
   echo "[ci] FAIL: hero de categoria tem <p> logo apos o titulo (intro indevida)"
   exit 1
 fi

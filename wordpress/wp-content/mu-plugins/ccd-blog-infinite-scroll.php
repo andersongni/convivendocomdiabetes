@@ -92,7 +92,7 @@ add_action(
 		$handle = 'ccd-blog-infinite-scroll';
 		// Sem dependencia de jQuery: ccd-perf defere jquery-core e o inline
 		// rodava antes do jQuery existir (ReferenceError → scroll morto).
-		wp_register_style( $handle, false, array(), '1.3.1' );
+		wp_register_style( $handle, false, array(), '1.3.2' );
 		wp_enqueue_style( $handle );
 		wp_add_inline_style(
 			$handle,
@@ -145,7 +145,7 @@ body.category .navigation.pagination,
 CSS
 		);
 
-		wp_register_script( $handle, false, array(), '1.3.1', true );
+		wp_register_script( $handle, false, array(), '1.3.2', true );
 		wp_enqueue_script( $handle );
 
 		wp_add_inline_script(
@@ -320,9 +320,10 @@ CSS
 			var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			var timer = null;
 			if (controller) {
+				// HTML frio no CF/Railway pode passar de 20s; aborta para nao travar o loader.
 				timer = setTimeout(function () {
 					try { controller.abort(); } catch (e) {}
-				}, 20000);
+				}, 45000);
 			}
 
 			fetch(requested, {
@@ -347,6 +348,13 @@ CSS
 
 					if (resolved) {
 						nextUrl = resolved;
+						if (document.head && !document.querySelector('link[data-ccd-inf="' + resolved + '"]')) {
+							var warm = document.createElement('link');
+							warm.rel = 'prefetch';
+							warm.href = resolved;
+							warm.setAttribute('data-ccd-inf', resolved);
+							document.head.appendChild(warm);
+						}
 						setStatus('', false);
 						return;
 					}

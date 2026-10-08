@@ -296,11 +296,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export WP_NAME BASE WP_ADMIN_USER WP_ADMIN_PASS
 chmod +x \
   "${SCRIPT_DIR}/ci-seed-content.sh" \
+  "${SCRIPT_DIR}/ci-seo-stampede-smoke.sh" \
   "${SCRIPT_DIR}/ci-seo-smoke.sh" \
   "${SCRIPT_DIR}/ci-ux-smoke.sh"
 
 echo "[ci] Seed conteudo (old-slug + paginas SEO)..."
 "${SCRIPT_DIR}/ci-seed-content.sh"
+
+echo "[ci] SEO stampede smoke (todas as URLs publicas)..."
+"${SCRIPT_DIR}/ci-seo-stampede-smoke.sh"
 
 echo "[ci] SEO smoke..."
 "${SCRIPT_DIR}/ci-seo-smoke.sh"

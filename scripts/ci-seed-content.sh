@@ -123,11 +123,18 @@ for i in 1 2 3 4 5; do
   fi
 done
 
-echo "[ci-seed] sync SEO boost + rewrite..."
+echo "[ci-seed] sync SEO boost/editorial via WP-CLI (nunca via GET /)..."
 "${WP[@]}" option delete ccd_seo_boost >/dev/null 2>&1 || true
+"${WP[@]}" option delete ccd_seo_editorial >/dev/null 2>&1 || true
 "${WP[@]}" option delete ccd_category_urls >/dev/null 2>&1 || true
-# Dispara init hooks (seo boost + category urls / purge).
-curl -sS -o /dev/null --max-time 20 "${BASE}/" || true
+"${WP[@]}" eval '
+if ( function_exists( "ccd_seo_boost_apply" ) ) {
+  ccd_seo_boost_apply();
+}
+if ( function_exists( "ccd_seo_editorial_apply" ) ) {
+  ccd_seo_editorial_apply();
+}
+' >/dev/null
 "${WP[@]}" rewrite structure '/%postname%/' --hard >/dev/null 2>&1 || true
 "${WP[@]}" rewrite flush --hard >/dev/null 2>&1 || true
 

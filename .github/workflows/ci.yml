@@ -124,5 +124,5 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x scripts/ci-integration-mysql.sh scripts/ci-seed-content.sh \
-            scripts/ci-seo-smoke.sh scripts/ci-ux-smoke.sh
+            scripts/ci-seo-stampede-smoke.sh scripts/ci-seo-smoke.sh scripts/ci-ux-smoke.sh
           ./scripts/ci-integration-mysql.sh

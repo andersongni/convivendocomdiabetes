@@ -5,6 +5,53 @@
 
 declare(strict_types=1);
 
+/**
+ * Estado mutável para testes de contrato (migrações SEO, etc.).
+ *
+ * @var array{
+ *   options: array<string, mixed>,
+ *   transients: array<string, mixed>,
+ *   post_meta: array<string, mixed>,
+ *   is_admin: bool,
+ *   doing_cron: bool,
+ *   doing_ajax: bool,
+ *   update_post_calls: int,
+ *   update_option_log: list<string>,
+ *   update_term_calls: int
+ * }
+ */
+$GLOBALS['ccd_test'] = array(
+	'options'           => array(),
+	'transients'        => array(),
+	'post_meta'         => array(),
+	'is_admin'          => false,
+	'doing_cron'        => false,
+	'doing_ajax'        => false,
+	'update_post_calls' => 0,
+	'update_option_log' => array(),
+	'update_term_calls' => 0,
+);
+
+/**
+ * @return void
+ */
+function ccd_test_reset_state(): void {
+	$GLOBALS['ccd_test'] = array(
+		'options'           => array(),
+		'transients'        => array(),
+		'post_meta'         => array(),
+		'is_admin'          => false,
+		'doing_cron'        => false,
+		'doing_ajax'        => false,
+		'update_post_calls' => 0,
+		'update_option_log' => array(),
+		'update_term_calls' => 0,
+	);
+	if (defined('WP_CLI') && WP_CLI) {
+		// Constante nao pode ser unset; testes usam is_admin/cron.
+	}
+}
+
 if (!function_exists('add_action')) {
 	function add_action($hook, $callback, $priority = 10, $accepted_args = 1) {
 		unset($hook, $callback, $priority, $accepted_args);
@@ -51,23 +98,146 @@ if (!function_exists('home_url')) {
 }
 if (!function_exists('get_option')) {
 	function get_option($option, $default = false) {
-		unset($option);
+		$option = (string) $option;
+		if (array_key_exists($option, $GLOBALS['ccd_test']['options'])) {
+			return $GLOBALS['ccd_test']['options'][$option];
+		}
 		return $default;
+	}
+}
+if (!function_exists('update_option')) {
+	function update_option($option, $value, $autoload = null) {
+		unset($autoload);
+		$option = (string) $option;
+		$GLOBALS['ccd_test']['options'][$option] = $value;
+		$GLOBALS['ccd_test']['update_option_log'][] = $option;
+		return true;
+	}
+}
+if (!function_exists('get_transient')) {
+	function get_transient($transient) {
+		$key = (string) $transient;
+		return array_key_exists($key, $GLOBALS['ccd_test']['transients'])
+			? $GLOBALS['ccd_test']['transients'][$key]
+			: false;
+	}
+}
+if (!function_exists('set_transient')) {
+	function set_transient($transient, $value, $expiration = 0) {
+		unset($expiration);
+		$GLOBALS['ccd_test']['transients'][(string) $transient] = $value;
+		return true;
+	}
+}
+if (!function_exists('delete_transient')) {
+	function delete_transient($transient) {
+		unset($GLOBALS['ccd_test']['transients'][(string) $transient]);
+		return true;
 	}
 }
 if (!function_exists('is_admin')) {
 	function is_admin() {
-		return false;
+		return !empty($GLOBALS['ccd_test']['is_admin']);
 	}
 }
 if (!function_exists('wp_doing_ajax')) {
 	function wp_doing_ajax() {
-		return false;
+		return !empty($GLOBALS['ccd_test']['doing_ajax']);
 	}
 }
 if (!function_exists('wp_doing_cron')) {
 	function wp_doing_cron() {
-		return false;
+		return !empty($GLOBALS['ccd_test']['doing_cron']);
+	}
+}
+if (!function_exists('get_post_meta')) {
+	function get_post_meta($post_id, $key = '', $single = false) {
+		$k = (int) $post_id . '|' . (string) $key;
+		if (!array_key_exists($k, $GLOBALS['ccd_test']['post_meta'])) {
+			return $single ? '' : array();
+		}
+		$val = $GLOBALS['ccd_test']['post_meta'][$k];
+		return $single ? $val : array($val);
+	}
+}
+if (!function_exists('update_post_meta')) {
+	function update_post_meta($post_id, $meta_key, $meta_value, $prev_value = '') {
+		unset($prev_value);
+		$GLOBALS['ccd_test']['post_meta'][(int) $post_id . '|' . (string) $meta_key] = $meta_value;
+		return true;
+	}
+}
+if (!function_exists('wp_update_post')) {
+	function wp_update_post($postarr, $wp_error = false) {
+		unset($wp_error);
+		$GLOBALS['ccd_test']['update_post_calls']++;
+		if (is_array($postarr) && isset($postarr['ID'])) {
+			return (int) $postarr['ID'];
+		}
+		return 1;
+	}
+}
+if (!function_exists('wp_insert_post')) {
+	function wp_insert_post($postarr, $wp_error = false) {
+		unset($postarr, $wp_error);
+		$GLOBALS['ccd_test']['update_post_calls']++;
+		return 99;
+	}
+}
+if (!function_exists('wp_set_post_categories')) {
+	function wp_set_post_categories($post_id, $post_categories = array(), $append = false) {
+		unset($post_id, $post_categories, $append);
+		return true;
+	}
+}
+if (!function_exists('wp_update_term')) {
+	function wp_update_term($term_id, $taxonomy, $args = array()) {
+		unset($term_id, $taxonomy, $args);
+		$GLOBALS['ccd_test']['update_term_calls']++;
+		return array('term_id' => 1);
+	}
+}
+if (!function_exists('current_time')) {
+	function current_time($type, $gmt = 0) {
+		unset($type, $gmt);
+		return '2026-01-01 00:00:00';
+	}
+}
+if (!function_exists('get_post')) {
+	function get_post($post = null, $output = 'OBJECT', $filter = 'raw') {
+		unset($output, $filter);
+		if ($post instanceof WP_Post) {
+			return $post;
+		}
+		return null;
+	}
+}
+if (!function_exists('get_post_field')) {
+	function get_post_field($field, $post = null, $context = 'display') {
+		unset($context);
+		if ($field === 'post_author') {
+			return '1';
+		}
+		return '';
+	}
+}
+if (!function_exists('get_users')) {
+	function get_users($args = array()) {
+		unset($args);
+		$user = new stdClass();
+		$user->ID = 1;
+		return array($user);
+	}
+}
+if (!function_exists('is_wp_error')) {
+	function is_wp_error($thing) {
+		return $thing instanceof WP_Error;
+	}
+}
+if (!class_exists('WP_Error', false)) {
+	class WP_Error {
+		/** @var string */
+		public $message = '';
 	}
 }
 if (!function_exists('sanitize_title')) {
@@ -124,6 +294,7 @@ if (!class_exists('WP_Term', false)) {
 		public $slug = '';
 		public $taxonomy = 'category';
 		public $parent = 0;
+		public $description = '';
 	}
 }
 if (!class_exists('WP_Post', false)) {
@@ -149,7 +320,11 @@ if (!function_exists('get_term_by')) {
 if (!function_exists('get_posts')) {
 	function get_posts($args = array()) {
 		$name = isset($args['name']) ? (string) $args['name'] : '';
+		$ids_only = isset($args['fields']) && $args['fields'] === 'ids';
 		if ($name === 'hipoglicemia') {
+			if ($ids_only) {
+				return array(10);
+			}
 			$p = new WP_Post();
 			$p->ID = 10;
 			$p->post_name = 'hipoglicemia';
@@ -157,6 +332,9 @@ if (!function_exists('get_posts')) {
 			return array($p);
 		}
 		if (isset($args['cat']) && (int) $args['cat'] === 1) {
+			if ($ids_only) {
+				return array(11);
+			}
 			$p = new WP_Post();
 			$p->ID = 11;
 			$p->post_name = 'exemplo-categoria';
@@ -190,6 +368,7 @@ if (!isset($GLOBALS['wpdb'])) {
 	$GLOBALS['wpdb'] = new class {
 		public $terms = 'wp_terms';
 		public $term_taxonomy = 'wp_term_taxonomy';
+		public $prefix = 'wp_';
 		/** @var list<string> */
 		public $category_slugs = array('diabetes', 'receitas');
 
@@ -198,9 +377,42 @@ if (!isset($GLOBALS['wpdb'])) {
 			return $this->category_slugs;
 		}
 
+		public function get_var($query) {
+			unset($query);
+			return null;
+		}
+
+		public function prepare($query, ...$args) {
+			unset($args);
+			return (string) $query;
+		}
+
+		public function update($table, $data, $where, $format = null, $where_format = null) {
+			unset($table, $data, $where, $format, $where_format);
+			return false;
+		}
+
 		public function delete($table, $where, $format = null) {
 			unset($table, $where, $format);
 			return false;
 		}
 	};
+}
+if (!function_exists('get_terms')) {
+	function get_terms($args = array()) {
+		unset($args);
+		return array();
+	}
+}
+if (!function_exists('update_term_meta')) {
+	function update_term_meta($term_id, $meta_key, $meta_value, $prev_value = '') {
+		unset($term_id, $meta_key, $meta_value, $prev_value);
+		return true;
+	}
+}
+if (!function_exists('get_page_by_path')) {
+	function get_page_by_path($page_path, $output = 'OBJECT', $post_type = 'page') {
+		unset($page_path, $output, $post_type);
+		return null;
+	}
 }

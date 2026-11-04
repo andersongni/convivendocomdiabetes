@@ -133,6 +133,10 @@ function ccd_perf_needs_sync_jquery() {
 	if ( function_exists( 'is_page' ) && is_page( array( 'contato', 'fale-comigo', 'contact' ) ) ) {
 		return true;
 	}
+	// Noptin frontend.js usa jQuery sincrono; defer + lazy load gera "jQuery is not defined".
+	if ( function_exists( 'ccd_perf_needs_noptin_now' ) && ccd_perf_needs_noptin_now() ) {
+		return true;
+	}
 	if ( ! function_exists( 'wp_script_is' ) ) {
 		return false;
 	}
@@ -251,7 +255,23 @@ function ccd_perf_strip_noptin_assets( $scripts = true ) {
 }
 
 /**
+ * Captura wp_localize_script (extra data) antes de dequeue.
+ *
+ * @param string $handle Script handle.
+ * @return string
+ */
+function ccd_perf_script_boot_data( $handle ) {
+	$scripts = wp_scripts();
+	if ( ! $scripts instanceof WP_Scripts || empty( $scripts->registered[ $handle ] ) ) {
+		return '';
+	}
+	$data = $scripts->get_data( $handle, 'data' );
+	return is_string( $data ) && $data !== '' ? $data : '';
+}
+
+/**
  * Lazy-load Noptin apos idle/interacao (home tem shortcode abaixo da dobra).
+ * Carrega jQuery + boot (noptinParams/noptin) antes dos scripts do plugin.
  */
 add_action(
 	'wp_enqueue_scripts',
@@ -259,6 +279,15 @@ add_action(
 		if ( is_admin() || is_user_logged_in() ) {
 			return;
 		}
+
+		$boot = array_values(
+			array_filter(
+				array(
+					ccd_perf_script_boot_data( 'noptin-form' ),
+					ccd_perf_script_boot_data( 'noptin_front' ),
+				)
+			)
+		);
 
 		$styles     = ccd_perf_strip_noptin_assets( false );
 		$scripts    = ccd_perf_strip_noptin_assets( true );
@@ -268,10 +297,23 @@ add_action(
 			$styles[] = content_url( 'plugins/newsletter-optin-box/includes/assets/css/frontend.css' );
 		}
 		if ( ! $scripts ) {
+			$scripts[] = content_url( 'plugins/newsletter-optin-box/includes/assets/js/dist/form-scripts.js' );
 			$scripts[] = content_url( 'plugins/newsletter-optin-box/includes/assets/js/dist/frontend.js' );
 		}
 
-		wp_register_script( 'ccd-noptin-lazy', false, array(), '1.2.0', true );
+		$jquery = includes_url( 'js/jquery/jquery.min.js' );
+		$jq     = wp_scripts();
+		if ( $jq instanceof WP_Scripts && ! empty( $jq->registered['jquery-core']->src ) ) {
+			$src = (string) $jq->registered['jquery-core']->src;
+			if ( $src !== '' && ! preg_match( '#^(https?:)?//#i', $src ) ) {
+				$src = site_url( $src );
+			}
+			if ( $src !== '' ) {
+				$jquery = $src;
+			}
+		}
+
+		wp_register_script( 'ccd-noptin-lazy', false, array(), '1.3.0', true );
 		wp_enqueue_script( 'ccd-noptin-lazy' );
 		wp_add_inline_script(
 			'ccd-noptin-lazy',
@@ -279,12 +321,18 @@ add_action(
 				array(
 					'styles'  => array_values( array_unique( array_filter( $styles ) ) ),
 					'scripts' => array_values( array_unique( array_filter( $scripts ) ) ),
+					'boot'    => $boot,
+					'jquery'  => $jquery,
 					'timeout' => (int) $timeout_ms,
 				)
 			) . ';'
-			. '(function(){var d=window.ccdNoptinLazy||{},done=false,t=d.timeout||4000;function load(){if(done)return;done=true;'
+			. '(function(){var d=window.ccdNoptinLazy||{},done=false,t=d.timeout||4000;'
+			. 'function loadScript(src){return new Promise(function(res){var s=document.createElement("script");s.src=src;s.onload=function(){res()};s.onerror=function(){res()};document.body.appendChild(s);});}'
+			. 'function waitJQ(ms){return new Promise(function(res){if(window.jQuery){res();return;}var t0=Date.now();(function tick(){if(window.jQuery){res();return;}if(Date.now()-t0>ms){if(d.jquery){loadScript(d.jquery).then(res);return;}res();return;}setTimeout(tick,30);})();});}'
+			. 'function boot(){(d.boot||[]).forEach(function(code){var s=document.createElement("script");s.text=code;document.body.appendChild(s);});}'
+			. 'function load(){if(done)return;done=true;'
 			. '(d.styles||[]).forEach(function(href){var l=document.createElement("link");l.rel="stylesheet";l.href=href;document.head.appendChild(l);});'
-			. '(d.scripts||[]).forEach(function(src){var s=document.createElement("script");s.src=src;s.defer=true;document.body.appendChild(s);});'
+			. 'waitJQ(2500).then(function(){boot();var p=Promise.resolve();(d.scripts||[]).forEach(function(src){p=p.then(function(){return loadScript(src);});});return p;});'
 			. '}'
 			. '["pointerdown","keydown","touchstart","scroll"].forEach(function(ev){window.addEventListener(ev,load,{once:true,passive:true});});'
 			. 'if("requestIdleCallback" in window){requestIdleCallback(load,{timeout:t});}else{setTimeout(load,t);}'

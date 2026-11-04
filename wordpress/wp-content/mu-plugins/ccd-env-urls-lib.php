@@ -125,6 +125,25 @@ if ( ! function_exists( 'ccd_env_url_rewrite' ) ) {
 			$text = str_replace( array_keys( $http_upgrades ), array_values( $http_upgrades ), $text );
 		}
 
+		// Localhost sem TLS: https://localhost → base http (Docker/local).
+		if ( ! $base_is_https && ( $base_host === 'localhost' || str_starts_with( $base_host, 'localhost:' ) || $base_host === '127.0.0.1' ) ) {
+			$text = str_replace(
+				array(
+					'https://localhost',
+					'https:\\/\\/localhost',
+					'https://127.0.0.1',
+					'https:\\/\\/127.0.0.1',
+				),
+				array(
+					'http://localhost',
+					'http:\\/\\/localhost',
+					'http://127.0.0.1',
+					'http:\\/\\/127.0.0.1',
+				),
+				$text
+			);
+		}
+
 		return $text;
 	}
 }

@@ -742,7 +742,7 @@ body.single-post .post-navigation {
 	display: flex !important;
 	width: 100%;
 	padding-top: 1.25rem !important;
-	padding-bottom: 25% !important;
+	padding-bottom: 34% !important;
 	margin: 0 !important;
 	text-align: inherit !important;
 }

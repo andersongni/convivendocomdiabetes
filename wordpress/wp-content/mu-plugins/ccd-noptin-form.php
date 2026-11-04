@@ -251,7 +251,10 @@ function ccd_noptin_bia_avatar_url() {
 	$upload  = wp_upload_dir( null, false );
 	$basedir = ! empty( $upload['basedir'] ) ? trailingslashit( (string) $upload['basedir'] ) : '';
 	$baseurl = ! empty( $upload['baseurl'] ) ? trailingslashit( (string) $upload['baseurl'] ) : content_url( 'uploads/' );
-	$baseurl = set_url_scheme( $baseurl, 'https' );
+	// Nao forcar https no localhost; em producao WP_HOME ja e https.
+	$home    = function_exists( 'home_url' ) ? (string) home_url( '/' ) : '';
+	$scheme  = ( str_starts_with( $home, 'https://' ) || ( function_exists( 'is_ssl' ) && is_ssl() ) ) ? 'https' : 'http';
+	$baseurl = set_url_scheme( $baseurl, $scheme );
 	$rel     = '2022/07/Bia-2-2';
 
 	// Preferir avatar 288px (ccd-perf gera no volume).
@@ -285,7 +288,8 @@ add_filter('noptin_form_image', static function ($image) {
 		return $image;
 	}
 
-	if ( strpos( $image, 'uploads/2022/07/Bia-2-2.' ) !== false ) {
+	// Inclui Bia-2-2-288.webp (nao so Bia-2-2.jpg).
+	if ( strpos( $image, 'uploads/2022/07/Bia-2-2' ) !== false ) {
 		return ccd_noptin_bia_avatar_url();
 	}
 
